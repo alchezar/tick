@@ -1,0 +1,32 @@
+# Rust build artifacts
+/target
+
+# Secrets
+.secrets/
+.env
+!.env.example
+
+# IDE & editors
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Claude artifacts
+.claude/
+CLAUDE.md
+.mcp.json
+
