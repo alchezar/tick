@@ -3,7 +3,7 @@
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::domain::Status;
+use crate::model::Status;
 
 /// Maximum allowed task nesting depth.
 pub const MAX_DEPTH: usize = 3;

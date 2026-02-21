@@ -3,5 +3,5 @@
 mod report;
 mod task;
 
-pub use report::{Report, ReportService};
+pub use report::{Report, ReportService, prev_workday};
 pub use task::TaskService;

@@ -1,9 +1,9 @@
-//! Task — the core domain entity.
+//! Task — the core model entity.
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::domain::status::Status;
+use crate::model::status::Status;
 
 /// A task or subtask tracked in the system.
 #[derive(Debug, Default, Clone)]

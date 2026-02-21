@@ -1,4 +1,4 @@
-//! Domain types: core data structures and business rules.
+//! Model types: core data structures and business rules.
 
 mod status;
 mod task;

@@ -3,8 +3,8 @@
 use uuid::Uuid;
 
 use crate::{
-    domain::{Status, Task},
     error::{CoreError, CoreResult, MAX_DEPTH},
+    model::{Status, Task},
     repository::TaskRepository,
 };
 
