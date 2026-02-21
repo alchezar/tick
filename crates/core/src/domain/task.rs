@@ -14,7 +14,7 @@ pub struct Task {
     pub title: String,
     /// Current lifecycle status.
     pub status: Status,
-    /// Id of the parent task, `None` for root tasks.
+    /// `Id` of the parent task, `None` for root tasks.
     pub parent: Option<Uuid>,
     /// Display order among siblings.
     pub order: Option<usize>,

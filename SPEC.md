@@ -104,6 +104,7 @@ tick -t -b <id>                        Set status to blocked
 tick -t --reset <id>                   Set status to not_started
 tick -t -m <id> -p <id>                Move task under a new parent
 tick -t -m <id> -o <n>                 Change display order
+tick -t --rename <id> <title>          Rename a task
 tick -t --remove <id>                  Delete task (and its children)
 ```
 

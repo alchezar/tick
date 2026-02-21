@@ -51,5 +51,5 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn delete(self, id: &Uuid) -> CoreResult<()>;
+    fn delete(&self, id: &Uuid) -> CoreResult<()>;
 }
