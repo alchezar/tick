@@ -20,7 +20,8 @@ pub struct Task {
     pub order: Option<usize>,
     /// Creation timestamp.
     pub created: DateTime<Utc>,
-    /// Last modification timestamp.
+    /// Timestamp of the last status change.
+    /// Updated only on status transitions, not on renames or reorders.
     pub updated: DateTime<Utc>,
 }
 

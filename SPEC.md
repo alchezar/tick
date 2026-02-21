@@ -23,7 +23,8 @@
 ### Constraints
 
 - Max nesting depth: 3 levels
-- A task with children cannot be directly marked as `done` — children must be completed first (warn, not hard block)
+- A task with children cannot be marked as `done` — returns an error if any child is still active
+- Blocking a task cascades to all active descendants
 - `order` is maintained per parent scope (siblings only)
 
 ---

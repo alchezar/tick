@@ -1,7 +1,5 @@
 //! Business logic for task management.
 
-use std::process::id;
-
 use uuid::Uuid;
 
 use crate::{
@@ -62,26 +60,25 @@ where
         Ok(task)
     }
 
-    /// Updates the status of a task.
+    /// Sets status to [`Status::InProgress`].
     ///
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
     #[inline]
-    pub fn update_status(&self, task_id: &Uuid, new_status: Status) -> CoreResult<()> {
-        let mut task = self.find_task(task_id)?;
+    pub fn start(&self, task_id: &Uuid) -> CoreResult<()> {
+        self.update_status(task_id, Status::InProgress)
+    }
 
-        if !task.status.can_transit(&new_status) {
-            return Err(CoreError::InvalidStatusTransition {
-                from: task.status,
-                to: new_status,
-            });
-        }
-
-        task.status = new_status;
-        task.touch();
-        self.repo.save(&task)
+    /// Resets status to [`Status::NotStarted`].
+    ///
+    /// # Errors
+    /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
+    /// - Returns an error if the persistence operation fails.
+    #[inline]
+    pub fn reset(&self, task_id: &Uuid) -> CoreResult<()> {
+        self.update_status(task_id, Status::NotStarted)
     }
 
     /// Marks a task as [`Status::Done`].
@@ -91,7 +88,7 @@ where
     /// - [`CoreError::TaskHasUnfinishedChildren`] if any child task is still active.
     /// - Returns an error if the persistence operation fails.
     #[inline]
-    pub fn mark_done(&self, task_id: &Uuid) -> CoreResult<()> {
+    pub fn done(&self, task_id: &Uuid) -> CoreResult<()> {
         if self
             .repo
             .children_of(task_id)?
@@ -102,6 +99,18 @@ where
         }
 
         self.update_status(task_id, Status::Done)
+    }
+
+    /// Marks a task as [`Status::Blocked`] and cascades to all active descendants.
+    ///
+    /// # Errors
+    /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
+    /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
+    /// - Returns an error if the persistence operation fails.
+    #[inline]
+    pub fn block(&self, task_id: &Uuid) -> CoreResult<()> {
+        self.update_status(task_id, Status::Blocked)?;
+        self.block_children(task_id)
     }
 
     /// Moves a task under a new parent, or promotes it to root if `parent_id` is `None`.
@@ -116,7 +125,6 @@ where
         self.check_depth(parent_id)?;
 
         task.parent = parent_id.copied();
-        task.touch();
         self.repo.save(&task)
     }
 
@@ -130,7 +138,6 @@ where
         let mut task = self.find_task(task_id)?;
 
         title.clone_into(&mut task.title);
-        task.touch();
         self.repo.save(&task)
     }
 
@@ -144,7 +151,6 @@ where
         let mut task = self.find_task(task_id)?;
 
         task.order = Some(order);
-        task.touch();
         self.repo.save(&task)
     }
 
@@ -166,6 +172,41 @@ where
         self.repo
             .find_by_id(id)?
             .ok_or(CoreError::TaskNotFound { id: *id })
+    }
+
+    /// Updates the status of a task.
+    ///
+    /// # Errors
+    /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
+    /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
+    /// - Returns an error if the persistence operation fails.
+    #[inline]
+    fn update_status(&self, task_id: &Uuid, new_status: Status) -> CoreResult<()> {
+        let mut task = self.find_task(task_id)?;
+
+        if !task.status.can_transit(&new_status) {
+            return Err(CoreError::InvalidStatusTransition {
+                from: task.status,
+                to: new_status,
+            });
+        }
+
+        task.status = new_status;
+        task.touch();
+        self.repo.save(&task)
+    }
+
+    /// Recursively blocks all active descendants of the given task.
+    fn block_children(&self, parent_id: &Uuid) -> CoreResult<()> {
+        for mut child in self.repo.children_of(parent_id)? {
+            if child.status.is_active() {
+                child.status = Status::Blocked;
+                child.touch();
+                self.repo.save(&child)?;
+                self.block_children(&child.id)?;
+            }
+        }
+        Ok(())
     }
 
     /// Checks that placing a task under `parent` would not exceed [`MAX_DEPTH`].

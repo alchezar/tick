@@ -51,7 +51,6 @@ where
     /// Returns active tasks (`not_started` or `in_progress`).
     ///
     /// `date` is reserved for future use when task history is supported.
-    #[inline]
     fn tasks_today(&self, _date: NaiveDate) -> CoreResult<Vec<Task>> {
         self.repo.list_active()
     }
@@ -59,7 +58,6 @@ where
     /// Returns tasks that were closed (`done` or `blocked`) on the previous workday before `date`.
     ///
     /// Accounts for weekends: on Monday includes Friday, Saturday, and Sunday.
-    #[inline]
     fn tasks_prev(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
         let prev = prev_workday(date);
         let tasks = self.repo.list_updated_on(prev)?;
