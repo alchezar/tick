@@ -69,9 +69,9 @@ mod_module_files = "allow"
 missing_docs_in_private_items = "allow"
 
 [workspace.dependencies]
+axum = { version = "0.8", features = ["macros"] }
+chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
 thiserror = "2.0"
-axum = { version = "0.8", features = ["macros"] }
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["serde", "v4"] }
-
