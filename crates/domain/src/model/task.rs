@@ -1,4 +1,4 @@
-//! Task — the core model entity.
+//! Task — the core  entity.
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
