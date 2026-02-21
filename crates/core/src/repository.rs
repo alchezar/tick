@@ -1,5 +1,6 @@
 //! Repository trait — persistence contract for tasks.
 
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::{domain::Task, error::CoreResult};
@@ -44,6 +45,14 @@ pub trait TaskRepository {
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
     fn list_all(&self) -> CoreResult<Vec<Task>>;
+
+    /// Returns all tasks whose `updated` timestamp falls on the given date.
+    ///
+    /// Returns `Ok(vec![])` if no tasks were updated on that date.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    fn list_updated_on(&self, date: NaiveDate) -> CoreResult<Vec<Task>>;
 
     /// Deletes a task and all its children by id.
     ///
