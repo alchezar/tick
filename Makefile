@@ -4,11 +4,11 @@ SHELL := /bin/bash
 # Environment
 .PHONY: env_up env_down migrate restart
 # Code quality
-.PHONY: check ci fmt lint openapi prepare
+.PHONY: check ci local fmt lint openapi prepare
 # Testing
 .PHONY: test test_one test_in test_not
 # Development
-.PHONY: dev run clean
+.PHONY: build dev run clean
 
 #===============================================================================
 # Help
@@ -40,9 +40,11 @@ restart: env_down env_up migrate ## Restart environment and run migrations
 # Code Quality
 #===============================================================================
 
-ci: check test ## Full CI pipeline
+ci: fmt lint build ## CI pipeline (GitHub Actions)
 
-check: fmt prepare lint openapi ## Quick code quality check
+local: check test ## Full local pipeline (requires running environment)
+
+check: fmt prepare lint openapi ## Full code quality check (requires .env and db)
 
 fmt: ## Check and fix formatting if needed
 	@echo "[*] Checking formatting..."
@@ -103,6 +105,10 @@ test_not: ## Exclude tests: `make test_not <test1> <test2> ...`
 #===============================================================================
 # Development
 #===============================================================================
+
+build: ## Build all workspace crates
+	@echo "[*] Building workspace..."
+	@cargo build --workspace
 
 dev: ## Run CLI in debug mode with .env loaded
 	@echo "[*] Running CLI (debug)..."
