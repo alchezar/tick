@@ -72,6 +72,7 @@ missing_docs_in_private_items = "allow"
 axum = { version = "0.8", features = ["macros"] }
 chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
+getset = "0.1"
 thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["serde", "v4"] }

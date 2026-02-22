@@ -9,7 +9,7 @@ fn new_task_has_correct_defaults() {
     let task = Task::new("Write tests", None);
 
     assert_eq!(task.title, "Write tests");
-    assert_eq!(task.status, Status::NotStarted);
+    assert_eq!(task.status(), Status::NotStarted);
     assert!(task.parent.is_none());
     assert!(task.order.is_none());
 }

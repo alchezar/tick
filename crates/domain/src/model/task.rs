@@ -1,19 +1,22 @@
 //! Task — the core  entity.
 
 use chrono::{DateTime, Utc};
+use getset::{CopyGetters, Getters};
 use uuid::Uuid;
 
+use crate::error::{CoreError, CoreResult};
 use crate::model::status::Status;
 
 /// A task or subtask tracked in the system.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Getters, CopyGetters)]
 pub struct Task {
     /// Unique identifier.
     pub id: Uuid,
     /// Display title.
     pub title: String,
     /// Current lifecycle status.
-    pub status: Status,
+    #[getset(get_copy = "pub")]
+    status: Status,
     /// `Id` of the parent task, `None` for root tasks.
     pub parent: Option<Uuid>,
     /// Display order among siblings.
@@ -47,9 +50,20 @@ impl Task {
         self.parent.is_none()
     }
 
-    /// Updates `updated` timestamp to the current time.
+    /// Sets a new status and records the transition timestamp.
+    ///
+    /// # Errors
+    /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     #[inline]
-    pub fn touch(&mut self) {
+    pub fn update_status(&mut self, new_status: Status) -> CoreResult<()> {
+        if !self.status.can_transit(&new_status) {
+            return Err(CoreError::InvalidStatusTransition {
+                from: self.status,
+                to: new_status,
+            });
+        }
+        self.status = new_status;
         self.updated = Utc::now();
+        Ok(())
     }
 }

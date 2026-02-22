@@ -29,15 +29,15 @@ fn friday_returns_thursday() {
 fn render_formats_hierarchy() {
     let mut root = Task::new("Milestone", None);
     root.order = Some(0);
-    root.status = Status::InProgress;
+    root.update_status(Status::InProgress).unwrap();
 
     let mut child = Task::new("Task", Some(root.id));
     child.order = Some(0);
-    child.status = Status::NotStarted;
 
     let mut grandchild = Task::new("Subtask", Some(child.id));
     grandchild.order = Some(0);
-    grandchild.status = Status::Done;
+    grandchild.update_status(Status::InProgress).unwrap();
+    grandchild.update_status(Status::Done).unwrap();
 
     let report = Report {
         prev: vec![grandchild],
@@ -58,25 +58,26 @@ fn render_formats_hierarchy() {
 fn render_real_world_report() {
     // Shared root tasks
     let mut task1 = Task::new("Task 1: runtime token validation", None);
-    task1.status = Status::InProgress;
+    task1.update_status(Status::InProgress).unwrap();
     task1.order = Some(0);
 
     let mut ip = Task::new("IP token encryption", None);
-    ip.status = Status::InProgress;
+    ip.update_status(Status::InProgress).unwrap();
     ip.order = Some(1);
 
     let mut ci = Task::new("CI build fix", None);
-    ci.status = Status::InProgress;
+    ci.update_status(Status::InProgress).unwrap();
     ci.order = Some(2);
 
     let mut task7 = Task::new("Task 7", None);
-    task7.status = Status::InProgress;
+    task7.update_status(Status::InProgress).unwrap();
     task7.order = Some(3);
 
     // Previously: done children
     let make_done = |title, parent, order| {
         let mut t = Task::new(title, Some(parent));
-        t.status = Status::Done;
+        t.update_status(Status::InProgress).unwrap();
+        t.update_status(Status::Done).unwrap();
         t.order = Some(order);
         t
     };

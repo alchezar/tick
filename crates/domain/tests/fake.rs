@@ -43,7 +43,7 @@ impl TaskRepository for FakeRepo {
             .tasks
             .borrow()
             .values()
-            .filter(|t| t.status.is_active())
+            .filter(|t| t.status().is_active())
             .cloned()
             .collect())
     }

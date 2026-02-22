@@ -9,5 +9,6 @@ workspace = true
 
 [dependencies]
 chrono = { workspace = true }
+getset = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }

@@ -1,7 +1,7 @@
 //! Task status and allowed transitions.
 
 /// Represents the lifecycle state of a task.
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum Status {
     /// Task has not been started yet.
     #[default]

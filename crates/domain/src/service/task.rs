@@ -93,7 +93,7 @@ where
             .repo
             .children_of(task_id)?
             .iter()
-            .any(|c| c.status.is_active())
+            .any(|c| c.status().is_active())
         {
             return Err(CoreError::TaskHasUnfinishedChildren);
         }
@@ -183,25 +183,15 @@ where
     #[inline]
     fn update_status(&self, task_id: &Uuid, new_status: Status) -> CoreResult<()> {
         let mut task = self.find_task(task_id)?;
-
-        if !task.status.can_transit(&new_status) {
-            return Err(CoreError::InvalidStatusTransition {
-                from: task.status,
-                to: new_status,
-            });
-        }
-
-        task.status = new_status;
-        task.touch();
+        task.update_status(new_status)?;
         self.repo.save(&task)
     }
 
     /// Recursively blocks all active descendants of the given task.
     fn block_children(&self, parent_id: &Uuid) -> CoreResult<()> {
         for mut child in self.repo.children_of(parent_id)? {
-            if child.status.is_active() {
-                child.status = Status::Blocked;
-                child.touch();
+            if child.status().is_active() {
+                child.update_status(Status::Blocked)?;
                 self.repo.save(&child)?;
                 self.block_children(&child.id)?;
             }

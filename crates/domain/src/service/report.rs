@@ -89,7 +89,10 @@ where
     fn tasks_prev(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
         let prev = prev_workday(date);
         let tasks = self.repo.list_updated_on(prev)?;
-        Ok(tasks.into_iter().filter(|t| t.status.is_closed()).collect())
+        Ok(tasks
+            .into_iter()
+            .filter(|t| t.status().is_closed())
+            .collect())
     }
 }
 
@@ -131,7 +134,7 @@ fn render_task(task: &Task, all: &[Task], depth: usize, out: &mut String) {
     let indent = " -".repeat(depth);
     String::push_str(
         out,
-        &format!("{} {} {}\n", indent, task.status.icon(), task.title),
+        &format!("{} {} {}\n", indent, task.status().icon(), task.title),
     );
 
     let mut children = all
