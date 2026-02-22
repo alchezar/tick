@@ -34,25 +34,41 @@ Today:
 
 | Version | Description                         | Status |
 |---------|-------------------------------------|--------|
-| v0.1    | CLI + SQLite, single user           | 🔄     |
-| v0.2    | TUI frontend                        | ⏳      |
-| v0.3    | React frontend with Kanban view     | ⏳      |
-| v0.4    | PostgreSQL, multi-user, roles, auth | ⏳      |
+| v0.1    | CLI + SQLite, single project        | 🔄     |
+| v0.2    | Multi-project support               | ⏳      |
+| v0.3    | TUI frontend                        | ⏳      |
+| v0.4    | React frontend with Kanban view     | ⏳      |
+| v0.5    | PostgreSQL, multi-user, roles, auth | ⏳      |
 
 ## Usage (v0.1 CLI)
 
 ```bash
 # Tasks
 tick -t -a "Fix login bug"
-tick -t -a "Fix login bug" -p <id>
+tick -t -a "Fix login bug" -u <parent-id>   # child task
 tick -t -l
 tick -t -d <id>
 tick -t -b <id>
 tick -t --remove <id>
 
 # Report
-tick -r        # print today's report
-tick -r -c     # copy to clipboard
+tick -r                        # print today's report
+tick -r -c                     # copy to clipboard
+```
+
+## Usage (v0.2 — Projects)
+
+```bash
+# Manage projects
+tick -p                        # show active project
+tick -p -l                     # list all projects (slug + display name)
+tick -p -a work                # create project with slug "work"
+tick -p -a work --name "Work"  # create with display name
+tick -p work                   # switch active project to "work"
+
+# Scope any command to a project
+tick -p work -t -l             # tasks in "work"
+tick -p work -r -c             # report for "work", copy to clipboard
 ```
 
 ## Setup

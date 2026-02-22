@@ -8,17 +8,30 @@
 
 ## Data Model
 
+### Project
+
+| Field        | Type     | Description                                        |
+|--------------|----------|----------------------------------------------------|
+| `id`         | UUID     | Primary key                                        |
+| `slug`       | TEXT     | Unique short identifier used in CLI (e.g. `work`)  |
+| `name`       | TEXT     | Optional display name (e.g. `Work Projects`)       |
+| `created_at` | DATETIME | Creation timestamp                                 |
+
+`slug` is the primary identifier in all CLI commands. `name` is shown in listings but never typed.
+A default project with slug `default` is created on first run. All tasks belong to exactly one project.
+
 ### Task
 
 | Field        | Type     | Description                                        |
 |--------------|----------|----------------------------------------------------|
 | `id`         | UUID     | Primary key                                        |
+| `project_id` | UUID     | Foreign key to `Project`                           |
 | `title`      | TEXT     | Task name                                          |
 | `status`     | TEXT     | `not_started` / `in_progress` / `done` / `blocked` |
 | `parent_id`  | UUID?    | Reference to parent task (nullable)                |
 | `order`      | INTEGER  | Display order among siblings                       |
 | `created_at` | DATETIME | Creation timestamp                                 |
-| `updated_at` | DATETIME | Last update timestamp                              |
+| `updated_at` | DATETIME | Last status change timestamp                       |
 
 ### Constraints
 
@@ -26,6 +39,7 @@
 - A task with children cannot be marked as `done` — returns an error if any child is still active
 - Blocking a task cascades to all active descendants
 - `order` is maintained per parent scope (siblings only)
+- Tasks cannot be moved across projects
 
 ---
 
@@ -45,7 +59,7 @@ any         → not_started  (reset)
 
 ### Previously
 
-Tasks that were `done` or `blocked` on the previous **workday**.
+Tasks whose `updated_at` falls on the previous **workday** (regardless of resulting status).
 
 Weekend logic:
 
@@ -54,7 +68,9 @@ Weekend logic:
 
 ### Today
 
-Tasks that are `not_started` or `in_progress` as of today, shown in full hierarchy.
+Tasks whose **current** status is `not_started` or `in_progress`, shown in full hierarchy.
+A task can appear in both sections simultaneously — e.g. a task that became `in_progress` yesterday
+will show in Previously (status changed) and in Today (still active).
 
 ### Output Rules
 
@@ -72,41 +88,59 @@ Tasks that are `not_started` or `in_progress` as of today, shown in full hierarc
 
 ### Flags
 
-| Flag            | Short | Description              |
-|-----------------|-------|--------------------------|
-| `--task`        | `-t`  | Task management mode     |
-| `--report`      | `-r`  | Report mode              |
-| `--add`         | `-a`  | Add a task               |
-| `--list`        | `-l`  | List tasks               |
-| `--start`       | `-s`  | Set status: in_progress  |
-| `--done`        | `-d`  | Set status: done         |
-| `--block`       | `-b`  | Set status: blocked      |
-| `--move`        | `-m`  | Move or reorder a task   |
-| `--remove`      |       | Delete task              |
-| `--reset`       |       | Set status: not_started  |
-| `--parent <id>` | `-p`  | Parent task id           |
-| `--order <n>`   | `-o`  | Sibling position         |
-| `--all`         |       | Include done/blocked     |
-| `--copy`        | `-c`  | Copy output to clipboard |
-| `--previously`  |       | Only Previously section  |
-| `--today`       |       | Only Today section       |
-| `--date <date>` |       | Report for specific date |
+| Flag             | Short | Description                      |
+|------------------|-------|----------------------------------|
+| `--project`      | `-p`  | Project scope or management mode |
+| `--task`         | `-t`  | Task management mode             |
+| `--report`       | `-r`  | Report mode                      |
+| `--add`          | `-a`  | Add a task or project            |
+| `--list`         | `-l`  | List tasks or projects           |
+| `--start`        | `-s`  | Set status: in_progress          |
+| `--done`         | `-d`  | Set status: done                 |
+| `--block`        | `-b`  | Set status: blocked              |
+| `--move`         | `-m`  | Move or reorder a task           |
+| `--rename`       |       | Rename a task                    |
+| `--remove`       |       | Delete task or project           |
+| `--reset`        |       | Set status: not_started          |
+| `--under <id>`   | `-u`  | Parent task id                   |
+| `--order <n>`    | `-o`  | Sibling position                 |
+| `--name <text>`  |       | Display name for a project       |
+| `--all`          |       | Include done/blocked             |
+| `--copy`         | `-c`  | Copy output to clipboard         |
+| `--previously`   |       | Only Previously section          |
+| `--today`        |       | Only Today section               |
+| `--date <date>`  |       | Report for specific date         |
+
+### Project Management
+
+```
+tick -p                                Show active project slug and name
+tick -p -l                             List all projects (slug + name)
+tick -p -a <slug>                      Create a new project
+tick -p -a <slug> --name "Full name"   Create a project with a display name
+tick -p <slug>                         Switch active project (create if absent)
+tick -p --remove <slug>                Delete project and all its tasks
+```
+
+The active project is stored in `~/.local/share/tick/config.toml`. All `-t` and `-r` commands operate on the active project unless `-p <slug>` is prepended.
 
 ### Task Management
 
 ```
 tick -t -a <title>                     Add a root task
-tick -t -a <title> -p <id>             Add a child task
+tick -t -a <title> -u <id>             Add a child task
 tick -t -l                             List active tasks (tree view)
 tick -t -l --all                       List all tasks including done/blocked
 tick -t -s <id>                        Set status to in_progress
 tick -t -d <id>                        Set status to done
 tick -t -b <id>                        Set status to blocked
 tick -t --reset <id>                   Set status to not_started
-tick -t -m <id> -p <id>                Move task under a new parent
+tick -t -m <id> -u <id>                Move task under a new parent
 tick -t -m <id> -o <n>                 Change display order
 tick -t --rename <id> <title>          Rename a task
 tick -t --remove <id>                  Delete task (and its children)
+
+tick -p <slug> -t -l                   List tasks in a specific project
 ```
 
 ### Report
@@ -117,6 +151,9 @@ tick -r --previously                   Print only the Previously section
 tick -r --today                        Print only the Today section
 tick -r -c                             Copy report to clipboard (macOS: pbcopy)
 tick -r --date <YYYY-MM-DD>            Generate report for a specific date
+
+tick -p <slug> -r                      Report for a specific project
+tick -p <slug> -r -c                   Copy report for a specific project
 ```
 
 ### Other
@@ -135,26 +172,38 @@ tick --version / -V                    Show version
 ```
 crates/
   cli/        — argument parsing (clap), output formatting
-  core/       — domain logic: task CRUD, report generation, date logic
+  domain/     — domain logic: task CRUD, report generation, date logic
   db/         — SQLite persistence via rusqlite or sqlx
 ```
 
 Single binary, no server. Database stored at `~/.local/share/tick/tick.db` (XDG).
+Active project stored at `~/.local/share/tick/config.toml`.
 
-### v0.2 — TUI
+### v0.2 — Projects
+
+Introduce multi-project support:
+
+- Add `projects` table with `id`, `slug`, `name`, `created_at`
+- Add `project_id` column to `tasks` (migration)
+- Add `-p` / `--project` flag to all commands
+- Active project persisted in config; `default` project auto-created on first run
+- `tick -p` management commands: add, list, switch, remove
+
+### v0.3 — TUI
 
 Add `crates/tui/` using `ratatui`. Core logic stays unchanged.
+Project switcher panel included from the start.
 
-### v0.3 — Web (React + REST API)
+### v0.4 — Web (React + REST API)
 
 Add `crates/api/` with axum. Frontend in a separate repo or `web/` directory. SQLite remains for single-user mode.
 
-### v0.4 — Multi-user
+### v0.5 — Multi-user
 
 - Migrate to PostgreSQL
 - Add `users`, `roles`, `sessions` tables
 - JWT authentication
-- Per-user task isolation
+- Per-user project isolation
 
 ---
 
@@ -170,4 +219,4 @@ DATABASE_URL=sqlite://~/.local/share/tick/tick.db
 
 - [ ] Should `tick report` show tasks with no activity today? (e.g. carry-over not_started tasks)
 - [ ] How to handle tasks created and completed on the same day in Previously?
-- [ ] Should `order` be auto-assigned (append) or require manual input?
+- [x] Should `order` be auto-assigned (append) or require manual input? — auto-assigned (appended to siblings list)
