@@ -9,9 +9,10 @@ use crate::{error::CoreResult, model::Task, repository::TaskRepository};
 /// Structured output of a generated standup report.
 #[derive(Debug)]
 pub struct Report {
-    /// Tasks that were `done` or `blocked` on the previous workday.
+    /// Tasks whose `updated_at` falls on the previous workday.
     pub prev: Vec<Task>,
-    /// Tasks that are `not_started` or `in_progress` as of today.
+    /// Active tasks (`not_started` / `in_progress`) plus any task updated today,
+    /// deduplicated by id. Covers tasks completed the same day they were created.
     pub today: Vec<Task>,
 }
 
@@ -76,23 +77,31 @@ where
         })
     }
 
-    /// Returns active tasks (`not_started` or `in_progress`).
+    /// Returns tasks for the Today section.
     ///
-    /// `date` is reserved for future use when task history is supported.
-    fn tasks_today(&self, _date: NaiveDate) -> CoreResult<Vec<Task>> {
-        self.repo.list_active()
+    /// Includes all active tasks (`not_started` / `in_progress`) plus any task
+    /// whose `updated_at` falls on `date`, regardless of status. This ensures
+    /// tasks completed the same day they were created still appear in Today.
+    /// Duplicates (a task matching both conditions) are removed by id.
+    fn tasks_today(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
+        let mut seen = HashSet::new();
+        let tasks = self
+            .repo
+            .list_active()?
+            .into_iter()
+            .chain(self.repo.list_updated_on(date)?)
+            .filter(|t| seen.insert(t.id))
+            .collect();
+        Ok(tasks)
     }
 
-    /// Returns tasks that were closed (`done` or `blocked`) on the previous workday before `date`.
+    /// Returns tasks for the Previously section.
     ///
-    /// Accounts for weekends: on Monday includes Friday, Saturday, and Sunday.
+    /// All tasks whose `updated_at` falls on the previous workday before `date`,
+    /// regardless of their current status.
+    /// Accounts for weekends: on Monday the previous workday is Friday.
     fn tasks_prev(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
-        let prev = prev_workday(date);
-        let tasks = self.repo.list_updated_on(prev)?;
-        Ok(tasks
-            .into_iter()
-            .filter(|t| t.status().is_closed())
-            .collect())
+        self.repo.list_updated_on(prev_workday(date))
     }
 }
 
