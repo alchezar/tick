@@ -10,15 +10,14 @@
 
 ### Project
 
-| Field        | Type     | Description                                        |
-|--------------|----------|----------------------------------------------------|
-| `id`         | UUID     | Primary key                                        |
-| `slug`       | TEXT     | Unique short identifier used in CLI (e.g. `work`)  |
-| `name`       | TEXT     | Optional display name (e.g. `Work Projects`)       |
-| `created_at` | DATETIME | Creation timestamp                                 |
+| Field        | Type     | Description                                       |
+|--------------|----------|---------------------------------------------------|
+| `id`         | UUID     | Primary key                                       |
+| `slug`       | TEXT     | Unique short identifier used in CLI (e.g. `work`) |
+| `name`       | TEXT     | Optional display name (e.g. `Work Projects`)      |
+| `created_at` | DATETIME | Creation timestamp                                |
 
-`slug` is the primary identifier in all CLI commands. `name` is shown in listings but never typed.
-A default project with slug `default` is created on first run. All tasks belong to exactly one project.
+`slug` is the primary identifier in all CLI commands. `name` is shown in listings but never typed. A default project with slug `default` is created on first run. All tasks belong to exactly one project.
 
 ### Task
 
@@ -68,9 +67,14 @@ Weekend logic:
 
 ### Today
 
-Tasks whose **current** status is `not_started` or `in_progress`, shown in full hierarchy.
-A task can appear in both sections simultaneously — e.g. a task that became `in_progress` yesterday
-will show in Previously (status changed) and in Today (still active).
+Tasks matching either condition:
+- current status is `not_started` or `in_progress`, **or**
+- `updated_at::date = today` (regardless of status — covers tasks completed the same day they were created)
+
+Shown in full hierarchy. A task can appear in both sections simultaneously — e.g. a task that
+became `in_progress` yesterday will show in Previously (status changed) and in Today (still active).
+
+Implementation: `list_active()` ∪ `list_updated_on(today)`, deduplicated by `id`.
 
 ### Output Rules
 
@@ -88,28 +92,28 @@ will show in Previously (status changed) and in Today (still active).
 
 ### Flags
 
-| Flag             | Short | Description                      |
-|------------------|-------|----------------------------------|
-| `--project`      | `-p`  | Project scope or management mode |
-| `--task`         | `-t`  | Task management mode             |
-| `--report`       | `-r`  | Report mode                      |
-| `--add`          | `-a`  | Add a task or project            |
-| `--list`         | `-l`  | List tasks or projects           |
-| `--start`        | `-s`  | Set status: in_progress          |
-| `--done`         | `-d`  | Set status: done                 |
-| `--block`        | `-b`  | Set status: blocked              |
-| `--move`         | `-m`  | Move or reorder a task           |
-| `--rename`       |       | Rename a task                    |
-| `--remove`       |       | Delete task or project           |
-| `--reset`        |       | Set status: not_started          |
-| `--under <id>`   | `-u`  | Parent task id                   |
-| `--order <n>`    | `-o`  | Sibling position                 |
-| `--name <text>`  |       | Display name for a project       |
-| `--all`          |       | Include done/blocked             |
-| `--copy`         | `-c`  | Copy output to clipboard         |
-| `--previously`   |       | Only Previously section          |
-| `--today`        |       | Only Today section               |
-| `--date <date>`  |       | Report for specific date         |
+| Flag            | Short | Description                      |
+|-----------------|-------|----------------------------------|
+| `--project`     | `-p`  | Project scope or management mode |
+| `--task`        | `-t`  | Task management mode             |
+| `--report`      | `-r`  | Report mode                      |
+| `--add`         | `-a`  | Add a task or project            |
+| `--list`        | `-l`  | List tasks or projects           |
+| `--start`       | `-s`  | Set status: in_progress          |
+| `--done`        | `-d`  | Set status: done                 |
+| `--block`       | `-b`  | Set status: blocked              |
+| `--move`        | `-m`  | Move or reorder a task           |
+| `--rename`      |       | Rename a task                    |
+| `--remove`      |       | Delete task or project           |
+| `--reset`       |       | Set status: not_started          |
+| `--under <id>`  | `-u`  | Parent task id                   |
+| `--order <n>`   | `-o`  | Sibling position                 |
+| `--name <text>` |       | Display name for a project       |
+| `--all`         |       | Include done/blocked             |
+| `--copy`        | `-c`  | Copy output to clipboard         |
+| `--previously`  |       | Only Previously section          |
+| `--today`       |       | Only Today section               |
+| `--date <date>` |       | Report for specific date         |
 
 ### Project Management
 
@@ -176,8 +180,7 @@ crates/
   db/         — SQLite persistence via rusqlite or sqlx
 ```
 
-Single binary, no server. Database stored at `~/.local/share/tick/tick.db` (XDG).
-Active project stored at `~/.local/share/tick/config.toml`.
+Single binary, no server. Database stored at `~/.local/share/tick/tick.db` (XDG). Active project stored at `~/.local/share/tick/config.toml`.
 
 ### v0.2 — Projects
 
@@ -191,8 +194,7 @@ Introduce multi-project support:
 
 ### v0.3 — TUI
 
-Add `crates/tui/` using `ratatui`. Core logic stays unchanged.
-Project switcher panel included from the start.
+Add `crates/tui/` using `ratatui`. Core logic stays unchanged. Project switcher panel included from the start.
 
 ### v0.4 — Web (React + REST API)
 
@@ -205,18 +207,58 @@ Add `crates/api/` with axum. Frontend in a separate repo or `web/` directory. SQ
 - JWT authentication
 - Per-user project isolation
 
----
+### v0.x — Hubstaff Integration (potential)
 
-## Environment
+Optional integration with [Hubstaff API v2](https://developer.hubstaff.com/docs/hubstaff_v2)
+via Personal Access Token. No server-side OAuth required for single-user CLI.
 
-```env
-DATABASE_URL=sqlite://~/.local/share/tick/tick.db
+**Key facts (verified):**
+
+- Personal Access Token generated at `https://developer.hubstaff.com/personal_access_tokens`
+  is a **refresh token** — must be exchanged for an access token before use
+- Token exchange endpoint: `POST https://account.hubstaff.com/access_tokens`
+- Access token lifetime: **24 hours**. Refresh token lifetime: **~8 days**
+- `GET /v2/organizations/{id}/projects` is accessible to regular Members and returns only their assigned projects — not all organization projects
+
+**Token lifecycle:**
+
+```
+setup:    HUBSTAFF_REFRESH_TOKEN → exchange → access_token + expiry → save to config.toml
+runtime:  check expiry → if expired, re-exchange → use access_token for API calls
 ```
 
----
+**Config storage (`~/.local/share/tick/config.toml`):**
 
-## Open Questions
+```toml
+[hubstaff]
+access_token = "eyJ..."
+access_token_expires_at = "2026-02-23T15:00:00Z"
+organization_id = 12345   # fetched once during setup, never again
+```
 
-- [ ] Should `tick report` show tasks with no activity today? (e.g. carry-over not_started tasks)
-- [ ] How to handle tasks created and completed on the same day in Previously?
-- [x] Should `order` be auto-assigned (append) or require manual input? — auto-assigned (appended to siblings list)
+**Setup command:**
+
+```
+tick hubstaff setup   # prompts for refresh token, fetches org_id, saves to config
+```
+
+**Potential use cases:**
+
+| Use case          | Description                                         |
+|-------------------|-----------------------------------------------------|
+| Project linking   | Bind a tick project slug to a Hubstaff project id   |
+| Report enrichment | Show tracked time per task alongside standup report |
+
+**CLI sketch:**
+
+```
+tick hubstaff setup                                # one-time auth setup
+tick -p work --hubstaff-id <hubstaff_project_id>   # link tick project to Hubstaff project
+tick -r --with-time                                # report with tracked hours
+```
+
+**Data model additions:**
+
+- `Project.hubstaff_project_id: Option<i64>`
+- `Task.hubstaff_task_id: Option<i64>`
+
