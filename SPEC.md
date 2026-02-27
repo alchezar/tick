@@ -67,12 +67,26 @@ Weekend logic:
 
 ### Today
 
+"Morning plan" view — the same task set as Current, but with modified icons to simulate the state at the beginning of the workday:
+
+| Condition                           | Icon      |
+|-------------------------------------|-----------|
+| Task created today (any status)     | ❌         |
+| Task created earlier, status `done` | ❌         |
+| Task created earlier, other status  | real icon |
+
+This allows adding new tasks throughout the day while maintaining a stable "planned" view.
+
+### Current
+
+Actual state of today's tasks with real status icons.
+
 Tasks matching either condition:
+
 - current status is `not_started` or `in_progress`, **or**
 - `updated_at::date = today` (regardless of status — covers tasks completed the same day they were created)
 
-Shown in full hierarchy. A task can appear in both sections simultaneously — e.g. a task that
-became `in_progress` yesterday will show in Previously (status changed) and in Today (still active).
+Shown in full hierarchy. A task can appear in both Previously and Current simultaneously — e.g. a task that became `in_progress` yesterday will show in Previously (status changed) and in Current (still active).
 
 Implementation: `list_active()` ∪ `list_updated_on(today)`, deduplicated by `id`.
 
@@ -113,6 +127,7 @@ Implementation: `list_active()` ∪ `list_updated_on(today)`, deduplicated by `i
 | `--copy`        | `-c`  | Copy output to clipboard         |
 | `--previously`  |       | Only Previously section          |
 | `--today`       |       | Only Today section               |
+| `--current`     |       | Only Current section             |
 | `--date <date>` |       | Report for specific date         |
 
 ### Project Management
@@ -153,6 +168,7 @@ tick -p <slug> -t -l                   List tasks in a specific project
 tick -r                                Print standup report to stdout
 tick -r --previously                   Print only the Previously section
 tick -r --today                        Print only the Today section
+tick -r --current                      Print only the Current section
 tick -r -c                             Copy report to clipboard (macOS: pbcopy)
 tick -r --date <YYYY-MM-DD>            Generate report for a specific date
 
