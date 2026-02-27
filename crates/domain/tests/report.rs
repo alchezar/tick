@@ -1,12 +1,19 @@
 //! Integration tests for `ReportService` helpers and `Report::render`.
 
-use chrono::{NaiveDate, Utc};
+mod fake;
 
-use domain::model::{Status, Task};
-use domain::service::{self, Report};
+use chrono::{Duration, NaiveDate, Utc};
+
+use domain::model::{Status, StatusChange, Task};
+use domain::repository::TaskRepository;
+use domain::service::{self, Report, ReportService};
 
 fn date(y: i32, m: u32, d: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, d).unwrap()
+}
+
+fn datetime(date: NaiveDate, hour: u32) -> chrono::DateTime<Utc> {
+    date.and_hms_opt(hour, 0, 0).unwrap().and_utc()
 }
 
 #[test]
@@ -47,7 +54,7 @@ fn render_formats_hierarchy() {
 
     assert!(rendered.contains("Previously:\n"));
     assert!(rendered.contains(" - ✅ Subtask\n"));
-    // Today section — morning plan: all created today → ❌
+    // Today section — morning plan: all created today -> ❌
     assert!(rendered.contains("Today:\n"));
     assert!(rendered.contains("Today:\n - ❌ Milestone\n - - ❌ Task\n"));
     // Current section — real icons
@@ -145,8 +152,8 @@ fn render_real_world_report() {
         today,
     );
 
-    // Root tasks created yesterday → keep 🔄 in Today
-    // Child tasks created today → ❌ in Today
+    // Root tasks created yesterday -> keep 🔄 in Today
+    // Child tasks created today -> ❌ in Today
     let expected = concat!(
         "Previously:\n",
         " - 🔄 Task 1: runtime token validation\n",
@@ -197,14 +204,14 @@ fn today_section_shows_old_done_as_planned() {
     let today = Utc::now().date_naive();
     let yesterday = today - Duration::days(1);
 
-    // Task created yesterday, completed today → Today: ❌, Current: ✅
+    // Task created yesterday, completed today -> Today: ❌, Current: ✅
     let mut done_today = Task::new("Finished task", None);
     done_today.order = Some(0);
     done_today.created = yesterday.and_hms_opt(10, 0, 0).unwrap().and_utc();
     done_today.update_status(Status::InProgress).unwrap();
     done_today.update_status(Status::Done).unwrap();
 
-    // Task created yesterday, still in progress → Today: 🔄, Current: 🔄
+    // Task created yesterday, still in progress -> Today: 🔄, Current: 🔄
     let mut still_active = Task::new("Active task", None);
     still_active.order = Some(1);
     still_active.created = yesterday.and_hms_opt(10, 0, 0).unwrap().and_utc();
@@ -229,4 +236,122 @@ fn today_section_shows_old_done_as_planned() {
     );
 
     assert_eq!(report.render(), expected);
+}
+
+#[test]
+fn generate_today_includes_active_and_changed() {
+    let repo = fake::FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+
+    let today = Utc::now().date_naive();
+    let yesterday = today - Duration::days(1);
+
+    // Task A: created yesterday, started yesterday, still active
+    let mut a = Task::new("Task A", None);
+    a.created = datetime(yesterday, 9);
+    a.order = Some(0);
+    repo.save(&a).unwrap();
+    let mut ch = StatusChange::new(a.id, Status::NotStarted, Status::InProgress);
+    ch.changed_at = datetime(yesterday, 10);
+    repo.save_status_change(&ch).unwrap();
+
+    // Task B: created yesterday, completed today
+    let mut b = Task::new("Task B", None);
+    b.created = datetime(yesterday, 9);
+    b.order = Some(1);
+    repo.save(&b).unwrap();
+    let mut ch1 = StatusChange::new(b.id, Status::NotStarted, Status::InProgress);
+    ch1.changed_at = datetime(yesterday, 11);
+    repo.save_status_change(&ch1).unwrap();
+    let mut ch2 = StatusChange::new(b.id, Status::InProgress, Status::Done);
+    ch2.changed_at = datetime(today, 14);
+    repo.save_status_change(&ch2).unwrap();
+
+    let report = report_svc.generate(today).unwrap();
+
+    // Current: A = InProgress, B = Done (changed today)
+    assert_eq!(report.current.len(), 2);
+    let task_a = report.current.iter().find(|t| t.id == a.id).unwrap();
+    let task_b = report.current.iter().find(|t| t.id == b.id).unwrap();
+    assert_eq!(task_a.status(), Status::InProgress);
+    assert_eq!(task_b.status(), Status::Done);
+}
+
+#[test]
+fn generate_past_date_reconstructs_status() {
+    let repo = fake::FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+
+    let monday = date(2026, 2, 23);
+    let tuesday = date(2026, 2, 24);
+
+    // Task: created monday, started monday, done tuesday
+    let mut task = Task::new("Feature X", None);
+    task.created = datetime(monday, 9);
+    task.order = Some(0);
+    repo.save(&task).unwrap();
+
+    let mut ch1 = StatusChange::new(task.id, Status::NotStarted, Status::InProgress);
+    ch1.changed_at = datetime(monday, 10);
+    repo.save_status_change(&ch1).unwrap();
+
+    let mut ch2 = StatusChange::new(task.id, Status::InProgress, Status::Done);
+    ch2.changed_at = datetime(tuesday, 14);
+    repo.save_status_change(&ch2).unwrap();
+
+    // Report for monday: task was InProgress
+    let report_mon = report_svc.generate(monday).unwrap();
+    assert_eq!(report_mon.current.len(), 1);
+    assert_eq!(report_mon.current[0].status(), Status::InProgress);
+
+    // Report for tuesday: task was Done (appears because it changed that day)
+    let report_tue = report_svc.generate(tuesday).unwrap();
+    assert_eq!(report_tue.current.len(), 1);
+    assert_eq!(report_tue.current[0].status(), Status::Done);
+}
+
+#[test]
+fn generate_excludes_tasks_created_after_date() {
+    let repo = fake::FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+
+    let monday = date(2026, 2, 23);
+    let tuesday = date(2026, 2, 24);
+
+    // Task created on tuesday
+    let mut task = Task::new("Future task", None);
+    task.created = datetime(tuesday, 9);
+    task.order = Some(0);
+    repo.save(&task).unwrap();
+
+    // Report for monday: task doesn't exist yet
+    let report = report_svc.generate(monday).unwrap();
+    assert!(report.current.is_empty());
+    assert!(report.prev.is_empty());
+}
+
+#[test]
+fn generate_block_cascade_in_historical_report() {
+    use domain::service::TaskService;
+
+    let repo = fake::FakeRepo::default();
+    let task_svc = TaskService::new(repo.clone());
+    let report_svc = ReportService::new(repo.clone());
+
+    let today = Utc::now().date_naive();
+
+    // Create parent + child, start both, then block parent (cascades)
+    let parent = task_svc.create("Parent", None).unwrap();
+    let child = task_svc.create("Child", Some(&parent.id)).unwrap();
+    task_svc.start(&parent.id).unwrap();
+    task_svc.start(&child.id).unwrap();
+    task_svc.block(&parent.id).unwrap();
+
+    let report = report_svc.generate(today).unwrap();
+
+    // Both should appear (status changed today) and both should be Blocked
+    let parent_task = report.current.iter().find(|t| t.id == parent.id).unwrap();
+    let child_task = report.current.iter().find(|t| t.id == child.id).unwrap();
+    assert_eq!(parent_task.status(), Status::Blocked);
+    assert_eq!(child_task.status(), Status::Blocked);
 }

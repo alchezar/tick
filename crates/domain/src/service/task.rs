@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::{
     error::{CoreError, CoreResult, MAX_DEPTH},
-    model::{Status, Task},
+    model::{Status, StatusChange, Task},
     repository::TaskRepository,
 };
 
@@ -154,6 +154,15 @@ where
         self.repo.save(&task)
     }
 
+    /// Returns the full status change history for a task, ordered by `changed_at`.
+    ///
+    /// # Errors
+    /// Returns an error if the persistence operation fails.
+    #[inline]
+    pub fn status_history(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+        self.repo.list_status_changes(task_id)
+    }
+
     /// Deletes a task and all its children recursively.
     ///
     /// Idempotent — returns `Ok(())` if the task does not exist.
@@ -183,16 +192,25 @@ where
     #[inline]
     fn update_status(&self, task_id: &Uuid, new_status: Status) -> CoreResult<()> {
         let mut task = self.find_task(task_id)?;
+        let old_status = task.status();
         task.update_status(new_status)?;
-        self.repo.save(&task)
+        self.repo.save(&task)?;
+        self.repo
+            .save_status_change(&StatusChange::new(task.id, old_status, new_status))
     }
 
     /// Recursively blocks all active descendants of the given task.
     fn block_children(&self, parent_id: &Uuid) -> CoreResult<()> {
         for mut child in self.repo.children_of(parent_id)? {
             if child.status().is_active() {
+                let old_status = child.status();
                 child.update_status(Status::Blocked)?;
                 self.repo.save(&child)?;
+                self.repo.save_status_change(&StatusChange::new(
+                    child.id,
+                    old_status,
+                    Status::Blocked,
+                ))?;
                 self.block_children(&child.id)?;
             }
         }

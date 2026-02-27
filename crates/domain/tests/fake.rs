@@ -2,16 +2,24 @@
 
 use core::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-use domain::{error::CoreResult, model::Task, repository::TaskRepository};
+use domain::{
+    error::CoreResult,
+    model::{StatusChange, Task},
+    repository::TaskRepository,
+};
 
 /// In-memory implementation of `TaskRepository` for use in tests.
-#[derive(Debug, Default)]
+///
+/// Clone is cheap — all clones share the same underlying data via `Rc`.
+#[derive(Debug, Default, Clone)]
 pub struct FakeRepo {
-    tasks: RefCell<HashMap<Uuid, Task>>,
+    tasks: Rc<RefCell<HashMap<Uuid, Task>>>,
+    status_changes: Rc<RefCell<Vec<StatusChange>>>,
 }
 
 impl TaskRepository for FakeRepo {
@@ -38,30 +46,8 @@ impl TaskRepository for FakeRepo {
     }
 
     #[inline]
-    fn list_active(&self) -> CoreResult<Vec<Task>> {
-        Ok(self
-            .tasks
-            .borrow()
-            .values()
-            .filter(|t| t.status().is_active())
-            .cloned()
-            .collect())
-    }
-
-    #[inline]
     fn list_all(&self) -> CoreResult<Vec<Task>> {
         Ok(self.tasks.borrow().values().cloned().collect())
-    }
-
-    #[inline]
-    fn list_updated_on(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
-        Ok(self
-            .tasks
-            .borrow()
-            .values()
-            .filter(|t| t.updated.date_naive() == date)
-            .cloned()
-            .collect())
     }
 
     #[inline]
@@ -78,5 +64,33 @@ impl TaskRepository for FakeRepo {
         }
         self.tasks.borrow_mut().remove(id);
         Ok(())
+    }
+
+    #[inline]
+    fn save_status_change(&self, change: &StatusChange) -> CoreResult<()> {
+        self.status_changes.borrow_mut().push(change.clone());
+        Ok(())
+    }
+
+    #[inline]
+    fn list_status_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+        Ok(self
+            .status_changes
+            .borrow()
+            .iter()
+            .filter(|c| &c.task_id == task_id)
+            .cloned()
+            .collect())
+    }
+
+    #[inline]
+    fn list_status_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
+        Ok(self
+            .status_changes
+            .borrow()
+            .iter()
+            .filter(|c| c.changed_at.date_naive() == date)
+            .cloned()
+            .collect())
     }
 }

@@ -4,7 +4,7 @@ mod fake;
 
 use fake::FakeRepo;
 
-use domain::{error::CoreError, service::TaskService};
+use domain::{error::CoreError, model::Status, service::TaskService};
 
 fn test_service() -> TaskService<FakeRepo> {
     TaskService::new(FakeRepo::default())
@@ -85,6 +85,66 @@ fn reset_from_done() {
     service.start(&task.id).unwrap();
     service.done(&task.id).unwrap();
 
-    // Done → NotStarted must succeed
+    // Done -> NotStarted must succeed
     service.reset(&task.id).unwrap();
+}
+
+#[test]
+fn status_change_recorded_on_transition() {
+    let service = test_service();
+    let task = service.create("Task", None).unwrap();
+
+    service.start(&task.id).unwrap();
+
+    let history = service.status_history(&task.id).unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].task_id, task.id);
+    assert_eq!(history[0].old_status, Status::NotStarted);
+    assert_eq!(history[0].new_status, Status::InProgress);
+}
+
+#[test]
+fn status_change_full_lifecycle() {
+    let service = test_service();
+    let task = service.create("Task", None).unwrap();
+
+    service.start(&task.id).unwrap();
+    service.done(&task.id).unwrap();
+    service.reset(&task.id).unwrap();
+
+    let history = service.status_history(&task.id).unwrap();
+    assert_eq!(history.len(), 3);
+
+    assert_eq!(history[0].old_status, Status::NotStarted);
+    assert_eq!(history[0].new_status, Status::InProgress);
+
+    assert_eq!(history[1].old_status, Status::InProgress);
+    assert_eq!(history[1].new_status, Status::Done);
+
+    assert_eq!(history[2].old_status, Status::Done);
+    assert_eq!(history[2].new_status, Status::NotStarted);
+}
+
+#[test]
+fn block_cascade_records_changes_for_children() {
+    let service = test_service();
+    let parent = service.create("Parent", None).unwrap();
+    let child = service.create("Child", Some(&parent.id)).unwrap();
+    service.start(&parent.id).unwrap();
+    service.start(&child.id).unwrap();
+
+    service.block(&parent.id).unwrap();
+
+    let parent_history = service.status_history(&parent.id).unwrap();
+    let child_history = service.status_history(&child.id).unwrap();
+
+    // parent: NotStarted -> InProgress, InProgress -> Blocked
+    assert_eq!(parent_history.len(), 2);
+    assert_eq!(parent_history[1].old_status, Status::InProgress);
+    assert_eq!(parent_history[1].new_status, Status::Blocked);
+
+    // child: NotStarted -> InProgress, InProgress -> Blocked (cascade)
+    assert_eq!(child_history.len(), 2);
+    assert_eq!(child_history[1].old_status, Status::InProgress);
+    assert_eq!(child_history[1].new_status, Status::Blocked);
 }

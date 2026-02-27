@@ -3,7 +3,10 @@
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-use crate::{error::CoreResult, model::Task};
+use crate::{
+    error::CoreResult,
+    model::{StatusChange, Task},
+};
 
 /// Defines the persistence contract for tasks.
 /// Implemented by `db/` crate.
@@ -30,14 +33,6 @@ pub trait TaskRepository {
     /// Returns an error if the underlying storage operation fails.
     fn children_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>>;
 
-    /// Returns all tasks with `not_started` or `in_progress` status.
-    ///
-    /// Returns `Ok(vec![])` if no active tasks exist.
-    ///
-    /// # Errors
-    /// Returns an error if the underlying storage operation fails.
-    fn list_active(&self) -> CoreResult<Vec<Task>>;
-
     /// Returns all tasks regardless of status.
     ///
     /// Returns `Ok(vec![])` if no tasks exist.
@@ -46,14 +41,6 @@ pub trait TaskRepository {
     /// Returns an error if the underlying storage operation fails.
     fn list_all(&self) -> CoreResult<Vec<Task>>;
 
-    /// Returns all tasks whose `updated` timestamp falls on the given date.
-    ///
-    /// Returns `Ok(vec![])` if no tasks were updated on that date.
-    ///
-    /// # Errors
-    /// Returns an error if the underlying storage operation fails.
-    fn list_updated_on(&self, date: NaiveDate) -> CoreResult<Vec<Task>>;
-
     /// Deletes a task and all its children by id.
     ///
     /// Idempotent — returns `Ok(())` if the task does not exist.
@@ -61,4 +48,22 @@ pub trait TaskRepository {
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
     fn delete(&self, id: &Uuid) -> CoreResult<()>;
+
+    /// Saves a status change record.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    fn save_status_change(&self, change: &StatusChange) -> CoreResult<()>;
+
+    /// Returns all status changes for a given task, ordered by `changed_at` ascending.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    fn list_status_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>>;
+
+    /// Returns all status changes that occurred on the given date.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    fn list_status_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>>;
 }

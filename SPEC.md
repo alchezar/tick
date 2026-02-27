@@ -32,6 +32,18 @@
 | `created_at` | DATETIME | Creation timestamp                                 |
 | `updated_at` | DATETIME | Last status change timestamp                       |
 
+### StatusChange
+
+| Field        | Type     | Description                                |
+|--------------|----------|--------------------------------------------|
+| `id`         | UUID     | Primary key                                |
+| `task_id`    | UUID     | Foreign key to `Task`                      |
+| `old_status` | TEXT     | Status before the transition               |
+| `new_status` | TEXT     | Status after the transition                |
+| `changed_at` | DATETIME | When the transition occurred               |
+
+Every status transition is recorded automatically. Used to reconstruct historical task state for `--date` reports.
+
 ### Constraints
 
 - Max nesting depth: 3 levels
@@ -58,12 +70,12 @@ any         → not_started  (reset)
 
 ### Previously
 
-Tasks whose `updated_at` falls on the previous **workday** (regardless of resulting status).
+Tasks that were active on the previous **workday** or had a status change on that day, with statuses reconstructed from the change log.
 
 Weekend logic:
 
-- Monday: includes Friday + Saturday + Sunday
-- Tuesday–Friday: includes previous day only
+- Monday: previous workday is Friday
+- Tuesday–Friday: previous day
 
 ### Today
 
@@ -79,16 +91,11 @@ This allows adding new tasks throughout the day while maintaining a stable "plan
 
 ### Current
 
-Actual state of today's tasks with real status icons.
+Actual state of today's tasks with real status icons. Uses the same task set as Today.
 
-Tasks matching either condition:
+A task appears if it was active on `date` or had a status change on `date`. A task can appear in both Previously and Current simultaneously — e.g. a task started yesterday will show in Previously (status changed) and in Current (still active).
 
-- current status is `not_started` or `in_progress`, **or**
-- `updated_at::date = today` (regardless of status — covers tasks completed the same day they were created)
-
-Shown in full hierarchy. A task can appear in both Previously and Current simultaneously — e.g. a task that became `in_progress` yesterday will show in Previously (status changed) and in Current (still active).
-
-Implementation: `list_active()` ∪ `list_updated_on(today)`, deduplicated by `id`.
+Implementation: `tasks_snapshot(date)` — reconstructs task statuses from the status change log.
 
 ### Output Rules
 
@@ -182,6 +189,12 @@ tick -p <slug> -r -c                   Copy report for a specific project
 tick --help / -h                       Show help
 tick --version / -V                    Show version
 ```
+
+---
+
+## Technical Debt
+
+- `TaskRepository::list_all()` is used in `tasks_snapshot()` and `TaskService::create()` for different purposes. As the task count grows, this becomes inefficient. Replace with specialized queries: `list_roots()` (for order calculation) and `list_created_before(date)` (for report snapshots).
 
 ---
 

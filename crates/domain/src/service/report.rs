@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 
 use chrono::{Datelike, Duration, NaiveDate, Weekday};
+use uuid::Uuid;
 
 use crate::{
     error::CoreResult,
@@ -105,29 +106,69 @@ where
 
     /// Returns tasks for the Previously section.
     ///
-    /// All tasks whose `updated_at` falls on the previous workday before `date`,
-    /// regardless of their current status.
-    /// Accounts for weekends: on Monday the previous workday is Friday.
+    /// All tasks that had a status change on the previous workday,
+    /// shown with their status as of that day.
     fn tasks_prev(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
-        self.repo.list_updated_on(prev_workday(date))
+        let prev_day = prev_workday(date);
+        self.tasks_snapshot(prev_day)
     }
 
-    /// Returns tasks for the Today section.
+    /// Returns tasks for the Today / Current sections.
     ///
-    /// Includes all active tasks (`not_started` / `in_progress`) plus any task
-    /// whose `updated_at` falls on `date`, regardless of status. This ensures
-    /// tasks completed the same day they were created still appear in Today.
-    /// Duplicates (a task matching both conditions) are removed by id.
+    /// Includes tasks that were active on `date` or had a status change on `date`,
+    /// each with status reconstructed from the change log.
     fn tasks_today(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
+        self.tasks_snapshot(date)
+    }
+
+    /// Builds a snapshot of tasks relevant to `date`:
+    /// those that were active on `date` or had a status change on `date`,
+    /// each reconstructed with the status it had at end-of-day.
+    fn tasks_snapshot(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
+        let changed_ids = self
+            .repo
+            .list_status_changes_on(date)?
+            .iter()
+            .map(|c| c.task_id)
+            .collect::<HashSet<_>>();
+
         let mut seen = HashSet::new();
         let tasks = self
             .repo
-            .list_active()?
+            .list_all()?
             .into_iter()
-            .chain(self.repo.list_updated_on(date)?)
+            .filter(|task| task.created.date_naive() <= date)
+            .filter_map(|task| {
+                let status = self.status_at(&task.id, date).ok()?;
+                (status.is_active() || changed_ids.contains(&task.id))
+                    .then_some(task.with_status(status))
+            })
             .filter(|t| seen.insert(t.id))
             .collect();
+
         Ok(tasks)
+    }
+
+    /// Reconstructs the status a task had at end-of-day on `date`.
+    ///
+    /// Replays all status changes up to (and including) `date`.
+    /// Returns `NotStarted` if the task had no changes by that date.
+    fn status_at(&self, task_id: &Uuid, date: NaiveDate) -> CoreResult<Status> {
+        let next_day = date + Duration::days(1);
+        let cutoff = next_day
+            .and_hms_opt(0, 0, 0)
+            .expect("valid midnight")
+            .and_utc();
+
+        let status = self
+            .repo
+            .list_status_changes(task_id)?
+            .iter()
+            .rev()
+            .find(|c| c.changed_at < cutoff)
+            .map_or(Status::NotStarted, |c| c.new_status);
+
+        Ok(status)
     }
 }
 

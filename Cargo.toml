@@ -36,7 +36,7 @@ std_instead_of_core = "warn"
 doc_include_without_cfg = "warn"
 # Denies missing inline in public items.
 missing_inline_in_public_items = "warn"
-# Allow long functions, they are usually in tests.
+# Allow long functions - common in tests and report rendering.
 too_many_lines = "allow"
 
 # exceptions

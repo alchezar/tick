@@ -50,6 +50,16 @@ impl Task {
         self.parent.is_none()
     }
 
+    /// Returns a copy of this task with the given status.
+    ///
+    /// Used to reconstruct historical state from status change log.
+    #[inline]
+    #[must_use]
+    pub fn with_status(mut self, status: Status) -> Self {
+        self.status = status;
+        self
+    }
+
     /// Sets a new status and records the transition timestamp.
     ///
     /// # Errors

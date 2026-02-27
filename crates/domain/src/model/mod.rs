@@ -3,5 +3,5 @@
 mod status;
 mod task;
 
-pub use status::Status;
+pub use status::{Status, StatusChange};
 pub use task::Task;
