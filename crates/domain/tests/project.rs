@@ -98,7 +98,7 @@ fn delete_cascades_tasks() {
     project_svc.delete("work").unwrap();
 
     // Tasks should be gone too
-    let tasks = repo.list_all(&project.id).unwrap();
+    let tasks = repo.list_tasks(&project.id).unwrap();
     assert!(tasks.is_empty());
 }
 
@@ -114,11 +114,27 @@ fn tasks_isolated_between_projects() {
     task_svc.create("Work task", None, work.id).unwrap();
     task_svc.create("Personal task", None, personal.id).unwrap();
 
-    let work_tasks = repo.list_all(&work.id).unwrap();
-    let personal_tasks = repo.list_all(&personal.id).unwrap();
+    let work_tasks = repo.list_tasks(&work.id).unwrap();
+    let personal_tasks = repo.list_tasks(&personal.id).unwrap();
 
     assert_eq!(work_tasks.len(), 1);
     assert_eq!(work_tasks[0].title, "Work task");
     assert_eq!(personal_tasks.len(), 1);
     assert_eq!(personal_tasks[0].title, "Personal task");
+}
+
+#[test]
+fn delete_project_cleans_status_changes() {
+    let repo = FakeRepo::default();
+    let project_svc = ProjectService::new(repo.clone());
+    let task_svc = TaskService::new(repo.clone());
+
+    let project = project_svc.create("work", None).unwrap();
+    let task = task_svc.create("Task", None, project.id).unwrap();
+    task_svc.start(&task.id).unwrap();
+
+    project_svc.delete("work").unwrap();
+
+    let changes = repo.list_task_changes(&task.id).unwrap();
+    assert!(changes.is_empty());
 }

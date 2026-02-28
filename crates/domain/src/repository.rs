@@ -15,7 +15,7 @@ pub trait ProjectRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn save(&self, project: &Project) -> CoreResult<()>;
+    fn save_project(&self, project: &Project) -> CoreResult<()>;
 
     /// Returns a project by id.
     ///
@@ -23,7 +23,7 @@ pub trait ProjectRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn find_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>>;
+    fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>>;
 
     /// Returns a project by slug.
     ///
@@ -31,7 +31,7 @@ pub trait ProjectRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn find_by_slug(&self, slug: &str) -> CoreResult<Option<Project>>;
+    fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>>;
 
     /// Returns all projects.
     ///
@@ -39,7 +39,7 @@ pub trait ProjectRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn list(&self) -> CoreResult<Vec<Project>>;
+    fn list_projects(&self) -> CoreResult<Vec<Project>>;
 
     /// Deletes a project and all its tasks by id.
     ///
@@ -48,7 +48,7 @@ pub trait ProjectRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn delete(&self, project_id: &Uuid) -> CoreResult<()>;
+    fn delete_project(&self, project_id: &Uuid) -> CoreResult<()>;
 }
 
 /// Defines the persistence contract for tasks.
@@ -58,7 +58,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn save(&self, task: &Task) -> CoreResult<()>;
+    fn save_task(&self, task: &Task) -> CoreResult<()>;
 
     /// Returns a task by id.
     ///
@@ -66,7 +66,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn find_by(&self, id: &Uuid) -> CoreResult<Option<Task>>;
+    fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>>;
 
     /// Returns all direct children of the given parent task.
     ///
@@ -74,7 +74,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn children_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>>;
+    fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>>;
 
     /// Returns all tasks regardless of status.
     ///
@@ -82,7 +82,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn list_all(&self, project_id: &Uuid) -> CoreResult<Vec<Task>>;
+    fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>>;
 
     /// Deletes a task and all its children by id.
     ///
@@ -90,7 +90,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn delete(&self, id: &Uuid) -> CoreResult<()>;
+    fn delete_task(&self, id: &Uuid) -> CoreResult<()>;
 
     /// Deletes all tasks and all its children by id that related to project.
     ///
@@ -98,23 +98,23 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn delete_all_by(&self, project_id: &Uuid) -> CoreResult<()>;
+    fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()>;
 
     /// Saves a status change record.
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn save_status_change(&self, change: &StatusChange) -> CoreResult<()>;
+    fn save_task_change(&self, change: &StatusChange) -> CoreResult<()>;
 
     /// Returns all status changes for a given task, ordered by `changed_at` ascending.
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn list_status_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>>;
+    fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>>;
 
     /// Returns all status changes that occurred on the given date.
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    fn list_status_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>>;
+    fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>>;
 }

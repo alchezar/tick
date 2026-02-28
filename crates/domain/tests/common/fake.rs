@@ -24,7 +24,7 @@ pub struct FakeRepo {
 
 impl ProjectRepository for FakeRepo {
     #[inline]
-    fn save(&self, project: &Project) -> CoreResult<()> {
+    fn save_project(&self, project: &Project) -> CoreResult<()> {
         self.projects
             .borrow_mut()
             .insert(project.id, project.clone());
@@ -32,12 +32,12 @@ impl ProjectRepository for FakeRepo {
     }
 
     #[inline]
-    fn find_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
+    fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
         Ok(self.projects.borrow().get(id).cloned())
     }
 
     #[inline]
-    fn find_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
+    fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
         Ok(self
             .projects
             .borrow()
@@ -47,15 +47,25 @@ impl ProjectRepository for FakeRepo {
     }
 
     #[inline]
-    fn list(&self) -> CoreResult<Vec<Project>> {
+    fn list_projects(&self) -> CoreResult<Vec<Project>> {
         Ok(self.projects.borrow().values().cloned().collect())
     }
 
     #[inline]
-    fn delete(&self, project_id: &Uuid) -> CoreResult<()> {
+    fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
+        let task_ids = self
+            .tasks
+            .borrow()
+            .values()
+            .filter(|task| task.project_id == *project_id)
+            .map(|task| task.id)
+            .collect::<Vec<_>>();
+        self.status_changes
+            .borrow_mut()
+            .retain(|change| !task_ids.contains(&change.task_id));
         self.tasks
             .borrow_mut()
-            .retain(|_, t| t.project_id != *project_id);
+            .retain(|_, task| task.project_id != *project_id);
         self.projects.borrow_mut().remove(project_id);
         Ok(())
     }
@@ -63,18 +73,18 @@ impl ProjectRepository for FakeRepo {
 
 impl TaskRepository for FakeRepo {
     #[inline]
-    fn save(&self, task: &Task) -> CoreResult<()> {
+    fn save_task(&self, task: &Task) -> CoreResult<()> {
         self.tasks.borrow_mut().insert(task.id, task.clone());
         Ok(())
     }
 
     #[inline]
-    fn find_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
+    fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
         Ok(self.tasks.borrow().get(id).cloned())
     }
 
     #[inline]
-    fn children_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
+    fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
         Ok(self
             .tasks
             .borrow()
@@ -85,7 +95,7 @@ impl TaskRepository for FakeRepo {
     }
 
     #[inline]
-    fn list_all(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+    fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         Ok(self
             .tasks
             .borrow()
@@ -96,7 +106,7 @@ impl TaskRepository for FakeRepo {
     }
 
     #[inline]
-    fn delete(&self, id: &Uuid) -> CoreResult<()> {
+    fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
         let children = self
             .tasks
             .borrow()
@@ -105,14 +115,17 @@ impl TaskRepository for FakeRepo {
             .map(|task| task.id)
             .collect::<Vec<_>>();
         for child_id in children {
-            TaskRepository::delete(self, &child_id)?;
+            self.delete_task(&child_id)?;
         }
+        self.status_changes
+            .borrow_mut()
+            .retain(|change| &change.task_id != id);
         self.tasks.borrow_mut().remove(id);
         Ok(())
     }
 
     #[inline]
-    fn delete_all_by(&self, project_id: &Uuid) -> CoreResult<()> {
+    fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
         self.tasks
             .borrow_mut()
             .retain(|_, task| task.project_id != *project_id);
@@ -120,13 +133,13 @@ impl TaskRepository for FakeRepo {
     }
 
     #[inline]
-    fn save_status_change(&self, change: &StatusChange) -> CoreResult<()> {
+    fn save_task_change(&self, change: &StatusChange) -> CoreResult<()> {
         self.status_changes.borrow_mut().push(change.clone());
         Ok(())
     }
 
     #[inline]
-    fn list_status_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+    fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
         Ok(self
             .status_changes
             .borrow()
@@ -137,7 +150,7 @@ impl TaskRepository for FakeRepo {
     }
 
     #[inline]
-    fn list_status_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
+    fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
         Ok(self
             .status_changes
             .borrow()

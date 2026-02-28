@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     error::CoreResult,
     model::{Project, Status, Task},
-    repository::TaskRepository,
+    repository::{ProjectRepository, TaskRepository},
 };
 
 /// Structured output of a generated standup report for a single project.
@@ -93,8 +93,10 @@ pub fn render_all(reports: &[Report]) -> String {
         .map(Report::render)
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n\n")
 }
+
+// -----------------------------------------------------------------------------
 
 /// Encapsulates all logic for building standup reports.
 ///
@@ -103,14 +105,14 @@ pub fn render_all(reports: &[Report]) -> String {
 #[derive(Debug)]
 pub struct ReportService<R>
 where
-    R: TaskRepository,
+    R: ProjectRepository + TaskRepository,
 {
     repo: R,
 }
 
 impl<R> ReportService<R>
 where
-    R: TaskRepository,
+    R: ProjectRepository + TaskRepository,
 {
     /// Creates a new `ReportService` with the given repository.
     #[inline]
@@ -136,6 +138,21 @@ where
         ))
     }
 
+    /// Generates standup reports for all projects on the given date.
+    ///
+    /// # Errors
+    /// Returns an error if the repository operation fails.
+    #[inline]
+    pub fn generate_all(&self, date: NaiveDate) -> CoreResult<Vec<Report>> {
+        self.repo
+            .list_projects()?
+            .into_iter()
+            .map(|project| self.generate(date, &project))
+            .collect()
+    }
+
+    // -------------------------------------------------------------------------
+
     /// Returns tasks for the Previously section.
     ///
     /// All tasks that had a status change on the previous workday,
@@ -159,24 +176,24 @@ where
     fn tasks_snapshot(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         let changed_ids = self
             .repo
-            .list_status_changes_on(date)?
+            .list_task_changes_on(date)?
             .iter()
             .map(|c| c.task_id)
             .collect::<HashSet<_>>();
 
         let mut seen = HashSet::new();
-        let tasks = self
+        let mut tasks = Vec::new();
+        for task in self
             .repo
-            .list_all(project_id)?
+            .list_tasks(project_id)?
             .into_iter()
             .filter(|task| task.created.date_naive() <= date)
-            .filter_map(|task| {
-                let status = self.status_at(&task.id, date).ok()?;
-                (status.is_active() || changed_ids.contains(&task.id))
-                    .then_some(task.with_status(status))
-            })
-            .filter(|t| seen.insert(t.id))
-            .collect();
+        {
+            let status = self.status_at(&task.id, date)?;
+            if (status.is_active() || changed_ids.contains(&task.id)) && seen.insert(task.id) {
+                tasks.push(task.with_status(status));
+            }
+        }
 
         Ok(tasks)
     }
@@ -194,7 +211,7 @@ where
 
         let status = self
             .repo
-            .list_status_changes(task_id)?
+            .list_task_changes(task_id)?
             .iter()
             .rev()
             .find(|c| c.changed_at < cutoff)
@@ -206,14 +223,14 @@ where
 
 /// Returns the previous workday for `date`.
 ///
-/// Monday -> Friday (skips Saturday and Sunday).
-/// Any other day -> previous calendar day.
+/// Monday/Sunday -> Friday, Saturday -> Friday, other days -> previous day.
 #[inline]
 #[must_use]
 #[doc(hidden)]
 pub fn prev_workday(date: NaiveDate) -> NaiveDate {
     match date.weekday() {
         Weekday::Mon => date - Duration::days(3),
+        Weekday::Sun => date - Duration::days(2),
         _ => date - Duration::days(1),
     }
 }

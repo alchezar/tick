@@ -35,14 +35,14 @@ where
     /// - Returns an error if the persistence operation fails.
     #[inline]
     pub fn create(&self, slug: &str, title: Option<&str>) -> CoreResult<Project> {
-        if self.repo.find_by_slug(slug)?.is_some() {
+        if self.repo.find_project_by_slug(slug)?.is_some() {
             return Err(CoreError::ProjectAlreadyExists {
                 slug: slug.to_owned(),
             });
         }
 
         let project = Project::new(slug, title);
-        self.repo.save(&project)?;
+        self.repo.save_project(&project)?;
         Ok(project)
     }
 
@@ -54,7 +54,7 @@ where
     #[inline]
     pub fn find_by(&self, slug: &str) -> CoreResult<Project> {
         self.repo
-            .find_by_slug(slug)?
+            .find_project_by_slug(slug)?
             .ok_or(CoreError::ProjectNotFound {
                 slug: slug.to_owned(),
             })
@@ -66,7 +66,7 @@ where
     /// Returns an error if the persistence operation fails.
     #[inline]
     pub fn list(&self) -> CoreResult<Vec<Project>> {
-        self.repo.list()
+        self.repo.list_projects()
     }
 
     /// Deletes a project by slug.
@@ -80,11 +80,11 @@ where
     pub fn delete(&self, slug: &str) -> CoreResult<()> {
         let project_id = &self
             .repo
-            .find_by_slug(slug)?
+            .find_project_by_slug(slug)?
             .ok_or(CoreError::ProjectNotFound {
                 slug: slug.to_owned(),
             })?
             .id;
-        self.repo.delete(project_id)
+        self.repo.delete_project(project_id)
     }
 }
