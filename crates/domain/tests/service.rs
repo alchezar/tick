@@ -1,20 +1,20 @@
 //! Integration tests for `TaskService` business rules.
 
-mod fake;
+mod common;
 
-use fake::FakeRepo;
-
-use domain::{error::CoreError, model::Status, service::TaskService};
-
-fn test_service() -> TaskService<FakeRepo> {
-    TaskService::new(FakeRepo::default())
-}
+use domain::{
+    error::CoreError,
+    model::{Project, Status},
+};
 
 #[test]
 fn done_fails_with_active_child() {
-    let service = test_service();
-    let parent = service.create("Parent", None).unwrap();
-    service.create("Child", Some(&parent.id)).unwrap();
+    let service = common::task_service();
+    let project = Project::default();
+    let parent = service.create("Parent", None, project.id).unwrap();
+    service
+        .create("Child", Some(&parent.id), project.id)
+        .unwrap();
 
     let err = service.done(&parent.id).unwrap_err();
     assert!(matches!(err, CoreError::TaskHasUnfinishedChildren));
@@ -22,37 +22,44 @@ fn done_fails_with_active_child() {
 
 #[test]
 fn block_cascades_to_children() {
-    let service = test_service();
-    let parent = service.create("Parent", None).unwrap();
-    let child = service.create("Child", Some(&parent.id)).unwrap();
+    let service = common::task_service();
+    let project = Project::default();
+    let parent = service.create("Parent", None, project.id).unwrap();
+    let child = service
+        .create("Child", Some(&parent.id), project.id)
+        .unwrap();
     service.start(&child.id).unwrap();
     service.start(&parent.id).unwrap();
 
     service.block(&parent.id).unwrap();
 
-    // If cascade worked, child is now Blocked — start(child) must succeed.
-    // If cascade did not work, child is still InProgress — start(child) would fail.
+    // If cascade worked, child is now Blocked - start(child) must succeed.
+    // If cascade did not work, child is still InProgress - start(child) would fail.
     service.start(&child.id).unwrap();
 }
 
 #[test]
 fn create_exceeds_max_depth() {
-    let service = test_service();
-    let l0 = service.create("Root", None).unwrap();
-    let l1 = service.create("Level 1", Some(&l0.id)).unwrap();
-    let l2 = service.create("Level 2", Some(&l1.id)).unwrap();
-    let l3 = service.create("Level 3", Some(&l2.id)).unwrap();
+    let service = common::task_service();
+    let project = Project::default();
+    let l0 = service.create("Root", None, project.id).unwrap();
+    let l1 = service.create("Level 1", Some(&l0.id), project.id).unwrap();
+    let l2 = service.create("Level 2", Some(&l1.id), project.id).unwrap();
+    let l3 = service.create("Level 3", Some(&l2.id), project.id).unwrap();
 
-    let err = service.create("Level 4", Some(&l3.id)).unwrap_err();
+    let err = service
+        .create("Level 4", Some(&l3.id), project.id)
+        .unwrap_err();
     assert!(matches!(err, CoreError::MaxDepthExceeded));
 }
 
 #[test]
 fn create_assigns_order_sequentially() {
-    let service = test_service();
-    let a = service.create("A", None).unwrap();
-    let b = service.create("B", None).unwrap();
-    let c = service.create("C", None).unwrap();
+    let project = Project::default();
+    let service = common::task_service();
+    let a = service.create("A", None, project.id).unwrap();
+    let b = service.create("B", None, project.id).unwrap();
+    let c = service.create("C", None, project.id).unwrap();
 
     assert_eq!(a.order, Some(0));
     assert_eq!(b.order, Some(1));
@@ -61,8 +68,8 @@ fn create_assigns_order_sequentially() {
 
 #[test]
 fn done_succeeds_without_children() {
-    let service = test_service();
-    let task = service.create("Task", None).unwrap();
+    let service = common::task_service();
+    let task = service.create("Task", None, Project::default().id).unwrap();
     service.start(&task.id).unwrap();
 
     service.done(&task.id).unwrap();
@@ -70,8 +77,8 @@ fn done_succeeds_without_children() {
 
 #[test]
 fn start_fails_if_already_in_progress() {
-    let service = test_service();
-    let task = service.create("Task", None).unwrap();
+    let service = common::task_service();
+    let task = service.create("Task", None, Project::default().id).unwrap();
     service.start(&task.id).unwrap();
 
     let err = service.start(&task.id).unwrap_err();
@@ -80,8 +87,8 @@ fn start_fails_if_already_in_progress() {
 
 #[test]
 fn reset_from_done() {
-    let service = test_service();
-    let task = service.create("Task", None).unwrap();
+    let service = common::task_service();
+    let task = service.create("Task", None, Project::default().id).unwrap();
     service.start(&task.id).unwrap();
     service.done(&task.id).unwrap();
 
@@ -91,8 +98,8 @@ fn reset_from_done() {
 
 #[test]
 fn status_change_recorded_on_transition() {
-    let service = test_service();
-    let task = service.create("Task", None).unwrap();
+    let service = common::task_service();
+    let task = service.create("Task", None, Project::default().id).unwrap();
 
     service.start(&task.id).unwrap();
 
@@ -105,8 +112,8 @@ fn status_change_recorded_on_transition() {
 
 #[test]
 fn status_change_full_lifecycle() {
-    let service = test_service();
-    let task = service.create("Task", None).unwrap();
+    let service = common::task_service();
+    let task = service.create("Task", None, Project::default().id).unwrap();
 
     service.start(&task.id).unwrap();
     service.done(&task.id).unwrap();
@@ -127,9 +134,12 @@ fn status_change_full_lifecycle() {
 
 #[test]
 fn block_cascade_records_changes_for_children() {
-    let service = test_service();
-    let parent = service.create("Parent", None).unwrap();
-    let child = service.create("Child", Some(&parent.id)).unwrap();
+    let service = common::task_service();
+    let project = Project::default();
+    let parent = service.create("Parent", None, project.id).unwrap();
+    let child = service
+        .create("Child", Some(&parent.id), project.id)
+        .unwrap();
     service.start(&parent.id).unwrap();
     service.start(&child.id).unwrap();
 

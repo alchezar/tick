@@ -7,13 +7,15 @@ use uuid::Uuid;
 
 use crate::{
     error::CoreResult,
-    model::{Status, Task},
+    model::{Project, Status, Task},
     repository::TaskRepository,
 };
 
-/// Structured output of a generated standup report.
+/// Structured output of a generated standup report for a single project.
 #[derive(Debug)]
 pub struct Report {
+    /// Project display title (falls back to slug when title is absent).
+    pub title: String,
     /// Tasks whose `updated_at` falls on the previous workday.
     pub prev: Vec<Task>,
     /// Active tasks (`not_started` / `in_progress`) plus any task updated today,
@@ -27,8 +29,14 @@ impl Report {
     /// Creates a new report for the given date.
     #[inline]
     #[must_use]
-    pub fn new(prev: Vec<Task>, current: Vec<Task>, date: NaiveDate) -> Self {
+    pub fn new(
+        title: impl Into<String>,
+        prev: Vec<Task>,
+        current: Vec<Task>,
+        date: NaiveDate,
+    ) -> Self {
         Self {
+            title: title.into(),
             prev,
             current,
             date,
@@ -37,35 +45,55 @@ impl Report {
 
     /// Renders the report as a formatted string ready to paste into a chat.
     ///
-    /// Three sections:
-    /// - **Previously** — tasks updated on the previous workday (real icons).
-    /// - **Today** — morning plan: tasks created or completed today show ❌,
+    /// Output starts with the project title, followed by three sections:
+    /// - **Previously** - tasks updated on the previous workday (real icons).
+    /// - **Today** - morning plan: tasks created or completed today show ❌,
     ///   others keep their real icon.
-    /// - **Current** — actual state of today's tasks (real icons).
+    /// - **Current** - actual state of today's tasks (real icons).
+    ///
+    /// Returns an empty string when the project has no relevant tasks.
     #[inline]
     #[must_use]
     pub fn render(&self) -> String {
-        let mut out = String::new();
+        let mut body = String::new();
 
         if !self.prev.is_empty() {
-            out.push_str("Previously:\n");
-            out.push_str(&render_section(&self.prev, None));
+            body.push_str("Previously:\n");
+            body.push_str(&render_section(&self.prev, None));
         }
 
         if !self.current.is_empty() {
-            if !out.is_empty() {
-                out.push('\n');
+            if !body.is_empty() {
+                body.push('\n');
             }
-            out.push_str("Today:\n");
-            out.push_str(&render_section(&self.current, Some(self.date)));
+            body.push_str("Today:\n");
+            body.push_str(&render_section(&self.current, Some(self.date)));
 
-            out.push('\n');
-            out.push_str("Current:\n");
-            out.push_str(&render_section(&self.current, None));
+            body.push('\n');
+            body.push_str("Current:\n");
+            body.push_str(&render_section(&self.current, None));
         }
 
-        out
+        if body.is_empty() {
+            return body;
+        }
+
+        format!("{}\n\n{}", self.title, body)
     }
+}
+
+/// Combines multiple per-project reports into a single output string.
+///
+/// Empty reports (projects with no relevant tasks) are skipped.
+#[inline]
+#[must_use]
+pub fn render_all(reports: &[Report]) -> String {
+    reports
+        .iter()
+        .map(Report::render)
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Encapsulates all logic for building standup reports.
@@ -91,15 +119,19 @@ where
         Self { repo }
     }
 
-    /// Generates a standup report for the given date.
+    /// Generates a standup report for the given project and date.
+    ///
+    /// Uses `project.title` as the report header, falling back to `project.slug`.
     ///
     /// # Errors
     /// Returns an error if the repository operation fails.
     #[inline]
-    pub fn generate(&self, date: NaiveDate) -> CoreResult<Report> {
+    pub fn generate(&self, date: NaiveDate, project: &Project) -> CoreResult<Report> {
+        let title = project.title.as_deref().unwrap_or(&project.slug);
         Ok(Report::new(
-            self.tasks_prev(date)?,
-            self.tasks_today(date)?,
+            title,
+            self.tasks_prev(date, &project.id)?,
+            self.tasks_today(date, &project.id)?,
             date,
         ))
     }
@@ -108,23 +140,23 @@ where
     ///
     /// All tasks that had a status change on the previous workday,
     /// shown with their status as of that day.
-    fn tasks_prev(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
+    fn tasks_prev(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         let prev_day = prev_workday(date);
-        self.tasks_snapshot(prev_day)
+        self.tasks_snapshot(prev_day, project_id)
     }
 
     /// Returns tasks for the Today / Current sections.
     ///
     /// Includes tasks that were active on `date` or had a status change on `date`,
     /// each with status reconstructed from the change log.
-    fn tasks_today(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
-        self.tasks_snapshot(date)
+    fn tasks_today(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+        self.tasks_snapshot(date, project_id)
     }
 
     /// Builds a snapshot of tasks relevant to `date`:
     /// those that were active on `date` or had a status change on `date`,
     /// each reconstructed with the status it had at end-of-day.
-    fn tasks_snapshot(&self, date: NaiveDate) -> CoreResult<Vec<Task>> {
+    fn tasks_snapshot(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         let changed_ids = self
             .repo
             .list_status_changes_on(date)?
@@ -135,7 +167,7 @@ where
         let mut seen = HashSet::new();
         let tasks = self
             .repo
-            .list_all()?
+            .list_all(project_id)?
             .into_iter()
             .filter(|task| task.created.date_naive() <= date)
             .filter_map(|task| {

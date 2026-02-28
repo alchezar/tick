@@ -1,0 +1,149 @@
+//! Fake implementations of repository traits for use in integration tests.
+
+use core::cell::RefCell;
+use std::{collections::HashMap, rc::Rc};
+
+use chrono::NaiveDate;
+use uuid::Uuid;
+
+use domain::{
+    error::CoreResult,
+    model::{Project, StatusChange, Task},
+    repository::{ProjectRepository, TaskRepository},
+};
+
+/// In-memory implementation of repository traits for use in tests.
+///
+/// Clone is cheap - all clones share the same underlying data via `Rc`.
+#[derive(Debug, Default, Clone)]
+pub struct FakeRepo {
+    projects: Rc<RefCell<HashMap<Uuid, Project>>>,
+    tasks: Rc<RefCell<HashMap<Uuid, Task>>>,
+    status_changes: Rc<RefCell<Vec<StatusChange>>>,
+}
+
+impl ProjectRepository for FakeRepo {
+    #[inline]
+    fn save(&self, project: &Project) -> CoreResult<()> {
+        self.projects
+            .borrow_mut()
+            .insert(project.id, project.clone());
+        Ok(())
+    }
+
+    #[inline]
+    fn find_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
+        Ok(self.projects.borrow().get(id).cloned())
+    }
+
+    #[inline]
+    fn find_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
+        Ok(self
+            .projects
+            .borrow()
+            .values()
+            .find(|project| project.slug == slug)
+            .cloned())
+    }
+
+    #[inline]
+    fn list(&self) -> CoreResult<Vec<Project>> {
+        Ok(self.projects.borrow().values().cloned().collect())
+    }
+
+    #[inline]
+    fn delete(&self, project_id: &Uuid) -> CoreResult<()> {
+        self.tasks
+            .borrow_mut()
+            .retain(|_, t| t.project_id != *project_id);
+        self.projects.borrow_mut().remove(project_id);
+        Ok(())
+    }
+}
+
+impl TaskRepository for FakeRepo {
+    #[inline]
+    fn save(&self, task: &Task) -> CoreResult<()> {
+        self.tasks.borrow_mut().insert(task.id, task.clone());
+        Ok(())
+    }
+
+    #[inline]
+    fn find_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
+        Ok(self.tasks.borrow().get(id).cloned())
+    }
+
+    #[inline]
+    fn children_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
+        Ok(self
+            .tasks
+            .borrow()
+            .values()
+            .filter(|task| task.parent == Some(*parent))
+            .cloned()
+            .collect())
+    }
+
+    #[inline]
+    fn list_all(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+        Ok(self
+            .tasks
+            .borrow()
+            .values()
+            .filter(|task| task.project_id == *project_id)
+            .cloned()
+            .collect())
+    }
+
+    #[inline]
+    fn delete(&self, id: &Uuid) -> CoreResult<()> {
+        let children = self
+            .tasks
+            .borrow()
+            .values()
+            .filter(|task| task.parent == Some(*id))
+            .map(|task| task.id)
+            .collect::<Vec<_>>();
+        for child_id in children {
+            TaskRepository::delete(self, &child_id)?;
+        }
+        self.tasks.borrow_mut().remove(id);
+        Ok(())
+    }
+
+    #[inline]
+    fn delete_all_by(&self, project_id: &Uuid) -> CoreResult<()> {
+        self.tasks
+            .borrow_mut()
+            .retain(|_, task| task.project_id != *project_id);
+        Ok(())
+    }
+
+    #[inline]
+    fn save_status_change(&self, change: &StatusChange) -> CoreResult<()> {
+        self.status_changes.borrow_mut().push(change.clone());
+        Ok(())
+    }
+
+    #[inline]
+    fn list_status_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+        Ok(self
+            .status_changes
+            .borrow()
+            .iter()
+            .filter(|change| &change.task_id == task_id)
+            .cloned()
+            .collect())
+    }
+
+    #[inline]
+    fn list_status_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
+        Ok(self
+            .status_changes
+            .borrow()
+            .iter()
+            .filter(|change| change.changed_at.date_naive() == date)
+            .cloned()
+            .collect())
+    }
+}

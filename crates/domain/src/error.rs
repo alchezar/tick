@@ -17,6 +17,18 @@ pub enum CoreError {
         /// `Id` of the missing task.
         id: Uuid,
     },
+    /// No project found with the given slug.
+    #[error("project not found: {slug}")]
+    ProjectNotFound {
+        /// Slug of the missing project.
+        slug: String,
+    },
+    /// A project with this slug already exists.
+    #[error("project already exists: {slug}")]
+    ProjectAlreadyExists {
+        /// The conflicting slug.
+        slug: String,
+    },
     /// Status transition is not allowed by domain rules.
     #[error("invalid status transition: {from:?} -> {to:?}")]
     InvalidStatusTransition {

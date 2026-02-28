@@ -1,8 +1,8 @@
-# tick — Technical Specification
+# tick - Technical Specification
 
 ## Overview
 
-`tick` is a task tracker designed to generate formatted daily standup reports. Tasks support up to 3 levels of nesting: task → subtask → sub-subtask.
+`tick` is a task tracker designed to generate formatted daily standup reports. Tasks support up to 3 levels of nesting: task -> subtask -> sub-subtask.
 
 ---
 
@@ -14,10 +14,10 @@
 |--------------|----------|---------------------------------------------------|
 | `id`         | UUID     | Primary key                                       |
 | `slug`       | TEXT     | Unique short identifier used in CLI (e.g. `work`) |
-| `name`       | TEXT     | Optional display name (e.g. `Work Projects`)      |
+| `title`      | TEXT     | Optional display title (e.g. `Work Projects`)     |
 | `created_at` | DATETIME | Creation timestamp                                |
 
-`slug` is the primary identifier in all CLI commands. `name` is shown in listings but never typed. A default project with slug `default` is created on first run. All tasks belong to exactly one project.
+`slug` is the primary identifier in all CLI commands. `title` is shown in listings but never typed. Projects must be created explicitly before adding tasks. All tasks belong to exactly one project.
 
 ### Task
 
@@ -34,20 +34,20 @@
 
 ### StatusChange
 
-| Field        | Type     | Description                                |
-|--------------|----------|--------------------------------------------|
-| `id`         | UUID     | Primary key                                |
-| `task_id`    | UUID     | Foreign key to `Task`                      |
-| `old_status` | TEXT     | Status before the transition               |
-| `new_status` | TEXT     | Status after the transition                |
-| `changed_at` | DATETIME | When the transition occurred               |
+| Field        | Type     | Description                  |
+|--------------|----------|------------------------------|
+| `id`         | UUID     | Primary key                  |
+| `task_id`    | UUID     | Foreign key to `Task`        |
+| `old_status` | TEXT     | Status before the transition |
+| `new_status` | TEXT     | Status after the transition  |
+| `changed_at` | DATETIME | When the transition occurred |
 
 Every status transition is recorded automatically. Used to reconstruct historical task state for `--date` reports.
 
 ### Constraints
 
 - Max nesting depth: 3 levels
-- A task with children cannot be marked as `done` — returns an error if any child is still active
+- A task with children cannot be marked as `done` - returns an error if any child is still active
 - Blocking a task cascades to all active descendants
 - `order` is maintained per parent scope (siblings only)
 - Tasks cannot be moved across projects
@@ -57,11 +57,11 @@ Every status transition is recorded automatically. Used to reconstruct historica
 ## Status Transitions
 
 ```
-not_started → in_progress → done
-not_started → blocked
-in_progress → blocked
-blocked     → in_progress
-any         → not_started  (reset)
+not_started -> in_progress -> done
+not_started -> blocked
+in_progress -> blocked
+blocked     -> in_progress
+any         -> not_started  (reset)
 ```
 
 ---
@@ -75,11 +75,11 @@ Tasks that were active on the previous **workday** or had a status change on tha
 Weekend logic:
 
 - Monday: previous workday is Friday
-- Tuesday–Friday: previous day
+- Tuesday-Friday: previous day
 
 ### Today
 
-"Morning plan" view — the same task set as Current, but with modified icons to simulate the state at the beginning of the workday:
+"Morning plan" view - the same task set as Current, but with modified icons to simulate the state at the beginning of the workday:
 
 | Condition                           | Icon      |
 |-------------------------------------|-----------|
@@ -93,9 +93,9 @@ This allows adding new tasks throughout the day while maintaining a stable "plan
 
 Actual state of today's tasks with real status icons. Uses the same task set as Today.
 
-A task appears if it was active on `date` or had a status change on `date`. A task can appear in both Previously and Current simultaneously — e.g. a task started yesterday will show in Previously (status changed) and in Current (still active).
+A task appears if it was active on `date` or had a status change on `date`. A task can appear in both Previously and Current simultaneously - e.g. a task started yesterday will show in Previously (status changed) and in Current (still active).
 
-Implementation: `tasks_snapshot(date)` — reconstructs task statuses from the status change log.
+Implementation: `tasks_snapshot(date)` - reconstructs task statuses from the status change log.
 
 ### Output Rules
 
@@ -109,42 +109,42 @@ Implementation: `tasks_snapshot(date)` — reconstructs task statuses from the s
 
 ---
 
-## CLI Interface (v0.1)
+## CLI Interface
 
 ### Flags
 
-| Flag            | Short | Description                      |
-|-----------------|-------|----------------------------------|
-| `--project`     | `-p`  | Project scope or management mode |
-| `--task`        | `-t`  | Task management mode             |
-| `--report`      | `-r`  | Report mode                      |
-| `--add`         | `-a`  | Add a task or project            |
-| `--list`        | `-l`  | List tasks or projects           |
-| `--start`       | `-s`  | Set status: in_progress          |
-| `--done`        | `-d`  | Set status: done                 |
-| `--block`       | `-b`  | Set status: blocked              |
-| `--move`        | `-m`  | Move or reorder a task           |
-| `--rename`      |       | Rename a task                    |
-| `--remove`      |       | Delete task or project           |
-| `--reset`       |       | Set status: not_started          |
-| `--under <id>`  | `-u`  | Parent task id                   |
-| `--order <n>`   | `-o`  | Sibling position                 |
-| `--name <text>` |       | Display name for a project       |
-| `--all`         |       | Include done/blocked             |
-| `--copy`        | `-c`  | Copy output to clipboard         |
-| `--previously`  |       | Only Previously section          |
-| `--today`       |       | Only Today section               |
-| `--current`     |       | Only Current section             |
-| `--date <date>` |       | Report for specific date         |
+| Flag             | Short | Description                      |
+|------------------|-------|----------------------------------|
+| `--project`      | `-p`  | Project scope or management mode |
+| `--task`         | `-t`  | Task management mode             |
+| `--report`       | `-r`  | Report mode                      |
+| `--add`          | `-a`  | Add a task or project            |
+| `--list`         | `-l`  | List tasks or projects           |
+| `--start`        | `-s`  | Set status: in_progress          |
+| `--done`         | `-d`  | Set status: done                 |
+| `--block`        | `-b`  | Set status: blocked              |
+| `--move`         | `-m`  | Move or reorder a task           |
+| `--rename`       |       | Rename a task                    |
+| `--remove`       |       | Delete task or project           |
+| `--reset`        |       | Set status: not_started          |
+| `--under <id>`   | `-u`  | Parent task id                   |
+| `--order <n>`    | `-o`  | Sibling position                 |
+| `--title <text>` |       | Display title for a project      |
+| `--all`          |       | Include done/blocked             |
+| `--copy`         | `-c`  | Copy output to clipboard         |
+| `--previously`   |       | Only Previously section          |
+| `--today`        |       | Only Today section               |
+| `--current`      |       | Only Current section             |
+| `--date <date>`  |       | Report for specific date         |
 
 ### Project Management
 
 ```
-tick -p                                Show active project slug and name
-tick -p -l                             List all projects (slug + name)
+tick -p                                Show active project slug and title
+tick -p -l                             List all projects (slug + title)
 tick -p -a <slug>                      Create a new project
-tick -p -a <slug> --name "Full name"   Create a project with a display name
-tick -p <slug>                         Switch active project (create if absent)
+tick -p -a <slug> --title "Full title" Create a project with a display title
+tick -p <slug>                         Switch active project
 tick -p --remove <slug>                Delete project and all its tasks
 ```
 
@@ -194,49 +194,50 @@ tick --version / -V                    Show version
 
 ## Technical Debt
 
-- `TaskRepository::list_all()` is used in `tasks_snapshot()` and `TaskService::create()` for different purposes. As the task count grows, this becomes inefficient. Replace with specialized queries: `list_roots()` (for order calculation) and `list_created_before(date)` (for report snapshots).
+- `TaskRepository::list_all(project_id)` is used in `tasks_snapshot()` and `TaskService::create()` for different purposes. As the task count grows, this becomes inefficient. Replace with specialized queries: `list_roots(project_id)` (for order calculation) and `list_untill(project_id, date)` (for report snapshots).
 
 ---
 
 ## Architecture
 
-### v0.1 — CLI + SQLite
+### v0.1 - Projects
+
+Introduce multi-project support:
+
+- Add `projects` table with `id`, `slug`, `title`, `created_at`
+- Add `project_id` column to `tasks`
+- Add `-p` / `--project` flag to all commands
+- Active project persisted in config
+- `tick -p` management commands: add, list, switch, remove
+- Projects must be created explicitly before adding tasks
+
+### v0.2 - CLI + SQLite
 
 ```
 crates/
-  cli/        — argument parsing (clap), output formatting
-  domain/     — domain logic: task CRUD, report generation, date logic
-  db/         — SQLite persistence via rusqlite or sqlx
+  cli/        - argument parsing (clap), output formatting
+  domain/     - domain logic: task CRUD, report generation, date logic
+  db/         - SQLite persistence via rusqlite or sqlx
 ```
 
 Single binary, no server. Database stored at `~/.local/share/tick/tick.db` (XDG). Active project stored at `~/.local/share/tick/config.toml`.
 
-### v0.2 — Projects
-
-Introduce multi-project support:
-
-- Add `projects` table with `id`, `slug`, `name`, `created_at`
-- Add `project_id` column to `tasks` (migration)
-- Add `-p` / `--project` flag to all commands
-- Active project persisted in config; `default` project auto-created on first run
-- `tick -p` management commands: add, list, switch, remove
-
-### v0.3 — TUI
+### v0.3 - TUI
 
 Add `crates/tui/` using `ratatui`. Core logic stays unchanged. Project switcher panel included from the start.
 
-### v0.4 — Web (React + REST API)
+### v0.4 - Web (React + REST API)
 
 Add `crates/api/` with axum. Frontend in a separate repo or `web/` directory. SQLite remains for single-user mode.
 
-### v0.5 — Multi-user
+### v0.5 - Multi-user
 
 - Migrate to PostgreSQL
 - Add `users`, `roles`, `sessions` tables
 - JWT authentication
 - Per-user project isolation
 
-### v0.x — Hubstaff Integration (potential)
+### v0.x - Hubstaff Integration (potential)
 
 Optional integration with [Hubstaff API v2](https://developer.hubstaff.com/docs/hubstaff_v2)
 via Personal Access Token. No server-side OAuth required for single-user CLI.
@@ -244,16 +245,16 @@ via Personal Access Token. No server-side OAuth required for single-user CLI.
 **Key facts (verified):**
 
 - Personal Access Token generated at `https://developer.hubstaff.com/personal_access_tokens`
-  is a **refresh token** — must be exchanged for an access token before use
+  is a **refresh token** - must be exchanged for an access token before use
 - Token exchange endpoint: `POST https://account.hubstaff.com/access_tokens`
 - Access token lifetime: **24 hours**. Refresh token lifetime: **~8 days**
-- `GET /v2/organizations/{id}/projects` is accessible to regular Members and returns only their assigned projects — not all organization projects
+- `GET /v2/organizations/{id}/projects` is accessible to regular Members and returns only their assigned projects - not all organization projects
 
 **Token lifecycle:**
 
 ```
-setup:    HUBSTAFF_REFRESH_TOKEN → exchange → access_token + expiry → save to config.toml
-runtime:  check expiry → if expired, re-exchange → use access_token for API calls
+setup:    HUBSTAFF_REFRESH_TOKEN -> exchange -> access_token + expiry -> save to config.toml
+runtime:  check expiry -> if expired, re-exchange -> use access_token for API calls
 ```
 
 **Config storage (`~/.local/share/tick/config.toml`):**

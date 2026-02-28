@@ -4,14 +4,18 @@ use chrono::{DateTime, Utc};
 use getset::{CopyGetters, Getters};
 use uuid::Uuid;
 
-use crate::error::{CoreError, CoreResult};
-use crate::model::status::Status;
+use crate::{
+    error::{CoreError, CoreResult},
+    model::status::Status,
+};
 
 /// A task or subtask tracked in the system.
 #[derive(Debug, Default, Clone, Getters, CopyGetters)]
 pub struct Task {
     /// Unique identifier.
     pub id: Uuid,
+    /// Project unique identifier.
+    pub project_id: Uuid,
     /// Display title.
     pub title: String,
     /// Current lifecycle status.
@@ -32,9 +36,10 @@ impl Task {
     /// Creates a new task with `NotStarted` status and current timestamp.
     #[inline]
     #[must_use]
-    pub fn new(title: impl Into<String>, parent: Option<Uuid>) -> Self {
+    pub fn new(title: impl Into<String>, parent: Option<Uuid>, project_id: Uuid) -> Self {
         Self {
             id: Uuid::new_v4(),
+            project_id,
             title: title.into(),
             parent,
             created: Utc::now(),

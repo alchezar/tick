@@ -40,20 +40,20 @@ where
     /// - [`CoreError::MaxDepthExceeded`] if nesting depth would exceed 3.
     /// - Returns an error if the persistence operation fails.
     #[inline]
-    pub fn create(&self, title: &str, parent: Option<&Uuid>) -> CoreResult<Task> {
+    pub fn create(&self, title: &str, parent: Option<&Uuid>, project_id: Uuid) -> CoreResult<Task> {
         self.check_depth(parent)?;
 
         let siblings = match parent {
             Some(id) => self.repo.children_of(id)?,
             None => self
                 .repo
-                .list_all()?
+                .list_all(&project_id)?
                 .into_iter()
                 .filter(Task::is_root)
                 .collect(),
         };
 
-        let mut task = Task::new(title, parent.copied());
+        let mut task = Task::new(title, parent.copied(), project_id);
         task.order = Some(siblings.len());
 
         self.repo.save(&task)?;
@@ -179,7 +179,7 @@ where
     /// Finds a task by id or returns [`CoreError::TaskNotFound`].
     fn find_task(&self, id: &Uuid) -> CoreResult<Task> {
         self.repo
-            .find_by_id(id)?
+            .find_by(id)?
             .ok_or(CoreError::TaskNotFound { id: *id })
     }
 
@@ -228,7 +228,7 @@ where
         let mut depth = 0_usize;
 
         loop {
-            let Some(task) = self.repo.find_by_id(&current)? else {
+            let Some(task) = self.repo.find_by(&current)? else {
                 break;
             };
             let Some(parent_id) = task.parent else { break };
