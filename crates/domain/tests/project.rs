@@ -138,3 +138,65 @@ fn delete_project_cleans_status_changes() {
     let changes = repo.list_task_changes(&task.id).unwrap();
     assert!(changes.is_empty());
 }
+
+#[test]
+fn rename_updates_title() {
+    let service = common::project_service();
+    service.create("work", Some("Old Title")).unwrap();
+
+    service.rename("work", "New Title").unwrap();
+
+    let project = service.find_by("work").unwrap();
+    assert_eq!(project.title.as_deref(), Some("New Title"));
+}
+
+#[test]
+fn rename_sets_title_when_none() {
+    let service = common::project_service();
+    service.create("work", None).unwrap();
+
+    service.rename("work", "Added Title").unwrap();
+
+    let project = service.find_by("work").unwrap();
+    assert_eq!(project.title.as_deref(), Some("Added Title"));
+}
+
+#[test]
+fn reslug_changes_slug() {
+    let service = common::project_service();
+    service.create("old", Some("My Project")).unwrap();
+
+    service.reslug("old", "new").unwrap();
+
+    let err = service.find_by("old").unwrap_err();
+    assert!(matches!(err, CoreError::ProjectNotFound { .. }));
+
+    let project = service.find_by("new").unwrap();
+    assert_eq!(project.title.as_deref(), Some("My Project"));
+}
+
+#[test]
+fn reslug_duplicate_fails() {
+    let service = common::project_service();
+    service.create("alpha", None).unwrap();
+    service.create("beta", None).unwrap();
+
+    let err = service.reslug("alpha", "beta").unwrap_err();
+    assert!(matches!(err, CoreError::ProjectAlreadyExists { slug } if slug == "beta"));
+}
+
+#[test]
+fn reslug_not_found() {
+    let service = common::project_service();
+
+    let err = service.reslug("missing", "new").unwrap_err();
+    assert!(matches!(err, CoreError::ProjectNotFound { slug } if slug == "missing"));
+}
+
+#[test]
+fn rename_not_found() {
+    let service = common::project_service();
+
+    let err = service.rename("missing", "Title").unwrap_err();
+    assert!(matches!(err, CoreError::ProjectNotFound { slug } if slug == "missing"));
+}

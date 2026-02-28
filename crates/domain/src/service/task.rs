@@ -126,9 +126,9 @@ where
     /// - Returns an error if the persistence operation fails.
     #[inline]
     pub fn move_to_parent(&self, task_id: &Uuid, parent_id: Option<&Uuid>) -> CoreResult<()> {
-        let mut task = self.find_task(task_id)?;
         self.check_depth(parent_id, self.subtree_depth(task_id)?)?;
 
+        let mut task = self.find_task(task_id)?;
         task.parent = parent_id.copied();
         self.repo.save_task(&task)
     }
@@ -197,9 +197,14 @@ where
     #[inline]
     fn update_status(&self, task_id: &Uuid, new_status: Status) -> CoreResult<()> {
         let mut task = self.find_task(task_id)?;
+        self.update_status_inner(&mut task, new_status)
+    }
+
+    /// Applies a status transition to a task, saves it and records the change.
+    fn update_status_inner(&self, task: &mut Task, new_status: Status) -> CoreResult<()> {
         let old_status = task.status();
         task.update_status(new_status)?;
-        self.repo.save_task(&task)?;
+        self.repo.save_task(task)?;
         self.repo
             .save_task_change(&StatusChange::new(task.id, old_status, new_status))
     }
@@ -208,14 +213,7 @@ where
     fn block_children(&self, parent_id: &Uuid) -> CoreResult<()> {
         for mut child in self.repo.child_tasks_of(parent_id)? {
             if child.status().is_active() {
-                let old_status = child.status();
-                child.update_status(Status::Blocked)?;
-                self.repo.save_task(&child)?;
-                self.repo.save_task_change(&StatusChange::new(
-                    child.id,
-                    old_status,
-                    Status::Blocked,
-                ))?;
+                self.update_status_inner(&mut child, Status::Blocked)?;
                 self.block_children(&child.id)?;
             }
         }

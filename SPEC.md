@@ -74,7 +74,7 @@ Tasks that were active on the previous **workday** or had a status change on tha
 
 Weekend logic:
 
-- Monday: previous workday is Friday
+- Monday/Saturday/Sunday: previous workday is Friday
 - Tuesday-Friday: previous day
 
 ### Today
@@ -145,6 +145,8 @@ tick -p -l                             List all projects (slug + title)
 tick -p -a <slug>                      Create a new project
 tick -p -a <slug> --title "Full title" Create a project with a display title
 tick -p <slug>                         Switch active project
+tick -p --rename <slug> <new-title>     Change project display title
+tick -p --reslug <slug> <new-slug>     Change project slug
 tick -p --remove <slug>                Delete project and all its tasks
 ```
 
@@ -194,7 +196,7 @@ tick --version / -V                    Show version
 
 ## Technical Debt
 
-- `TaskRepository::list_all(project_id)` is used in `tasks_snapshot()` and `TaskService::create()` for different purposes. As the task count grows, this becomes inefficient. Replace with specialized queries: `list_roots(project_id)` (for order calculation) and `list_untill(project_id, date)` (for report snapshots).
+- `TaskRepository::list_all(project_id)` is used in `tasks_snapshot()` and `TaskService::create()` for different purposes. As the task count grows, this becomes inefficient. Replace with specialized queries: `list_roots(project_id)` (for order calculation) and `list_until(project_id, date)` (for report snapshots).
 
 ---
 
