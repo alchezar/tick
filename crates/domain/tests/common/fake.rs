@@ -9,7 +9,7 @@ use uuid::Uuid;
 use domain::{
     error::CoreResult,
     model::{Project, StatusChange, Task},
-    repository::{ProjectRepository, TaskRepository},
+    repository::{ProjectRepository, TaskRepository, TransactionGuard, Transactional},
 };
 
 /// In-memory implementation of repository traits for use in tests.
@@ -22,8 +22,22 @@ pub struct FakeRepo {
     status_changes: Rc<RefCell<Vec<StatusChange>>>,
 }
 
+pub struct FakeGuard;
+
+impl TransactionGuard for FakeGuard {
+    fn commit_transaction(self) -> CoreResult<()> {
+        Ok(())
+    }
+}
+
+impl Transactional for FakeRepo {
+    type Guard<'a> = FakeGuard;
+    fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>> {
+        Ok(FakeGuard)
+    }
+}
+
 impl ProjectRepository for FakeRepo {
-    #[inline]
     fn save_project(&self, project: &Project) -> CoreResult<()> {
         self.projects
             .borrow_mut()
@@ -31,12 +45,10 @@ impl ProjectRepository for FakeRepo {
         Ok(())
     }
 
-    #[inline]
     fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
         Ok(self.projects.borrow().get(id).cloned())
     }
 
-    #[inline]
     fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
         Ok(self
             .projects
@@ -46,12 +58,10 @@ impl ProjectRepository for FakeRepo {
             .cloned())
     }
 
-    #[inline]
     fn list_projects(&self) -> CoreResult<Vec<Project>> {
         Ok(self.projects.borrow().values().cloned().collect())
     }
 
-    #[inline]
     fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
         let task_ids = self
             .tasks
@@ -72,18 +82,15 @@ impl ProjectRepository for FakeRepo {
 }
 
 impl TaskRepository for FakeRepo {
-    #[inline]
     fn save_task(&self, task: &Task) -> CoreResult<()> {
         self.tasks.borrow_mut().insert(task.id, task.clone());
         Ok(())
     }
 
-    #[inline]
     fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
         Ok(self.tasks.borrow().get(id).cloned())
     }
 
-    #[inline]
     fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
         Ok(self
             .tasks
@@ -94,7 +101,6 @@ impl TaskRepository for FakeRepo {
             .collect())
     }
 
-    #[inline]
     fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         Ok(self
             .tasks
@@ -105,7 +111,6 @@ impl TaskRepository for FakeRepo {
             .collect())
     }
 
-    #[inline]
     fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
         let children = self
             .tasks
@@ -124,7 +129,6 @@ impl TaskRepository for FakeRepo {
         Ok(())
     }
 
-    #[inline]
     fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
         self.tasks
             .borrow_mut()
@@ -132,13 +136,11 @@ impl TaskRepository for FakeRepo {
         Ok(())
     }
 
-    #[inline]
     fn save_task_change(&self, change: &StatusChange) -> CoreResult<()> {
         self.status_changes.borrow_mut().push(change.clone());
         Ok(())
     }
 
-    #[inline]
     fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
         Ok(self
             .status_changes
@@ -149,7 +151,6 @@ impl TaskRepository for FakeRepo {
             .collect())
     }
 
-    #[inline]
     fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
         Ok(self
             .status_changes

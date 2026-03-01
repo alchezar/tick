@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::{
     error::{CoreError, CoreResult, MAX_DEPTH},
     model::{Status, StatusChange, Task},
-    repository::TaskRepository,
+    repository::{TaskRepository, TransactionGuard, Transactional},
 };
 
 /// Encapsulates all business rules for task management.
@@ -16,14 +16,14 @@ use crate::{
 #[derive(Debug)]
 pub struct TaskService<R>
 where
-    R: TaskRepository,
+    R: TaskRepository + Transactional,
 {
     repo: R,
 }
 
 impl<R> TaskService<R>
 where
-    R: TaskRepository,
+    R: TaskRepository + Transactional,
 {
     /// Creates a new `TaskService` with the given repository.
     #[inline]
@@ -43,6 +43,7 @@ where
     pub fn create(&self, title: &str, parent: Option<&Uuid>, project_id: Uuid) -> CoreResult<Task> {
         self.check_depth(parent, 0)?;
 
+        let tx = self.repo.begin_transaction()?;
         let siblings = match parent {
             Some(id) => self.repo.child_tasks_of(id)?,
             None => self
@@ -60,8 +61,9 @@ where
             .max()
             .map_or(0, |m| m + 1);
         task.order = Some(next_order);
-
         self.repo.save_task(&task)?;
+
+        tx.commit_transaction()?;
         Ok(task)
     }
 
@@ -114,8 +116,12 @@ where
     /// - Returns an error if the persistence operation fails.
     #[inline]
     pub fn block(&self, task_id: &Uuid) -> CoreResult<()> {
+        let tx = self.repo.begin_transaction()?;
+
         self.update_status(task_id, Status::Blocked)?;
-        self.block_children(task_id)
+        self.block_children(task_id)?;
+
+        tx.commit_transaction()
     }
 
     /// Moves a task under a new parent, or promotes it to root if `parent_id` is `None`.
@@ -203,10 +209,14 @@ where
     /// Applies a status transition to a task, saves it and records the change.
     fn update_status_inner(&self, task: &mut Task, new_status: Status) -> CoreResult<()> {
         let old_status = task.status();
+        let status_change = StatusChange::new(task.id, old_status, new_status);
         task.update_status(new_status)?;
+        let tx = self.repo.begin_transaction()?;
+
         self.repo.save_task(task)?;
-        self.repo
-            .save_task_change(&StatusChange::new(task.id, old_status, new_status))
+        self.repo.save_task_change(&status_change)?;
+
+        tx.commit_transaction()
     }
 
     /// Recursively blocks all active descendants of the given task.

@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     error::CoreResult,
     model::{Project, Status, Task},
-    repository::{ProjectRepository, TaskRepository},
+    repository::{ProjectRepository, TaskRepository, TransactionGuard, Transactional},
 };
 
 /// Structured output of a generated standup report for a single project.
@@ -105,14 +105,14 @@ pub fn render_all(reports: &[Report]) -> String {
 #[derive(Debug)]
 pub struct ReportService<R>
 where
-    R: ProjectRepository + TaskRepository,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
     repo: R,
 }
 
 impl<R> ReportService<R>
 where
-    R: ProjectRepository + TaskRepository,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
     /// Creates a new `ReportService` with the given repository.
     #[inline]
@@ -130,12 +130,17 @@ where
     #[inline]
     pub fn generate(&self, date: NaiveDate, project: &Project) -> CoreResult<Report> {
         let title = project.title.as_deref().unwrap_or(&project.slug);
-        Ok(Report::new(
+        let tx = self.repo.begin_transaction()?;
+
+        let report = Report::new(
             title,
             self.tasks_prev(date, &project.id)?,
             self.tasks_today(date, &project.id)?,
             date,
-        ))
+        );
+
+        tx.commit_transaction()?;
+        Ok(report)
     }
 
     /// Generates standup reports for all projects on the given date.
@@ -144,11 +149,17 @@ where
     /// Returns an error if the repository operation fails.
     #[inline]
     pub fn generate_all(&self, date: NaiveDate) -> CoreResult<Vec<Report>> {
-        self.repo
+        let tx = self.repo.begin_transaction()?;
+
+        let reports = self
+            .repo
             .list_projects()?
             .into_iter()
             .map(|project| self.generate(date, &project))
-            .collect()
+            .collect::<CoreResult<_>>()?;
+
+        tx.commit_transaction()?;
+        Ok(reports)
     }
 
     // -------------------------------------------------------------------------
@@ -174,6 +185,7 @@ where
     /// those that were active on `date` or had a status change on `date`,
     /// each reconstructed with the status it had at end-of-day.
     fn tasks_snapshot(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+        let tx = self.repo.begin_transaction()?;
         let changed_ids = self
             .repo
             .list_task_changes_on(date)?
@@ -194,7 +206,7 @@ where
                 tasks.push(task.with_status(status));
             }
         }
-
+        tx.commit_transaction()?;
         Ok(tasks)
     }
 

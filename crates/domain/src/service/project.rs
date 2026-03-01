@@ -3,7 +3,7 @@
 use crate::{
     error::{CoreError, CoreResult},
     model::Project,
-    repository::ProjectRepository,
+    repository::{ProjectRepository, TransactionGuard, Transactional},
 };
 
 /// Encapsulates all business rules for project management.
@@ -12,14 +12,14 @@ use crate::{
 #[derive(Debug)]
 pub struct ProjectService<R>
 where
-    R: ProjectRepository,
+    R: ProjectRepository + Transactional,
 {
     repo: R,
 }
 
 impl<R> ProjectService<R>
 where
-    R: ProjectRepository,
+    R: ProjectRepository + Transactional,
 {
     /// Creates a new `ProjectService` with the given repository.
     #[inline]
@@ -35,6 +35,8 @@ where
     /// - Returns an error if the persistence operation fails.
     #[inline]
     pub fn create(&self, slug: &str, title: Option<&str>) -> CoreResult<Project> {
+        let tx = self.repo.begin_transaction()?;
+
         if self.repo.find_project_by_slug(slug)?.is_some() {
             return Err(CoreError::ProjectAlreadyExists {
                 slug: slug.to_owned(),
@@ -43,6 +45,8 @@ where
 
         let project = Project::new(slug, title);
         self.repo.save_project(&project)?;
+
+        tx.commit_transaction()?;
         Ok(project)
     }
 
@@ -75,9 +79,13 @@ where
     /// Returns an error if the persistence operation fails.
     #[inline]
     pub fn rename(&self, slug: &str, new_title: &str) -> CoreResult<()> {
+        let tx = self.repo.begin_transaction()?;
+
         let mut project = self.find_by(slug)?;
         project.title = Some(new_title.to_owned());
-        self.repo.save_project(&project)
+        self.repo.save_project(&project)?;
+
+        tx.commit_transaction()
     }
 
     /// Changes the slug of a project.
@@ -88,6 +96,8 @@ where
     /// - Returns an error if the persistence operation fails.
     #[inline]
     pub fn reslug(&self, slug: &str, new_slug: &str) -> CoreResult<()> {
+        let tx = self.repo.begin_transaction()?;
+
         if self.repo.find_project_by_slug(new_slug)?.is_some() {
             return Err(CoreError::ProjectAlreadyExists {
                 slug: new_slug.to_owned(),
@@ -95,7 +105,9 @@ where
         }
         let mut project = self.find_by(slug)?;
         new_slug.clone_into(&mut project.slug);
-        self.repo.save_project(&project)
+        self.repo.save_project(&project)?;
+
+        tx.commit_transaction()
     }
 
     /// Deletes a project by slug.
@@ -107,6 +119,8 @@ where
     /// - Returns an error if the persistence operation fails.
     #[inline]
     pub fn delete(&self, slug: &str) -> CoreResult<()> {
+        let tx = self.repo.begin_transaction()?;
+
         let project_id = &self
             .repo
             .find_project_by_slug(slug)?
@@ -114,6 +128,8 @@ where
                 slug: slug.to_owned(),
             })?
             .id;
-        self.repo.delete_project(project_id)
+        self.repo.delete_project(project_id)?;
+
+        tx.commit_transaction()
     }
 }

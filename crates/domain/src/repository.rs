@@ -8,6 +8,45 @@ use crate::{
     model::{Project, StatusChange, Task},
 };
 
+/// Provides `RAII`-based transaction demarcation.
+///
+/// Implementations must support nesting via a depth counter:
+/// only the outermost `begin`/`commit` pair issues real SQL statements;
+/// inner pairs simply adjust the counter.
+pub trait Transactional {
+    /// Guard type returned by [`begin_transaction`](Transactional::begin_transaction).
+    type Guard<'a>: TransactionGuard
+    where
+        Self: 'a;
+
+    /// Opens a transaction (or increments nesting depth) and returns a guard.
+    ///
+    /// All repository calls made while the guard is alive participate in
+    /// the same transaction. If the guard is dropped without
+    /// [`commit_transaction`](TransactionGuard::commit_transaction),
+    /// the implementation should roll back automatically.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>>;
+}
+
+/// `RAII` transaction guard returned by [`Transactional::begin_transaction`].
+///
+/// Consuming [`commit_transaction`](TransactionGuard::commit_transaction)
+/// persists all changes made since `begin_transaction`.
+/// Dropping the guard without committing triggers an automatic rollback
+/// (e.g. via [`Drop`] in the `SQLite` implementation).
+pub trait TransactionGuard {
+    /// Commits the transaction (or decrements nesting depth).
+    ///
+    /// Only the outermost commit issues a real `COMMIT`.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    fn commit_transaction(self) -> CoreResult<()>;
+}
+
 /// Defines the persistence contract for projects.
 /// Implemented by `db/` crate.
 pub trait ProjectRepository {
