@@ -6,3 +6,10 @@ publish = { workspace = true }
 
 [lints]
 workspace = true
+
+[dependencies]
+domain = { path = "../domain" }
+
+chrono = { workspace = true }
+rusqlite = { workspace = true }
+uuid = { workspace = true }

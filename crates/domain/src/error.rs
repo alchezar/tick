@@ -43,6 +43,20 @@ pub enum CoreError {
     /// Cannot mark a task as done while it has unfinished children.
     #[error("task has unfinished children")]
     TaskHasUnfinishedChildren,
+    /// Storage layer error (database, file I/O, etc.).
+    #[error(transparent)]
+    Storage(#[from] DbError),
+}
+
+/// Errors originating from the storage layer.
+#[derive(Debug, Error)]
+pub enum DbError {
+    /// Generic database error (e.g. connection failure, query error).
+    #[error("{0}")]
+    Query(String),
+    /// Schema migration failed.
+    #[error("migration failed: {0}")]
+    Migration(String),
 }
 
 /// Shorthand `Result` type for all `core` operations.

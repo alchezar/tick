@@ -34,13 +34,17 @@ Today:
 
 | Version | Description                         | Status |
 |---------|-------------------------------------|--------|
-| v0.1    | CLI + SQLite, single project        | 🔄     |
-| v0.2    | Multi-project support               | ⏳      |
+| v0.1    | Multi-project support               | ✅      |
+| v0.2    | CLI + SQLite                        | 🔄     |
 | v0.3    | TUI frontend                        | ⏳      |
 | v0.4    | React frontend with Kanban view     | ⏳      |
 | v0.5    | PostgreSQL, multi-user, roles, auth | ⏳      |
 
-## Usage (v0.1 CLI)
+## Usage (v0.1 - Projects)
+
+Multi-project support with create, rename, switch, and scoped commands.
+
+## Usage (v0.2 - CLI)
 
 ```bash
 # Tasks
@@ -54,21 +58,6 @@ tick -t --remove <id>
 # Report
 tick -r                        # print today's report
 tick -r -c                     # copy to clipboard
-```
-
-## Usage (v0.2 — Projects)
-
-```bash
-# Manage projects
-tick -p                        # show active project
-tick -p -l                     # list all projects (slug + display name)
-tick -p -a work                # create project with slug "work"
-tick -p -a work --name "Work"  # create with display name
-tick -p work                   # switch active project to "work"
-
-# Scope any command to a project
-tick -p work -t -l             # tasks in "work"
-tick -p work -r -c             # report for "work", copy to clipboard
 ```
 
 ## Setup

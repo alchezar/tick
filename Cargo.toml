@@ -13,6 +13,16 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 
+[workspace.dependencies]
+axum = { version = "0.8", features = ["macros"] }
+chrono = { version = "0.4", features = ["serde"] }
+dotenv = "0.15"
+getset = "0.1"
+rusqlite = { version = "0.38" }
+thiserror = "2.0"
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+
 [workspace.lints.rust]
 # Denies non-idiomatic code for Rust 2018 edition.
 rust_2018_idioms = { level = "warn", priority = -1 }
@@ -69,12 +79,3 @@ arbitrary_source_item_ordering = "allow"
 mod_module_files = "allow"
 # Allow missing docs for private items
 missing_docs_in_private_items = "allow"
-
-[workspace.dependencies]
-axum = { version = "0.8", features = ["macros"] }
-chrono = { version = "0.4", features = ["serde"] }
-dotenv = "0.15"
-getset = "0.1"
-thiserror = "2.0"
-tokio = { version = "1", features = ["full"] }
-uuid = { version = "1", features = ["serde", "v4"] }

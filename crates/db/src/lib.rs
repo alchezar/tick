@@ -1,1 +1,1 @@
-//! `tick-db` — `SQLite` persistence, `TaskRepository` implementation
+//! `tick-db` - `SQLite` persistence, repository trait implementations.
