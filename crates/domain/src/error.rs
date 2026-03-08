@@ -48,6 +48,9 @@ pub enum CoreError {
     Storage(#[from] DbError),
 }
 
+/// Shorthand `Result` type for all `core` operations.
+pub type CoreResult<T> = Result<T, CoreError>;
+
 /// Errors originating from the storage layer.
 #[derive(Debug, Error)]
 pub enum DbError {
@@ -59,5 +62,5 @@ pub enum DbError {
     Migration(String),
 }
 
-/// Shorthand `Result` type for all `core` operations.
-pub type CoreResult<T> = Result<T, CoreError>;
+/// Shorthand `Result` type for all `database` operations.
+pub type DbResult<T> = Result<T, DbError>;
