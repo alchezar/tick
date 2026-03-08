@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO status_changes (id, task_id, old_status, new_status, changed_at)\n                VALUES ($1, $2, $3, $4, $5)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "0eaba4a05b4c5cb85f7a67b028f64ee756db2b15a17bab81d479b8cc639f109e"
+}

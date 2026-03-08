@@ -3,12 +3,13 @@
 mod common;
 
 use chrono::NaiveDate;
+
 use domain::{
     model::{Project, Status, StatusChange, Task},
     repository::{ProjectRepository, TaskRepository},
 };
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn save_and_find_task() {
     let (repo, project) = common::repo_with_project().await;
     let task = Task::new("Fix bug", None, project.id);
@@ -21,7 +22,7 @@ async fn save_and_find_task() {
     assert!(found.parent.is_none());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn find_task_returns_none() {
     let (repo, _) = common::repo_with_project().await;
     assert!(
@@ -32,7 +33,7 @@ async fn find_task_returns_none() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn save_updates_task() {
     let (repo, project) = common::repo_with_project().await;
     let task = Task::new("Old title", None, project.id);
@@ -47,7 +48,7 @@ async fn save_updates_task() {
     assert_eq!(found.status(), Status::InProgress);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn child_tasks_of() {
     let (repo, project) = common::repo_with_project().await;
     let parent = Task::new("Parent", None, project.id);
@@ -67,7 +68,7 @@ async fn child_tasks_of() {
     assert_eq!(children[1].title, "Child 2");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn child_tasks_of_empty() {
     let (repo, project) = common::repo_with_project().await;
     let task = Task::new("Leaf", None, project.id);
@@ -76,7 +77,7 @@ async fn child_tasks_of_empty() {
     assert!(repo.child_tasks_of(&task.id).await.unwrap().is_empty());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn list_tasks_by_project() {
     let (repo, project) = common::repo_with_project().await;
     let other = Project::new("other", None::<String>);
@@ -94,7 +95,7 @@ async fn list_tasks_by_project() {
     assert_eq!(work_tasks[0].title, "Work task");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_task_removes_it() {
     let (repo, project) = common::repo_with_project().await;
     let task = Task::new("Task", None, project.id);
@@ -104,7 +105,7 @@ async fn delete_task_removes_it() {
     assert!(repo.find_task_by(&task.id).await.unwrap().is_none());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_task_cascades_children() {
     let (repo, project) = common::repo_with_project().await;
     let parent = Task::new("Parent", None, project.id);
@@ -117,13 +118,13 @@ async fn delete_task_cascades_children() {
     assert!(repo.find_task_by(&child.id).await.unwrap().is_none());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_nonexistent_task_is_ok() {
     let (repo, _) = common::repo_with_project().await;
     repo.delete_task(&uuid::Uuid::new_v4()).await.unwrap();
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_all_tasks_by_project() {
     let (repo, project) = common::repo_with_project().await;
     repo.save_task(&Task::new("A", None, project.id))
@@ -137,7 +138,7 @@ async fn delete_all_tasks_by_project() {
     assert!(repo.list_tasks(&project.id).await.unwrap().is_empty());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn save_and_list_status_changes() {
     let (repo, project) = common::repo_with_project().await;
     let task = Task::new("Task", None, project.id);
@@ -152,7 +153,7 @@ async fn save_and_list_status_changes() {
     assert_eq!(changes[0].new_status, Status::InProgress);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn list_task_changes_on_date() {
     let (repo, project) = common::repo_with_project().await;
     let task = Task::new("Task", None, project.id);
@@ -177,7 +178,7 @@ async fn list_task_changes_on_date() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn task_order_preserved() {
     let (repo, project) = common::repo_with_project().await;
     let mut t1 = Task::new("First", None, project.id);
@@ -197,7 +198,7 @@ async fn task_order_preserved() {
     assert_eq!(tasks[2].title, "Third");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_project_cascades_tasks_and_changes() {
     let (repo, project) = common::repo_with_project().await;
     let task = Task::new("Task", None, project.id);

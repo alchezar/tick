@@ -219,7 +219,7 @@ Introduce multi-project support:
 crates/
   cli/        - argument parsing (clap), output formatting
   domain/     - domain logic: task CRUD, report generation, date logic
-  db/         - SQLite persistence via rusqlite or sqlx
+  db/         - SQLite persistence via sqlx
 ```
 
 Single binary, no server. Database stored at `~/.local/share/tick/tick.db` (XDG). Active project stored at `~/.local/share/tick/config.toml`.

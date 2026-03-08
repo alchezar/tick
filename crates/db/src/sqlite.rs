@@ -1,10 +1,10 @@
 //! SQLite-backed repository implementation.
 
 use core::cell::RefCell;
-use std::error;
 
 use chrono::{DateTime, NaiveDate, Utc};
-use rusqlite::{Connection, Error, Result, Row, params, types::Type};
+use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use tokio::{runtime::Handle, task};
 use uuid::Uuid;
 
 use crate::schema;
@@ -14,31 +14,41 @@ use domain::{
     repository::{ProjectRepository, TaskRepository, TransactionGuard, Transactional},
 };
 
-/// `SQLite` repository wrapping a single connection.
+/// `SQLite` repository backed by a connection pool.
 ///
-/// Uses [`RefCell`] for interior mutability because repository traits use `&self`.
-/// Transaction nesting is tracked via a depth counter.
+/// Uses [`RefCell`] for transaction nesting depth because repository traits use `&self`.
 #[derive(Debug)]
 pub struct SqliteRepo {
-    connection: RefCell<Connection>,
+    pool: SqlitePool,
     depth: RefCell<usize>,
 }
 
 impl SqliteRepo {
-    /// Opens (or creates) a `SQLite` database at the given path and runs migrations.
+    /// Opens (or creates) a `SQLite` database at the given URL and runs migrations.
     ///
     /// # Errors
     /// Returns [`DbError`] if the connection or migration fails.
     #[inline]
-    pub fn open(path: &str) -> DbResult<Self> {
-        let conn = Connection::open(path).map_err(db_err)?;
-        conn.pragma_update(None, "journal_mode", "WAL")
+    pub async fn open(url: &str) -> DbResult<Self> {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect(url)
+            .await
             .map_err(db_err)?;
-        conn.pragma_update(None, "foreign_keys", "ON")
+
+        sqlx::raw_sql("PRAGMA journal_mode = WAL")
+            .execute(&pool)
+            .await
             .map_err(db_err)?;
-        schema::migrate(&conn)?;
+        sqlx::raw_sql("PRAGMA foreign_keys = ON")
+            .execute(&pool)
+            .await
+            .map_err(db_err)?;
+
+        schema::migrate(&pool).await?;
+
         Ok(Self {
-            connection: RefCell::new(conn),
+            pool,
             depth: RefCell::new(0),
         })
     }
@@ -50,13 +60,8 @@ impl SqliteRepo {
     /// # Errors
     /// Returns [`DbError`] if the connection or migration fails.
     #[inline]
-    pub fn in_memory() -> DbResult<Self> {
-        Self::open(":memory:")
-    }
-
-    /// Executes a raw SQL statement on the underlying connection.
-    fn execute_sql(&self, sql: &str) -> DbResult<()> {
-        self.connection.borrow().execute_batch(sql).map_err(db_err)
+    pub async fn in_memory() -> DbResult<Self> {
+        Self::open("sqlite::memory:").await
     }
 }
 
@@ -65,11 +70,14 @@ impl Transactional for SqliteRepo {
 
     #[inline]
     async fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>> {
-        let mut depth = self.depth.borrow_mut();
-        if *depth == 0 {
-            self.execute_sql("BEGIN")?;
+        let need_begin = *self.depth.borrow() == 0;
+        if need_begin {
+            sqlx::raw_sql("BEGIN")
+                .execute(&self.pool)
+                .await
+                .map_err(db_err)?;
         }
-        *depth += 1;
+        *self.depth.borrow_mut() += 1;
 
         Ok(SqliteGuard::new(self))
     }
@@ -101,10 +109,16 @@ impl TransactionGuard for SqliteGuard<'_> {
     #[inline]
     async fn commit_transaction(mut self) -> CoreResult<()> {
         self.committed = true;
-        let mut depth = self.repo.depth.borrow_mut();
-        *depth -= 1;
-        if *depth == 0 {
-            self.repo.execute_sql("COMMIT")?;
+        let need_commit = {
+            let mut depth = self.repo.depth.borrow_mut();
+            *depth -= 1;
+            *depth == 0
+        };
+        if need_commit {
+            sqlx::raw_sql("COMMIT")
+                .execute(&self.repo.pool)
+                .await
+                .map_err(db_err)?;
         }
 
         Ok(())
@@ -122,81 +136,209 @@ impl Drop for SqliteGuard<'_> {
         *depth -= 1;
 
         if *depth == 0 {
-            let _ = self.repo.execute_sql("ROLLBACK");
+            // Cannot use async in Drop; use blocking approach via the pool's runtime.
+            let pool = self.repo.pool.clone();
+            task::block_in_place(|| {
+                Handle::current().block_on(async {
+                    let _ = sqlx::raw_sql("ROLLBACK").execute(&pool).await;
+                });
+            });
         }
+    }
+}
+
+/// Converts any error into a [`DbError::Query`].
+#[allow(clippy::needless_pass_by_value)]
+fn db_err(e: impl ToString) -> DbError {
+    DbError::Query(e.to_string())
+}
+
+/// Converts any error into a [`CoreError::Storage`].
+#[allow(clippy::needless_pass_by_value)]
+fn core_err(e: impl ToString) -> CoreError {
+    CoreError::Storage(db_err(e))
+}
+
+/// Intermediate row for projects.
+struct ProjectRow {
+    id: String,
+    slug: String,
+    title: Option<String>,
+    created_at: String,
+}
+
+impl TryFrom<ProjectRow> for Project {
+    type Error = CoreError;
+
+    #[inline]
+    fn try_from(r: ProjectRow) -> CoreResult<Self> {
+        Ok(Self {
+            id: Uuid::parse_str(&r.id).map_err(core_err)?,
+            slug: r.slug,
+            title: r.title,
+            created: r.created_at.parse::<DateTime<Utc>>().map_err(core_err)?,
+        })
+    }
+}
+
+/// Intermediate row for tasks.
+struct TaskRow {
+    id: String,
+    project_id: String,
+    title: String,
+    status: String,
+    parent_id: Option<String>,
+    display_order: Option<i64>,
+    created_at: String,
+    updated_at: String,
+}
+
+impl TryFrom<TaskRow> for Task {
+    type Error = CoreError;
+
+    #[inline]
+    fn try_from(r: TaskRow) -> CoreResult<Self> {
+        let id = Uuid::parse_str(&r.id).map_err(core_err)?;
+        let project_id = Uuid::parse_str(&r.project_id).map_err(core_err)?;
+        let parent = r
+            .parent_id
+            .as_deref()
+            .map(Uuid::parse_str)
+            .transpose()
+            .map_err(core_err)?;
+        let status = r.status.parse::<Status>().map_err(core_err)?;
+
+        let mut task = Task::new(r.title, parent, project_id).with_status(status);
+        task.id = id;
+        task.order = r
+            .display_order
+            .map(usize::try_from)
+            .transpose()
+            .map_err(core_err)?;
+        task.created = r.created_at.parse::<DateTime<Utc>>().map_err(core_err)?;
+        task.updated = r.updated_at.parse::<DateTime<Utc>>().map_err(core_err)?;
+
+        Ok(task)
+    }
+}
+
+/// Intermediate row for status changes.
+struct StatusChangeRow {
+    id: String,
+    task_id: String,
+    old_status: String,
+    new_status: String,
+    changed_at: String,
+}
+
+impl TryFrom<StatusChangeRow> for StatusChange {
+    type Error = CoreError;
+
+    #[inline]
+    fn try_from(r: StatusChangeRow) -> CoreResult<Self> {
+        Ok(Self {
+            id: Uuid::parse_str(&r.id).map_err(core_err)?,
+            task_id: Uuid::parse_str(&r.task_id).map_err(core_err)?,
+            old_status: r.old_status.parse::<Status>().map_err(core_err)?,
+            new_status: r.new_status.parse::<Status>().map_err(core_err)?,
+            changed_at: r.changed_at.parse::<DateTime<Utc>>().map_err(core_err)?,
+        })
     }
 }
 
 impl ProjectRepository for SqliteRepo {
     #[inline]
     async fn save_project(&self, project: &Project) -> CoreResult<()> {
-        self.connection
-            .borrow()
-            .execute(
-                "INSERT INTO projects (id, slug, title, created_at)
-                 VALUES (?1, ?2, ?3, ?4)
-                 ON CONFLICT(id) DO UPDATE SET
-                     slug = excluded.slug,
-                     title = excluded.title",
-                params![
-                    project.id.to_string(),
-                    project.slug,
-                    project.title,
-                    project.created.to_rfc3339(),
-                ],
-            )
-            .map_err(db_err)?;
+        let id = project.id.to_string();
+        let created = project.created.to_rfc3339();
+        sqlx::query!(
+            r"
+                INSERT INTO projects (id, slug, title, created_at)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT(id) DO UPDATE SET
+                    slug = excluded.slug,
+                    title = excluded.title
+            ",
+            id,
+            project.slug,
+            project.title,
+            created,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
 
         Ok(())
     }
 
     #[inline]
     async fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
-        self.connection
-            .borrow()
-            .prepare("SELECT id, slug, title, created_at FROM projects WHERE id = ?1")
-            .map_err(db_err)?
-            .query_map(params![id.to_string()], row_to_project)
-            .map_err(db_err)?
-            .next()
-            .transpose()
-            .map_err(core_err)
+        let id = id.to_string();
+        sqlx::query_as!(
+            ProjectRow,
+            r"
+                SELECT id, slug, title, created_at
+                FROM projects
+                WHERE id = $1
+            ",
+            id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?
+        .map(Project::try_from)
+        .transpose()
     }
 
     #[inline]
     async fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
-        self.connection
-            .borrow()
-            .prepare("SELECT id, slug, title, created_at FROM projects WHERE slug = ?1")
-            .map_err(db_err)?
-            .query_map(params![slug], row_to_project)
-            .map_err(db_err)?
-            .next()
-            .transpose()
-            .map_err(core_err)
+        sqlx::query_as!(
+            ProjectRow,
+            r"
+                SELECT id, slug, title, created_at
+                FROM projects
+                WHERE slug = $1
+            ",
+            slug,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?
+        .map(Project::try_from)
+        .transpose()
     }
 
     #[inline]
     async fn list_projects(&self) -> CoreResult<Vec<Project>> {
-        self.connection
-            .borrow()
-            .prepare("SELECT id, slug, title, created_at FROM projects ORDER BY created_at")
-            .map_err(db_err)?
-            .query_map([], row_to_project)
-            .map_err(db_err)?
-            .collect::<Result<Vec<_>>>()
-            .map_err(core_err)
+        sqlx::query_as!(
+            ProjectRow,
+            r"
+                SELECT id, slug, title, created_at
+                FROM projects
+                ORDER BY created_at
+            ",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?
+        .into_iter()
+        .map(Project::try_from)
+        .collect()
     }
 
     #[inline]
     async fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
-        self.connection
-            .borrow()
-            .execute(
-                "DELETE FROM projects WHERE id = ?1",
-                params![project_id.to_string()],
-            )
-            .map_err(db_err)?;
+        let id = project_id.to_string();
+        sqlx::query!(
+            r"
+                DELETE FROM projects
+                WHERE id = $1
+            ",
+            id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
 
         Ok(())
     }
@@ -205,131 +347,176 @@ impl ProjectRepository for SqliteRepo {
 impl TaskRepository for SqliteRepo {
     #[inline]
     async fn save_task(&self, task: &Task) -> CoreResult<()> {
-        self.connection
-            .borrow()
-            .execute(
-                "INSERT INTO tasks (id, project_id, title, status, parent_id, display_order, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-                 ON CONFLICT(id) DO UPDATE SET
-                     title = excluded.title,
-                     status = excluded.status,
-                     parent_id = excluded.parent_id,
-                     display_order = excluded.display_order,
-                     updated_at = excluded.updated_at",
-                params![
-                    task.id.to_string(),
-                    task.project_id.to_string(),
-                    task.title,
-                    task.status().as_str(),
-                    task.parent.map(|id| id.to_string()),
-                    task.order.map(i64::try_from).transpose().map_err(db_err)?,
-                    task.created.to_rfc3339(),
-                    task.updated.to_rfc3339(),
-                ],
-            )
-            .map_err(db_err)?;
+        let id = task.id.to_string();
+        let project_id = task.project_id.to_string();
+        let status = task.status().as_str().to_owned();
+        let parent_id = task.parent.map(|p| p.to_string());
+        let order = task.order.map(i64::try_from).transpose().map_err(db_err)?;
+        let created = task.created.to_rfc3339();
+        let updated = task.updated.to_rfc3339();
+        sqlx::query!(
+            r"
+                INSERT INTO tasks (id, project_id, title, status, parent_id, display_order, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    status = excluded.status,
+                    parent_id = excluded.parent_id,
+                    display_order = excluded.display_order,
+                    updated_at = excluded.updated_at
+            ",
+            id,
+            project_id,
+            task.title,
+            status,
+            parent_id,
+            order,
+            created,
+            updated,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+
         Ok(())
     }
 
     #[inline]
     async fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
-        self.connection
-            .borrow()
-            .prepare(
-                "SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
-                 FROM tasks WHERE id = ?1",
-            )
-            .map_err(db_err)?
-            .query_map(params![id.to_string()], row_to_task)
-            .map_err(db_err)?
-            .next()
-            .transpose()
-            .map_err(core_err)
+        let id = id.to_string();
+        sqlx::query_as!(
+            TaskRow,
+            r"
+                SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                FROM tasks
+                WHERE id = $1
+            ",
+            id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?
+        .map(Task::try_from)
+        .transpose()
     }
 
     #[inline]
     async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
-        self.connection
-            .borrow()
-            .prepare(
-                "SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
-                 FROM tasks WHERE parent_id = ?1 ORDER BY display_order",
-            )
-            .map_err(db_err)?
-            .query_map(params![parent.to_string()], row_to_task)
-            .map_err(db_err)?
-            .collect::<Result<Vec<_>>>()
-            .map_err(core_err)
+        let parent = parent.to_string();
+        sqlx::query_as!(
+            TaskRow,
+            r"
+                SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                FROM tasks
+                WHERE parent_id = $1
+                ORDER BY display_order
+            ",
+            parent,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?
+        .into_iter()
+        .map(Task::try_from)
+        .collect()
     }
 
     #[inline]
     async fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        self.connection
-            .borrow()
-            .prepare(
-                "SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
-                 FROM tasks WHERE project_id = ?1 ORDER BY display_order",
-            )
-            .map_err(db_err)?
-            .query_map(params![project_id.to_string()], row_to_task)
-            .map_err(db_err)?
-            .collect::<Result<Vec<_>>>()
-            .map_err(core_err)
+        let project_id = project_id.to_string();
+        sqlx::query_as!(
+            TaskRow,
+            r"
+                SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                FROM tasks
+                WHERE project_id = $1
+                ORDER BY display_order
+            ",
+            project_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?
+        .into_iter()
+        .map(Task::try_from)
+        .collect()
     }
 
     #[inline]
     async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
-        self.connection
-            .borrow()
-            .execute("DELETE FROM tasks WHERE id = ?1", params![id.to_string()])
-            .map_err(db_err)?;
+        let id = id.to_string();
+        sqlx::query!(
+            r"
+                DELETE FROM tasks
+                WHERE id = $1
+            ",
+            id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
         Ok(())
     }
 
     #[inline]
     async fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
-        self.connection
-            .borrow()
-            .execute(
-                "DELETE FROM tasks WHERE project_id = ?1",
-                params![project_id.to_string()],
-            )
-            .map_err(db_err)?;
+        let project_id = project_id.to_string();
+        sqlx::query!(
+            r"
+                DELETE FROM tasks
+                WHERE project_id = $1
+            ",
+            project_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
         Ok(())
     }
 
     #[inline]
     async fn save_task_change(&self, change: &StatusChange) -> CoreResult<()> {
-        self.connection
-            .borrow()
-            .execute(
-                "INSERT INTO status_changes (id, task_id, old_status, new_status, changed_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![
-                    change.id.to_string(),
-                    change.task_id.to_string(),
-                    change.old_status.as_str(),
-                    change.new_status.as_str(),
-                    change.changed_at.to_rfc3339(),
-                ],
-            )
-            .map_err(db_err)?;
+        let id = change.id.to_string();
+        let task_id = change.task_id.to_string();
+        let old_status = change.old_status.as_str().to_owned();
+        let new_status = change.new_status.as_str().to_owned();
+        let changed_at = change.changed_at.to_rfc3339();
+        sqlx::query!(
+            r"
+                INSERT INTO status_changes (id, task_id, old_status, new_status, changed_at)
+                VALUES ($1, $2, $3, $4, $5)
+            ",
+            id,
+            task_id,
+            old_status,
+            new_status,
+            changed_at,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
         Ok(())
     }
 
     #[inline]
     async fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
-        self.connection
-            .borrow()
-            .prepare(
-                "SELECT id, task_id, old_status, new_status, changed_at
-                 FROM status_changes WHERE task_id = ?1 ORDER BY changed_at",
-            )
-            .map_err(db_err)?
-            .query_map(params![task_id.to_string()], row_to_status_change)
-            .map_err(db_err)?
-            .collect::<Result<Vec<_>>>()
-            .map_err(core_err)
+        let task_id = task_id.to_string();
+        sqlx::query_as!(
+            StatusChangeRow,
+            r"
+                SELECT id, task_id, old_status, new_status, changed_at
+                FROM status_changes
+                WHERE task_id = $1
+                ORDER BY changed_at
+            ",
+            task_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?
+        .into_iter()
+        .map(StatusChange::try_from)
+        .collect()
     }
 
     #[inline]
@@ -346,105 +533,22 @@ impl TaskRepository for SqliteRepo {
             .expect("valid midnight")
             .and_utc()
             .to_rfc3339();
-        self.connection
-            .borrow()
-            .prepare(
-                "SELECT id, task_id, old_status, new_status, changed_at
-                 FROM status_changes WHERE changed_at >= ?1 AND changed_at < ?2 ORDER BY changed_at",
-            )
-            .map_err(db_err)?
-            .query_map(params![start, end], row_to_status_change)
-            .map_err(db_err)?
-            .collect::<Result<Vec<_>>>()
-            .map_err(core_err)
+        sqlx::query_as!(
+            StatusChangeRow,
+            r"
+                SELECT id, task_id, old_status, new_status, changed_at
+                FROM status_changes
+                WHERE changed_at >= $1 AND changed_at < $2
+                ORDER BY changed_at
+            ",
+            start,
+            end,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?
+        .into_iter()
+        .map(StatusChange::try_from)
+        .collect()
     }
-}
-
-// -----------------------------------------------------------------------------
-
-/// Converts a `rusqlite::Error` into a [`DbError::Query`].
-#[allow(clippy::needless_pass_by_value)]
-fn db_err(e: impl ToString) -> DbError {
-    DbError::Query(e.to_string())
-}
-
-/// Converts a `rusqlite::Error` into a [`CoreError::Storage`].
-#[allow(clippy::needless_pass_by_value)]
-fn core_err(e: Error) -> CoreError {
-    CoreError::Storage(db_err(e))
-}
-
-/// Wraps a parse error as [`Error::FromSqlConversionFailure`].
-fn parse_err<E: error::Error + Send + Sync + 'static>(e: E) -> Error {
-    Error::FromSqlConversionFailure(0, Type::Text, Box::new(e))
-}
-
-/// Maps a single row to a [`Project`].
-fn row_to_project(row: &Row<'_>) -> Result<Project> {
-    let id = row.get::<_, String>(0)?;
-    let slug = row.get::<_, String>(1)?;
-    let title = row.get::<_, Option<String>>(2)?;
-    let created_at = row.get::<_, String>(3)?;
-
-    let id = Uuid::parse_str(&id).map_err(parse_err)?;
-    let created = created_at.parse::<DateTime<Utc>>().map_err(parse_err)?;
-
-    Ok(Project {
-        id,
-        slug,
-        title,
-        created,
-    })
-}
-
-/// Maps a single row to a [`Task`].
-fn row_to_task(row: &Row<'_>) -> Result<Task> {
-    let id = row.get::<_, String>(0)?;
-    let project_id = row.get::<_, String>(1)?;
-    let title = row.get::<_, String>(2)?;
-    let status = row.get::<_, String>(3)?;
-    let parent_id = row.get::<_, Option<String>>(4)?;
-    let order = row.get::<_, Option<i64>>(5)?;
-    let created_at = row.get::<_, String>(6)?;
-    let updated_at = row.get::<_, String>(7)?;
-
-    let id = Uuid::parse_str(&id).map_err(parse_err)?;
-    let project_id = Uuid::parse_str(&project_id).map_err(parse_err)?;
-    let parent = parent_id
-        .as_deref()
-        .map(Uuid::parse_str)
-        .transpose()
-        .map_err(parse_err)?;
-    let created = created_at.parse::<DateTime<Utc>>().map_err(parse_err)?;
-    let updated = updated_at.parse::<DateTime<Utc>>().map_err(parse_err)?;
-
-    let status = status.parse::<Status>().map_err(parse_err)?;
-    let mut task = Task::new(title, parent, project_id).with_status(status);
-    task.id = id;
-    task.order = order.map(usize::try_from).transpose().map_err(parse_err)?;
-    task.created = created;
-    task.updated = updated;
-
-    Ok(task)
-}
-
-/// Maps a single row to a [`StatusChange`].
-fn row_to_status_change(row: &Row<'_>) -> Result<StatusChange> {
-    let id = row.get::<_, String>(0)?;
-    let task_id = row.get::<_, String>(1)?;
-    let old_status = row.get::<_, String>(2)?;
-    let new_status = row.get::<_, String>(3)?;
-    let changed_at = row.get::<_, String>(4)?;
-
-    let id = Uuid::parse_str(&id).map_err(parse_err)?;
-    let task_id = Uuid::parse_str(&task_id).map_err(parse_err)?;
-    let changed_at = changed_at.parse::<DateTime<Utc>>().map_err(parse_err)?;
-
-    Ok(StatusChange {
-        id,
-        task_id,
-        old_status: old_status.parse::<Status>().map_err(parse_err)?,
-        new_status: new_status.parse::<Status>().map_err(parse_err)?,
-        changed_at,
-    })
 }

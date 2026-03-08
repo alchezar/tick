@@ -7,9 +7,9 @@ use domain::{
     repository::{ProjectRepository, TransactionGuard, Transactional},
 };
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn save_and_find_by_id() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let project = Project::new("work", Some("Work"));
 
     repo.save_project(&project).await.unwrap();
@@ -20,9 +20,9 @@ async fn save_and_find_by_id() {
     assert_eq!(found.title.as_deref(), Some("Work"));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn find_by_id_returns_none() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let result = repo
         .find_project_by_id(&uuid::Uuid::new_v4())
         .await
@@ -31,9 +31,9 @@ async fn find_by_id_returns_none() {
     assert!(result.is_none());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn save_and_find_by_slug() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let project = Project::new("work", None::<String>);
 
     repo.save_project(&project).await.unwrap();
@@ -43,17 +43,17 @@ async fn save_and_find_by_slug() {
     assert!(found.title.is_none());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn find_by_slug_returns_none() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let result = repo.find_project_by_slug("missing").await.unwrap();
 
     assert!(result.is_none());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn save_updates_existing() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let mut project = Project::new("work", None::<String>);
 
     repo.save_project(&project).await.unwrap();
@@ -66,17 +66,17 @@ async fn save_updates_existing() {
     assert_eq!(found.title.as_deref(), Some("Updated Title"));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn list_projects_empty() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let projects = repo.list_projects().await.unwrap();
 
     assert!(projects.is_empty());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn list_projects_returns_all() {
-    let repo = common::repo();
+    let repo = common::repo().await;
 
     repo.save_project(&Project::new("alpha", None::<String>))
         .await
@@ -92,9 +92,9 @@ async fn list_projects_returns_all() {
     assert_eq!(projects.len(), 3);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_project_removes_it() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let project = Project::new("work", None::<String>);
 
     repo.save_project(&project).await.unwrap();
@@ -108,15 +108,15 @@ async fn delete_project_removes_it() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_nonexistent_is_ok() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     repo.delete_project(&uuid::Uuid::new_v4()).await.unwrap();
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn transaction_commit_persists() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let tx = repo.begin_transaction().await.unwrap();
 
     repo.save_project(&Project::new("work", None::<String>))
@@ -127,9 +127,9 @@ async fn transaction_commit_persists() {
     assert!(repo.find_project_by_slug("work").await.unwrap().is_some());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn transaction_rollback_on_drop() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     {
         let _tx = repo.begin_transaction().await.unwrap();
         repo.save_project(&Project::new("work", None::<String>))
@@ -141,9 +141,9 @@ async fn transaction_rollback_on_drop() {
     assert!(repo.find_project_by_slug("work").await.unwrap().is_none());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn nested_transaction_commit() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let outer = repo.begin_transaction().await.unwrap();
 
     repo.save_project(&Project::new("alpha", None::<String>))
@@ -160,9 +160,9 @@ async fn nested_transaction_commit() {
     assert_eq!(repo.list_projects().await.unwrap().len(), 2);
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn nested_transaction_inner_drop_rollbacks_all() {
-    let repo = common::repo();
+    let repo = common::repo().await;
     let outer = repo.begin_transaction().await.unwrap();
 
     repo.save_project(&Project::new("alpha", None::<String>))

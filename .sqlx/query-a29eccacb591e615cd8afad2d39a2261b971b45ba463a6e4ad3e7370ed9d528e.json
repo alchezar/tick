@@ -1,0 +1,44 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                SELECT id, task_id, old_status, new_status, changed_at\n                FROM status_changes\n                WHERE changed_at >= $1 AND changed_at < $2\n                ORDER BY changed_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "task_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "old_status",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "new_status",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "changed_at",
+        "ordinal": 4,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "a29eccacb591e615cd8afad2d39a2261b971b45ba463a6e4ad3e7370ed9d528e"
+}

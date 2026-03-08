@@ -32,3 +32,7 @@ logs
 CLAUDE.md
 .mcp.json
 
+# SQLite database
+*.db
+*.db-shm
+*.db-wal

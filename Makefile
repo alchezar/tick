@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: help
 # Environment
-.PHONY: env_up env_down migrate restart
+.PHONY: env-up env-down migrate restart
 # Code quality
 .PHONY: check ci local fmt lint openapi prepare
 # Testing
@@ -21,20 +21,20 @@ help: ## Show available targets
 # Environment
 #===============================================================================
 
-env_up: ## Start environment
+env-up: ## Start environment
 	@echo "[*] Starting environment..."
 	@docker compose up -d
 
-env_down: ## Stop environment
+env-down: ## Stop environment
 	@echo "[*] Stopping environment..."
 	@docker compose down -v
 
-migrate: ## Run database migrations
+migrate: ## Reset database and run migrations
 	@echo "[*] Resetting database and applying migrations..."
-	. ./.env && cargo sqlx migrate run
+	. ./.env && cargo sqlx database reset -y --source crates/db/migrations
 
 
-restart: env_down env_up migrate ## Restart environment and run migrations
+restart: env-down env-up migrate ## Restart environment and run migrations
 
 #===============================================================================
 # Code Quality
