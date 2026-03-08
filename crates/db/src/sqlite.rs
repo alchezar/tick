@@ -2,12 +2,15 @@
 
 use core::cell::RefCell;
 
-use rusqlite::Connection;
+use chrono::{DateTime, Utc};
+use rusqlite::{Connection, Error, Result, Row, params, types::Type};
+use uuid::Uuid;
 
 use crate::schema;
 use domain::{
-    error::{CoreResult, DbError, DbResult},
-    repository::{TransactionGuard, Transactional},
+    error::{CoreError, CoreResult, DbError, DbResult},
+    model::Project,
+    repository::{ProjectRepository, TransactionGuard, Transactional},
 };
 
 /// `SQLite` repository wrapping a single connection.
@@ -27,11 +30,11 @@ impl SqliteRepo {
     /// Returns [`DbError`] if the connection or migration fails.
     #[inline]
     pub fn open(path: &str) -> DbResult<Self> {
-        let conn = Connection::open(path).map_err(|e| DbError::Query(e.to_string()))?;
+        let conn = Connection::open(path).map_err(db_err)?;
         conn.pragma_update(None, "journal_mode", "WAL")
-            .map_err(|e| DbError::Query(e.to_string()))?;
+            .map_err(db_err)?;
         conn.pragma_update(None, "foreign_keys", "ON")
-            .map_err(|e| DbError::Query(e.to_string()))?;
+            .map_err(db_err)?;
         schema::migrate(&conn)?;
         Ok(Self {
             connection: RefCell::new(conn),
@@ -52,10 +55,7 @@ impl SqliteRepo {
 
     /// Executes a raw SQL statement on the underlying connection.
     fn execute_sql(&self, sql: &str) -> DbResult<()> {
-        self.connection
-            .borrow()
-            .execute_batch(sql)
-            .map_err(|e| DbError::Query(e.to_string()))
+        self.connection.borrow().execute_batch(sql).map_err(db_err)
     }
 }
 
@@ -123,5 +123,113 @@ impl Drop for SqliteGuard<'_> {
         if *depth == 0 {
             let _ = self.repo.execute_sql("ROLLBACK");
         }
+    }
+}
+
+/// Converts a `rusqlite::Error` into a [`DbError::Query`].
+#[allow(clippy::needless_pass_by_value)]
+fn db_err(e: Error) -> DbError {
+    DbError::Query(e.to_string())
+}
+
+/// Converts a `rusqlite::Error` into a [`CoreError::Storage`].
+#[allow(clippy::needless_pass_by_value)]
+fn core_err(e: Error) -> CoreError {
+    CoreError::Storage(db_err(e))
+}
+
+/// Maps a single row to a [`Project`].
+fn row_to_project(row: &Row<'_>) -> Result<Project> {
+    let id: String = row.get(0)?;
+    let slug: String = row.get(1)?;
+    let title: Option<String> = row.get(2)?;
+    let created_at: String = row.get(3)?;
+
+    let id = Uuid::parse_str(&id)
+        .map_err(|e| Error::FromSqlConversionFailure(0, Type::Text, Box::new(e)))?;
+    let created = created_at
+        .parse::<DateTime<Utc>>()
+        .map_err(|e| Error::FromSqlConversionFailure(0, Type::Text, Box::new(e)))?;
+
+    Ok(Project {
+        id,
+        slug,
+        title,
+        created,
+    })
+}
+
+impl ProjectRepository for SqliteRepo {
+    #[inline]
+    fn save_project(&self, project: &Project) -> CoreResult<()> {
+        self.connection
+            .borrow()
+            .execute(
+                "INSERT INTO projects (id, slug, title, created_at)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(id) DO UPDATE SET
+                     slug = excluded.slug,
+                     title = excluded.title",
+                params![
+                    project.id.to_string(),
+                    project.slug,
+                    project.title,
+                    project.created.to_rfc3339(),
+                ],
+            )
+            .map_err(db_err)?;
+
+        Ok(())
+    }
+
+    #[inline]
+    fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
+        self.connection
+            .borrow()
+            .prepare("SELECT id, slug, title, created_at FROM projects WHERE id = ?1")
+            .map_err(db_err)?
+            .query_map(params![id.to_string()], row_to_project)
+            .map_err(db_err)?
+            .next()
+            .transpose()
+            .map_err(core_err)
+    }
+
+    #[inline]
+    fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
+        self.connection
+            .borrow()
+            .prepare("SELECT id, slug, title, created_at FROM projects WHERE slug = ?1")
+            .map_err(db_err)?
+            .query_map(params![slug], row_to_project)
+            .map_err(db_err)?
+            .next()
+            .transpose()
+            .map_err(core_err)
+    }
+
+    #[inline]
+    fn list_projects(&self) -> CoreResult<Vec<Project>> {
+        self.connection
+            .borrow()
+            .prepare("SELECT id, slug, title, created_at FROM projects ORDER BY created_at")
+            .map_err(db_err)?
+            .query_map([], row_to_project)
+            .map_err(db_err)?
+            .collect::<Result<Vec<_>>>()
+            .map_err(core_err)
+    }
+
+    #[inline]
+    fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
+        self.connection
+            .borrow()
+            .execute(
+                "DELETE FROM projects WHERE id = ?1",
+                params![project_id.to_string()],
+            )
+            .map_err(db_err)?;
+
+        Ok(())
     }
 }
