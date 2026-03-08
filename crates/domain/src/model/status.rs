@@ -1,6 +1,10 @@
 //! Task status, allowed transitions, and status change history.
 
+use core::str::FromStr;
+use core::{error::Error, fmt};
+
 use chrono::{DateTime, Utc};
+use fmt::{Display, Formatter, Result as FmtResult};
 use uuid::Uuid;
 
 /// Represents the lifecycle state of a task.
@@ -18,6 +22,18 @@ pub enum Status {
 }
 
 impl Status {
+    /// Returns the database TEXT representation of this status.
+    #[inline]
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NotStarted => "not_started",
+            Self::InProgress => "in_progress",
+            Self::Done => "done",
+            Self::Blocked => "blocked",
+        }
+    }
+
     /// Returns `true` if transition from current status to `to` is allowed.
     #[inline]
     #[must_use]
@@ -55,6 +71,41 @@ impl Status {
             Self::Done => "✅",
             Self::Blocked => "🛑",
         }
+    }
+}
+
+/// Error returned when parsing an unknown status string.
+#[derive(Debug, Clone)]
+pub struct ParseStatusError(String);
+
+impl Display for ParseStatusError {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "unknown status: {}", self.0)
+    }
+}
+
+impl Error for ParseStatusError {}
+
+impl FromStr for Status {
+    type Err = ParseStatusError;
+
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "not_started" => Ok(Self::NotStarted),
+            "in_progress" => Ok(Self::InProgress),
+            "done" => Ok(Self::Done),
+            "blocked" => Ok(Self::Blocked),
+            other => Err(ParseStatusError(other.to_owned())),
+        }
+    }
+}
+
+impl Display for Status {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.write_str(self.as_str())
     }
 }
 
