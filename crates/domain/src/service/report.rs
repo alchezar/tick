@@ -128,18 +128,18 @@ where
     /// # Errors
     /// Returns an error if the repository operation fails.
     #[inline]
-    pub fn generate(&self, date: NaiveDate, project: &Project) -> CoreResult<Report> {
+    pub async fn generate(&self, date: NaiveDate, project: &Project) -> CoreResult<Report> {
         let title = project.title.as_deref().unwrap_or(&project.slug);
-        let tx = self.repo.begin_transaction()?;
+        let tx = self.repo.begin_transaction().await?;
 
         let report = Report::new(
             title,
-            self.tasks_prev(date, &project.id)?,
-            self.tasks_today(date, &project.id)?,
+            self.tasks_prev(date, &project.id).await?,
+            self.tasks_today(date, &project.id).await?,
             date,
         );
 
-        tx.commit_transaction()?;
+        tx.commit_transaction().await?;
         Ok(report)
     }
 
@@ -148,17 +148,15 @@ where
     /// # Errors
     /// Returns an error if the repository operation fails.
     #[inline]
-    pub fn generate_all(&self, date: NaiveDate) -> CoreResult<Vec<Report>> {
-        let tx = self.repo.begin_transaction()?;
+    pub async fn generate_all(&self, date: NaiveDate) -> CoreResult<Vec<Report>> {
+        let tx = self.repo.begin_transaction().await?;
 
-        let reports = self
-            .repo
-            .list_projects()?
-            .into_iter()
-            .map(|project| self.generate(date, &project))
-            .collect::<CoreResult<_>>()?;
+        let mut reports = Vec::new();
+        for project in self.repo.list_projects().await? {
+            reports.push(self.generate(date, &project).await?);
+        }
 
-        tx.commit_transaction()?;
+        tx.commit_transaction().await?;
         Ok(reports)
     }
 
@@ -168,27 +166,28 @@ where
     ///
     /// All tasks that had a status change on the previous workday,
     /// shown with their status as of that day.
-    fn tasks_prev(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+    async fn tasks_prev(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         let prev_day = prev_workday(date);
-        self.tasks_snapshot(prev_day, project_id)
+        self.tasks_snapshot(prev_day, project_id).await
     }
 
     /// Returns tasks for the Today / Current sections.
     ///
     /// Includes tasks that were active on `date` or had a status change on `date`,
     /// each with status reconstructed from the change log.
-    fn tasks_today(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        self.tasks_snapshot(date, project_id)
+    async fn tasks_today(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+        self.tasks_snapshot(date, project_id).await
     }
 
     /// Builds a snapshot of tasks relevant to `date`:
     /// those that were active on `date` or had a status change on `date`,
     /// each reconstructed with the status it had at end-of-day.
-    fn tasks_snapshot(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        let tx = self.repo.begin_transaction()?;
+    async fn tasks_snapshot(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+        let tx = self.repo.begin_transaction().await?;
         let changed_ids = self
             .repo
-            .list_task_changes_on(date)?
+            .list_task_changes_on(date)
+            .await?
             .iter()
             .map(|c| c.task_id)
             .collect::<HashSet<_>>();
@@ -197,16 +196,17 @@ where
         let mut tasks = Vec::new();
         for task in self
             .repo
-            .list_tasks(project_id)?
+            .list_tasks(project_id)
+            .await?
             .into_iter()
             .filter(|task| task.created.date_naive() <= date)
         {
-            let status = self.status_at(&task.id, date)?;
+            let status = self.status_at(&task.id, date).await?;
             if (status.is_active() || changed_ids.contains(&task.id)) && seen.insert(task.id) {
                 tasks.push(task.with_status(status));
             }
         }
-        tx.commit_transaction()?;
+        tx.commit_transaction().await?;
         Ok(tasks)
     }
 
@@ -214,7 +214,7 @@ where
     ///
     /// Replays all status changes up to (and including) `date`.
     /// Returns `NotStarted` if the task had no changes by that date.
-    fn status_at(&self, task_id: &Uuid, date: NaiveDate) -> CoreResult<Status> {
+    async fn status_at(&self, task_id: &Uuid, date: NaiveDate) -> CoreResult<Status> {
         let next_day = date + Duration::days(1);
         let cutoff = next_day
             .and_hms_opt(0, 0, 0)
@@ -223,7 +223,8 @@ where
 
         let status = self
             .repo
-            .list_task_changes(task_id)?
+            .list_task_changes(task_id)
+            .await?
             .iter()
             .rev()
             .find(|c| c.changed_at < cutoff)

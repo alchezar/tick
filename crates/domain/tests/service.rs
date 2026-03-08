@@ -11,119 +11,143 @@ use domain::{
 
 use common::fake::FakeRepo;
 
-#[test]
-fn done_fails_with_active_child() {
+#[tokio::test]
+async fn done_fails_with_active_child() {
     let service = common::task_service();
     let project = Project::default();
-    let parent = service.create("Parent", None, project.id).unwrap();
+    let parent = service.create("Parent", None, project.id).await.unwrap();
     service
         .create("Child", Some(&parent.id), project.id)
+        .await
         .unwrap();
 
-    let err = service.done(&parent.id).unwrap_err();
+    let err = service.done(&parent.id).await.unwrap_err();
     assert!(matches!(err, CoreError::TaskHasUnfinishedChildren));
 }
 
-#[test]
-fn block_cascades_to_children() {
+#[tokio::test]
+async fn block_cascades_to_children() {
     let service = common::task_service();
     let project = Project::default();
-    let parent = service.create("Parent", None, project.id).unwrap();
+    let parent = service.create("Parent", None, project.id).await.unwrap();
     let child = service
         .create("Child", Some(&parent.id), project.id)
+        .await
         .unwrap();
-    service.start(&child.id).unwrap();
-    service.start(&parent.id).unwrap();
+    service.start(&child.id).await.unwrap();
+    service.start(&parent.id).await.unwrap();
 
-    service.block(&parent.id).unwrap();
+    service.block(&parent.id).await.unwrap();
 
     // If cascade worked, child is now Blocked - start(child) must succeed.
     // If cascade did not work, child is still InProgress - start(child) would fail.
-    service.start(&child.id).unwrap();
+    service.start(&child.id).await.unwrap();
 }
 
-#[test]
-fn create_exceeds_max_depth() {
+#[tokio::test]
+async fn create_exceeds_max_depth() {
     let service = common::task_service();
     let project = Project::default();
-    let l0 = service.create("Root", None, project.id).unwrap();
-    let l1 = service.create("Level 1", Some(&l0.id), project.id).unwrap();
-    let l2 = service.create("Level 2", Some(&l1.id), project.id).unwrap();
+    let l0 = service.create("Root", None, project.id).await.unwrap();
+    let l1 = service
+        .create("Level 1", Some(&l0.id), project.id)
+        .await
+        .unwrap();
+    let l2 = service
+        .create("Level 2", Some(&l1.id), project.id)
+        .await
+        .unwrap();
 
     // 4th level (l0 -> l1 -> l2 -> l3) must be rejected
     let err = service
         .create("Level 3", Some(&l2.id), project.id)
+        .await
         .unwrap_err();
     assert!(matches!(err, CoreError::MaxDepthExceeded));
 }
 
-#[test]
-fn create_assigns_order_sequentially() {
+#[tokio::test]
+async fn create_assigns_order_sequentially() {
     let project = Project::default();
     let service = common::task_service();
-    let a = service.create("A", None, project.id).unwrap();
-    let b = service.create("B", None, project.id).unwrap();
-    let c = service.create("C", None, project.id).unwrap();
+    let a = service.create("A", None, project.id).await.unwrap();
+    let b = service.create("B", None, project.id).await.unwrap();
+    let c = service.create("C", None, project.id).await.unwrap();
 
     assert_eq!(a.order, Some(0));
     assert_eq!(b.order, Some(1));
     assert_eq!(c.order, Some(2));
 }
 
-#[test]
-fn done_succeeds_without_children() {
+#[tokio::test]
+async fn done_succeeds_without_children() {
     let service = common::task_service();
-    let task = service.create("Task", None, Project::default().id).unwrap();
-    service.start(&task.id).unwrap();
+    let task = service
+        .create("Task", None, Project::default().id)
+        .await
+        .unwrap();
+    service.start(&task.id).await.unwrap();
 
-    service.done(&task.id).unwrap();
+    service.done(&task.id).await.unwrap();
 }
 
-#[test]
-fn start_fails_if_already_in_progress() {
+#[tokio::test]
+async fn start_fails_if_already_in_progress() {
     let service = common::task_service();
-    let task = service.create("Task", None, Project::default().id).unwrap();
-    service.start(&task.id).unwrap();
+    let task = service
+        .create("Task", None, Project::default().id)
+        .await
+        .unwrap();
+    service.start(&task.id).await.unwrap();
 
-    let err = service.start(&task.id).unwrap_err();
+    let err = service.start(&task.id).await.unwrap_err();
     assert!(matches!(err, CoreError::InvalidStatusTransition { .. }));
 }
 
-#[test]
-fn reset_from_done() {
+#[tokio::test]
+async fn reset_from_done() {
     let service = common::task_service();
-    let task = service.create("Task", None, Project::default().id).unwrap();
-    service.start(&task.id).unwrap();
-    service.done(&task.id).unwrap();
+    let task = service
+        .create("Task", None, Project::default().id)
+        .await
+        .unwrap();
+    service.start(&task.id).await.unwrap();
+    service.done(&task.id).await.unwrap();
 
     // Done -> NotStarted must succeed
-    service.reset(&task.id).unwrap();
+    service.reset(&task.id).await.unwrap();
 }
 
-#[test]
-fn status_change_recorded_on_transition() {
+#[tokio::test]
+async fn status_change_recorded_on_transition() {
     let service = common::task_service();
-    let task = service.create("Task", None, Project::default().id).unwrap();
+    let task = service
+        .create("Task", None, Project::default().id)
+        .await
+        .unwrap();
 
-    service.start(&task.id).unwrap();
+    service.start(&task.id).await.unwrap();
 
-    let history = service.status_history(&task.id).unwrap();
+    let history = service.status_history(&task.id).await.unwrap();
     assert_eq!(history.len(), 1);
     assert_eq!(history[0].task_id, task.id);
     assert_eq!(history[0].old_status, Status::NotStarted);
     assert_eq!(history[0].new_status, Status::InProgress);
 }
 
-#[test]
-fn status_change_full_lifecycle() {
+#[tokio::test]
+async fn status_change_full_lifecycle() {
     let service = common::task_service();
-    let task = service.create("Task", None, Project::default().id).unwrap();
+    let task = service
+        .create("Task", None, Project::default().id)
+        .await
+        .unwrap();
 
-    service.start(&task.id).unwrap();
-    service.done(&task.id).unwrap();
-    service.reset(&task.id).unwrap();
+    service.start(&task.id).await.unwrap();
+    service.done(&task.id).await.unwrap();
+    service.reset(&task.id).await.unwrap();
 
-    let history = service.status_history(&task.id).unwrap();
+    let history = service.status_history(&task.id).await.unwrap();
     assert_eq!(history.len(), 3);
 
     assert_eq!(history[0].old_status, Status::NotStarted);
@@ -136,21 +160,22 @@ fn status_change_full_lifecycle() {
     assert_eq!(history[2].new_status, Status::NotStarted);
 }
 
-#[test]
-fn block_cascade_records_changes_for_children() {
+#[tokio::test]
+async fn block_cascade_records_changes_for_children() {
     let service = common::task_service();
     let project = Project::default();
-    let parent = service.create("Parent", None, project.id).unwrap();
+    let parent = service.create("Parent", None, project.id).await.unwrap();
     let child = service
         .create("Child", Some(&parent.id), project.id)
+        .await
         .unwrap();
-    service.start(&parent.id).unwrap();
-    service.start(&child.id).unwrap();
+    service.start(&parent.id).await.unwrap();
+    service.start(&child.id).await.unwrap();
 
-    service.block(&parent.id).unwrap();
+    service.block(&parent.id).await.unwrap();
 
-    let parent_history = service.status_history(&parent.id).unwrap();
-    let child_history = service.status_history(&child.id).unwrap();
+    let parent_history = service.status_history(&parent.id).await.unwrap();
+    let child_history = service.status_history(&child.id).await.unwrap();
 
     // parent: NotStarted -> InProgress, InProgress -> Blocked
     assert_eq!(parent_history.len(), 2);
@@ -163,68 +188,72 @@ fn block_cascade_records_changes_for_children() {
     assert_eq!(child_history[1].new_status, Status::Blocked);
 }
 
-#[test]
-fn create_at_fourth_level_fails() {
+#[tokio::test]
+async fn create_at_fourth_level_fails() {
     // SPEC: "up to 3 levels of nesting: task -> subtask -> sub-subtask"
     let service = common::task_service();
     let project = Project::default();
-    let l0 = service.create("Task", None, project.id).unwrap();
-    let l1 = service.create("Subtask", Some(&l0.id), project.id).unwrap();
+    let l0 = service.create("Task", None, project.id).await.unwrap();
+    let l1 = service
+        .create("Subtask", Some(&l0.id), project.id)
+        .await
+        .unwrap();
     let l2 = service
         .create("Sub-subtask", Some(&l1.id), project.id)
+        .await
         .unwrap();
 
     // 4th level must be rejected
-    let result = service.create("Too deep", Some(&l2.id), project.id);
+    let result = service.create("Too deep", Some(&l2.id), project.id).await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }
 
-#[test]
-fn move_subtree_exceeds_depth() {
+#[tokio::test]
+async fn move_subtree_exceeds_depth() {
     let service = common::task_service();
     let project = Project::default();
 
     // Tree 1: a -> b (2 levels)
-    let a = service.create("A", None, project.id).unwrap();
-    let _b = service.create("B", Some(&a.id), project.id).unwrap();
+    let a = service.create("A", None, project.id).await.unwrap();
+    let _b = service.create("B", Some(&a.id), project.id).await.unwrap();
 
     // Tree 2: x -> y (2 levels)
-    let x = service.create("X", None, project.id).unwrap();
-    let y = service.create("Y", Some(&x.id), project.id).unwrap();
+    let x = service.create("X", None, project.id).await.unwrap();
+    let y = service.create("Y", Some(&x.id), project.id).await.unwrap();
 
     // Move A under Y: x -> y -> a -> b = 4 levels, exceeds max 3
-    let result = service.move_to_parent(&a.id, Some(&y.id));
+    let result = service.move_to_parent(&a.id, Some(&y.id)).await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }
 
-#[test]
-fn create_order_no_duplicates_after_delete() {
+#[tokio::test]
+async fn create_order_no_duplicates_after_delete() {
     let repo = FakeRepo::default();
     let task_svc = TaskService::new(repo);
     let project = Project::default();
 
-    let _a = task_svc.create("A", None, project.id).unwrap(); // order 0
-    let b = task_svc.create("B", None, project.id).unwrap(); // order 1
-    let c = task_svc.create("C", None, project.id).unwrap(); // order 2
+    let _a = task_svc.create("A", None, project.id).await.unwrap(); // order 0
+    let b = task_svc.create("B", None, project.id).await.unwrap(); // order 1
+    let c = task_svc.create("C", None, project.id).await.unwrap(); // order 2
 
-    task_svc.delete(&b.id).unwrap();
+    task_svc.delete(&b.id).await.unwrap();
 
-    let d = task_svc.create("D", None, project.id).unwrap();
+    let d = task_svc.create("D", None, project.id).await.unwrap();
     // d.order must not collide with c.order
     assert_ne!(d.order, c.order);
 }
 
-#[test]
-fn delete_task_cleans_status_changes() {
+#[tokio::test]
+async fn delete_task_cleans_status_changes() {
     let repo = FakeRepo::default();
     let task_svc = TaskService::new(repo.clone());
     let project = Project::default();
 
-    let task = task_svc.create("Task", None, project.id).unwrap();
-    task_svc.start(&task.id).unwrap();
+    let task = task_svc.create("Task", None, project.id).await.unwrap();
+    task_svc.start(&task.id).await.unwrap();
 
-    task_svc.delete(&task.id).unwrap();
+    task_svc.delete(&task.id).await.unwrap();
 
-    let changes = repo.list_task_changes(&task.id).unwrap();
+    let changes = repo.list_task_changes(&task.id).await.unwrap();
     assert!(changes.is_empty());
 }

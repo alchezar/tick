@@ -24,6 +24,8 @@ tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 
 [workspace.lints.rust]
+# Allow async fn in traits - we use generics, not dyn, so Send bounds are not needed.
+async_fn_in_trait = "allow"
 # Denies non-idiomatic code for Rust 2018 edition.
 rust_2018_idioms = { level = "warn", priority = -1 }
 # Denies using features that may break in future Rust versions.

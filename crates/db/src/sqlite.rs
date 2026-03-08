@@ -64,7 +64,7 @@ impl Transactional for SqliteRepo {
     type Guard<'a> = SqliteGuard<'a>;
 
     #[inline]
-    fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>> {
+    async fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>> {
         let mut depth = self.depth.borrow_mut();
         if *depth == 0 {
             self.execute_sql("BEGIN")?;
@@ -99,7 +99,7 @@ impl<'a> SqliteGuard<'a> {
 
 impl TransactionGuard for SqliteGuard<'_> {
     #[inline]
-    fn commit_transaction(mut self) -> CoreResult<()> {
+    async fn commit_transaction(mut self) -> CoreResult<()> {
         self.committed = true;
         let mut depth = self.repo.depth.borrow_mut();
         *depth -= 1;
@@ -129,7 +129,7 @@ impl Drop for SqliteGuard<'_> {
 
 impl ProjectRepository for SqliteRepo {
     #[inline]
-    fn save_project(&self, project: &Project) -> CoreResult<()> {
+    async fn save_project(&self, project: &Project) -> CoreResult<()> {
         self.connection
             .borrow()
             .execute(
@@ -151,7 +151,7 @@ impl ProjectRepository for SqliteRepo {
     }
 
     #[inline]
-    fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
+    async fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
         self.connection
             .borrow()
             .prepare("SELECT id, slug, title, created_at FROM projects WHERE id = ?1")
@@ -164,7 +164,7 @@ impl ProjectRepository for SqliteRepo {
     }
 
     #[inline]
-    fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
+    async fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
         self.connection
             .borrow()
             .prepare("SELECT id, slug, title, created_at FROM projects WHERE slug = ?1")
@@ -177,7 +177,7 @@ impl ProjectRepository for SqliteRepo {
     }
 
     #[inline]
-    fn list_projects(&self) -> CoreResult<Vec<Project>> {
+    async fn list_projects(&self) -> CoreResult<Vec<Project>> {
         self.connection
             .borrow()
             .prepare("SELECT id, slug, title, created_at FROM projects ORDER BY created_at")
@@ -189,7 +189,7 @@ impl ProjectRepository for SqliteRepo {
     }
 
     #[inline]
-    fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
+    async fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
         self.connection
             .borrow()
             .execute(
@@ -204,7 +204,7 @@ impl ProjectRepository for SqliteRepo {
 
 impl TaskRepository for SqliteRepo {
     #[inline]
-    fn save_task(&self, task: &Task) -> CoreResult<()> {
+    async fn save_task(&self, task: &Task) -> CoreResult<()> {
         self.connection
             .borrow()
             .execute(
@@ -232,7 +232,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
+    async fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
         self.connection
             .borrow()
             .prepare(
@@ -248,7 +248,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
+    async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
         self.connection
             .borrow()
             .prepare(
@@ -263,7 +263,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+    async fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         self.connection
             .borrow()
             .prepare(
@@ -278,7 +278,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
+    async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
         self.connection
             .borrow()
             .execute("DELETE FROM tasks WHERE id = ?1", params![id.to_string()])
@@ -287,7 +287,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
+    async fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
         self.connection
             .borrow()
             .execute(
@@ -299,7 +299,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn save_task_change(&self, change: &StatusChange) -> CoreResult<()> {
+    async fn save_task_change(&self, change: &StatusChange) -> CoreResult<()> {
         self.connection
             .borrow()
             .execute(
@@ -318,7 +318,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+    async fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
         self.connection
             .borrow()
             .prepare(
@@ -333,7 +333,7 @@ impl TaskRepository for SqliteRepo {
     }
 
     #[inline]
-    fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
+    async fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
         let start = date
             .and_hms_opt(0, 0, 0)
             .expect("valid midnight")

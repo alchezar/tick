@@ -252,8 +252,8 @@ fn today_section_shows_old_done_as_planned() {
     assert_eq!(report.render(), expected);
 }
 
-#[test]
-fn generate_today_includes_active_and_changed() {
+#[tokio::test]
+async fn generate_today_includes_active_and_changed() {
     let repo = FakeRepo::default();
     let report_svc = ReportService::new(repo.clone());
 
@@ -266,24 +266,24 @@ fn generate_today_includes_active_and_changed() {
     let mut a = Task::new("Task A", None, project.id);
     a.created = common::datetime(yesterday, 9);
     a.order = Some(0);
-    repo.save_task(&a).unwrap();
+    repo.save_task(&a).await.unwrap();
     let mut ch = StatusChange::new(a.id, Status::NotStarted, Status::InProgress);
     ch.changed_at = common::datetime(yesterday, 10);
-    repo.save_task_change(&ch).unwrap();
+    repo.save_task_change(&ch).await.unwrap();
 
     // Task B: created yesterday, completed today
     let mut b = Task::new("Task B", None, project.id);
     b.created = common::datetime(yesterday, 9);
     b.order = Some(1);
-    repo.save_task(&b).unwrap();
+    repo.save_task(&b).await.unwrap();
     let mut ch1 = StatusChange::new(b.id, Status::NotStarted, Status::InProgress);
     ch1.changed_at = common::datetime(yesterday, 11);
-    repo.save_task_change(&ch1).unwrap();
+    repo.save_task_change(&ch1).await.unwrap();
     let mut ch2 = StatusChange::new(b.id, Status::InProgress, Status::Done);
     ch2.changed_at = common::datetime(today, 14);
-    repo.save_task_change(&ch2).unwrap();
+    repo.save_task_change(&ch2).await.unwrap();
 
-    let report = report_svc.generate(today, &project).unwrap();
+    let report = report_svc.generate(today, &project).await.unwrap();
 
     // Current: A = InProgress, B = Done (changed today)
     assert_eq!(report.current.len(), 2);
@@ -293,8 +293,8 @@ fn generate_today_includes_active_and_changed() {
     assert_eq!(task_b.status(), Status::Done);
 }
 
-#[test]
-fn generate_past_date_reconstructs_status() {
+#[tokio::test]
+async fn generate_past_date_reconstructs_status() {
     let repo = FakeRepo::default();
     let report_svc = ReportService::new(repo.clone());
     let project = Project::default();
@@ -306,29 +306,29 @@ fn generate_past_date_reconstructs_status() {
     let mut task = Task::new("Feature X", None, project.id);
     task.created = common::datetime(monday, 9);
     task.order = Some(0);
-    repo.save_task(&task).unwrap();
+    repo.save_task(&task).await.unwrap();
 
     let mut ch1 = StatusChange::new(task.id, Status::NotStarted, Status::InProgress);
     ch1.changed_at = common::datetime(monday, 10);
-    repo.save_task_change(&ch1).unwrap();
+    repo.save_task_change(&ch1).await.unwrap();
 
     let mut ch2 = StatusChange::new(task.id, Status::InProgress, Status::Done);
     ch2.changed_at = common::datetime(tuesday, 14);
-    repo.save_task_change(&ch2).unwrap();
+    repo.save_task_change(&ch2).await.unwrap();
 
     // Report for monday: task was InProgress
-    let report_mon = report_svc.generate(monday, &project).unwrap();
+    let report_mon = report_svc.generate(monday, &project).await.unwrap();
     assert_eq!(report_mon.current.len(), 1);
     assert_eq!(report_mon.current[0].status(), Status::InProgress);
 
     // Report for tuesday: task was Done (appears because it changed that day)
-    let report_tue = report_svc.generate(tuesday, &project).unwrap();
+    let report_tue = report_svc.generate(tuesday, &project).await.unwrap();
     assert_eq!(report_tue.current.len(), 1);
     assert_eq!(report_tue.current[0].status(), Status::Done);
 }
 
-#[test]
-fn generate_excludes_tasks_created_after_date() {
+#[tokio::test]
+async fn generate_excludes_tasks_created_after_date() {
     let repo = FakeRepo::default();
     let report_svc = ReportService::new(repo.clone());
     let project = Project::default();
@@ -340,16 +340,16 @@ fn generate_excludes_tasks_created_after_date() {
     let mut task = Task::new("Future task", None, project.id);
     task.created = common::datetime(tuesday, 9);
     task.order = Some(0);
-    repo.save_task(&task).unwrap();
+    repo.save_task(&task).await.unwrap();
 
     // Report for monday: task doesn't exist yet
-    let report = report_svc.generate(monday, &project).unwrap();
+    let report = report_svc.generate(monday, &project).await.unwrap();
     assert!(report.current.is_empty());
     assert!(report.prev.is_empty());
 }
 
-#[test]
-fn generate_block_cascade_in_historical_report() {
+#[tokio::test]
+async fn generate_block_cascade_in_historical_report() {
     use domain::service::TaskService;
 
     let repo = FakeRepo::default();
@@ -360,15 +360,16 @@ fn generate_block_cascade_in_historical_report() {
     let today = Utc::now().date_naive();
 
     // Create parent + child, start both, then block parent (cascades)
-    let parent = task_svc.create("Parent", None, project.id).unwrap();
+    let parent = task_svc.create("Parent", None, project.id).await.unwrap();
     let child = task_svc
         .create("Child", Some(&parent.id), project.id)
+        .await
         .unwrap();
-    task_svc.start(&parent.id).unwrap();
-    task_svc.start(&child.id).unwrap();
-    task_svc.block(&parent.id).unwrap();
+    task_svc.start(&parent.id).await.unwrap();
+    task_svc.start(&child.id).await.unwrap();
+    task_svc.block(&parent.id).await.unwrap();
 
-    let report = report_svc.generate(today, &project).unwrap();
+    let report = report_svc.generate(today, &project).await.unwrap();
 
     // Both should appear (status changed today) and both should be Blocked
     let parent_task = report.current.iter().find(|t| t.id == parent.id).unwrap();
@@ -438,33 +439,33 @@ fn render_all_empty_input() {
     assert!(output.is_empty());
 }
 
-#[test]
-fn generate_all_returns_reports_for_all_projects() {
+#[tokio::test]
+async fn generate_all_returns_reports_for_all_projects() {
     let repo = FakeRepo::default();
 
     let work = Project::new("work", Some("Work Projects"));
     let personal = Project::new("personal", None::<String>);
-    repo.save_project(&work).unwrap();
-    repo.save_project(&personal).unwrap();
+    repo.save_project(&work).await.unwrap();
+    repo.save_project(&personal).await.unwrap();
 
     let today = Utc::now().date_naive();
 
     let mut t1 = Task::new("Work task", None, work.id);
     t1.order = Some(0);
-    repo.save_task(&t1).unwrap();
+    repo.save_task(&t1).await.unwrap();
     let mut ch1 = StatusChange::new(t1.id, Status::NotStarted, Status::InProgress);
     ch1.changed_at = common::datetime(today, 9);
-    repo.save_task_change(&ch1).unwrap();
+    repo.save_task_change(&ch1).await.unwrap();
 
     let mut t2 = Task::new("Personal task", None, personal.id);
     t2.order = Some(0);
-    repo.save_task(&t2).unwrap();
+    repo.save_task(&t2).await.unwrap();
     let mut ch2 = StatusChange::new(t2.id, Status::NotStarted, Status::InProgress);
     ch2.changed_at = common::datetime(today, 10);
-    repo.save_task_change(&ch2).unwrap();
+    repo.save_task_change(&ch2).await.unwrap();
 
     let report_svc = ReportService::new(repo);
-    let reports = report_svc.generate_all(today).unwrap();
+    let reports = report_svc.generate_all(today).await.unwrap();
 
     assert_eq!(reports.len(), 2);
 
@@ -473,16 +474,16 @@ fn generate_all_returns_reports_for_all_projects() {
     assert!(titles.contains(&"personal"));
 }
 
-#[test]
-fn generate_all_empty_project_produces_empty_report() {
+#[tokio::test]
+async fn generate_all_empty_project_produces_empty_report() {
     let repo = FakeRepo::default();
 
     let project = Project::new("empty", None::<String>);
-    repo.save_project(&project).unwrap();
+    repo.save_project(&project).await.unwrap();
 
     let today = Utc::now().date_naive();
     let report_svc = ReportService::new(repo);
-    let reports = report_svc.generate_all(today).unwrap();
+    let reports = report_svc.generate_all(today).await.unwrap();
 
     assert_eq!(reports.len(), 1);
     assert!(reports[0].prev.is_empty());
@@ -490,12 +491,12 @@ fn generate_all_empty_project_produces_empty_report() {
     assert!(reports[0].render().is_empty());
 }
 
-#[test]
-fn generate_all_no_projects() {
+#[tokio::test]
+async fn generate_all_no_projects() {
     let repo = FakeRepo::default();
     let today = Utc::now().date_naive();
     let report_svc = ReportService::new(repo);
 
-    let reports = report_svc.generate_all(today).unwrap();
+    let reports = report_svc.generate_all(today).await.unwrap();
     assert!(reports.is_empty());
 }

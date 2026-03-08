@@ -9,9 +9,9 @@ pub fn repo() -> SqliteRepo {
     SqliteRepo::in_memory().unwrap()
 }
 
-pub fn repo_with_project() -> (SqliteRepo, Project) {
+pub async fn repo_with_project() -> (SqliteRepo, Project) {
     let repo = repo();
     let project = Project::new("work", None::<String>);
-    repo.save_project(&project).unwrap();
+    repo.save_project(&project).await.unwrap();
     (repo, project)
 }

@@ -13,3 +13,6 @@ domain = { path = "../domain" }
 chrono = { workspace = true }
 rusqlite = { workspace = true }
 uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
