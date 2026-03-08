@@ -5,15 +5,19 @@ use core::cell::RefCell;
 use rusqlite::Connection;
 
 use crate::schema;
-use domain::error::{DbError, DbResult};
+use domain::{
+    error::{CoreResult, DbError, DbResult},
+    repository::{TransactionGuard, Transactional},
+};
 
 /// `SQLite` repository wrapping a single connection.
 ///
 /// Uses [`RefCell`] for interior mutability because repository traits use `&self`.
-#[allow(dead_code)]
+/// Transaction nesting is tracked via a depth counter.
 #[derive(Debug)]
 pub struct SqliteRepo {
     connection: RefCell<Connection>,
+    depth: RefCell<usize>,
 }
 
 impl SqliteRepo {
@@ -31,6 +35,7 @@ impl SqliteRepo {
         schema::migrate(&conn)?;
         Ok(Self {
             connection: RefCell::new(conn),
+            depth: RefCell::new(0),
         })
     }
 
@@ -41,7 +46,82 @@ impl SqliteRepo {
     /// # Errors
     /// Returns [`DbError`] if the connection or migration fails.
     #[inline]
-    pub fn in_memory() -> Result<Self, DbError> {
+    pub fn in_memory() -> DbResult<Self> {
         Self::open(":memory:")
+    }
+
+    /// Executes a raw SQL statement on the underlying connection.
+    fn execute_sql(&self, sql: &str) -> DbResult<()> {
+        self.connection
+            .borrow()
+            .execute_batch(sql)
+            .map_err(|e| DbError::Query(e.to_string()))
+    }
+}
+
+impl Transactional for SqliteRepo {
+    type Guard<'a> = SqliteGuard<'a>;
+
+    #[inline]
+    fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>> {
+        let mut depth = self.depth.borrow_mut();
+        if *depth == 0 {
+            self.execute_sql("BEGIN")?;
+        }
+        *depth += 1;
+
+        Ok(SqliteGuard::new(self))
+    }
+}
+
+/// RAII transaction guard for [`SqliteRepo`].
+///
+/// Dropping without calling [`commit_transaction`](TransactionGuard::commit_transaction)
+/// triggers a rollback (only at the outermost level).
+#[derive(Debug)]
+pub struct SqliteGuard<'a> {
+    repo: &'a SqliteRepo,
+    committed: bool,
+}
+
+impl<'a> SqliteGuard<'a> {
+    /// Creates a new uncommitted guard tied to the given repo.
+    #[inline]
+    #[must_use]
+    pub fn new(repo: &'a SqliteRepo) -> Self {
+        Self {
+            repo,
+            committed: false,
+        }
+    }
+}
+
+impl TransactionGuard for SqliteGuard<'_> {
+    #[inline]
+    fn commit_transaction(mut self) -> CoreResult<()> {
+        self.committed = true;
+        let mut depth = self.repo.depth.borrow_mut();
+        *depth -= 1;
+        if *depth == 0 {
+            self.repo.execute_sql("COMMIT")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for SqliteGuard<'_> {
+    #[inline]
+    fn drop(&mut self) {
+        if self.committed {
+            return;
+        }
+
+        let mut depth = self.repo.depth.borrow_mut();
+        *depth -= 1;
+
+        if *depth == 0 {
+            let _ = self.repo.execute_sql("ROLLBACK");
+        }
     }
 }
