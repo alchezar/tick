@@ -164,6 +164,14 @@ where
         self.repo.save_task(&task).await
     }
 
+    /// Returns all tasks in a project.
+    ///
+    /// # Errors
+    /// Returns an error if the persistence operation fails.
+    pub async fn list(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+        self.repo.list_tasks(project_id).await
+    }
+
     /// Returns the full status change history for a task, ordered by `changed_at`.
     ///
     /// # Errors

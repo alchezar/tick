@@ -1,40 +1,34 @@
 //! Handler for project management commands.
 
-use crate::{args::ProjectAction, config::Config, error::CliResult};
-use domain::{
-    repository::{ProjectRepository, Transactional},
-    service::ProjectService,
-};
+use crate::{args::ProjectAction, context::AppContext, error::CliResult};
+use domain::repository::{ProjectRepository, TaskRepository, Transactional};
 
 /// Dispatches a project subcommand.
 ///
 /// # Errors
 /// Returns [`CliError`](crate::error::CliError) on domain or config errors.
-pub async fn handle<R>(
-    action: Option<ProjectAction>,
-    config: &mut Config,
-    service: &ProjectService<R>,
-) -> CliResult<()>
+pub async fn handle<R>(action: Option<ProjectAction>, ctx: &mut AppContext<R>) -> CliResult<()>
 where
-    R: ProjectRepository + Transactional,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
     match action {
-        None => show_active(config),
-        Some(ProjectAction::List) => list(service).await,
-        Some(ProjectAction::Add { slug, title }) => add(service, &slug, title.as_deref()).await,
-        Some(ProjectAction::Switch { slug }) => switch(config, service, &slug).await,
-        Some(ProjectAction::Rename { slug, new_title }) => rename(service, &slug, &new_title).await,
-        Some(ProjectAction::Reslug { slug, new_slug }) => {
-            reslug(config, service, &slug, &new_slug).await
-        }
-        Some(ProjectAction::Remove { slug }) => remove(config, service, &slug).await,
+        None => show_active(ctx),
+        Some(ProjectAction::List) => list(ctx).await,
+        Some(ProjectAction::Add { slug, title }) => add(ctx, &slug, title.as_deref()).await,
+        Some(ProjectAction::Switch { slug }) => switch(ctx, &slug).await,
+        Some(ProjectAction::Rename { slug, new_title }) => rename(ctx, &slug, &new_title).await,
+        Some(ProjectAction::Reslug { slug, new_slug }) => reslug(ctx, &slug, &new_slug).await,
+        Some(ProjectAction::Remove { slug }) => remove(ctx, &slug).await,
     }
 }
 
 /// Shows the active project slug and title.
 #[allow(clippy::unnecessary_wraps)]
-fn show_active(config: &Config) -> CliResult<()> {
-    match config.active_project() {
+fn show_active<R>(ctx: &AppContext<R>) -> CliResult<()>
+where
+    R: ProjectRepository + TaskRepository + Transactional,
+{
+    match ctx.config.active_project() {
         Some(slug) => println!("{slug}"),
         None => println!("no active project"),
     }
@@ -42,11 +36,11 @@ fn show_active(config: &Config) -> CliResult<()> {
 }
 
 /// Lists all projects.
-async fn list<R>(service: &ProjectService<R>) -> CliResult<()>
+async fn list<R>(ctx: &AppContext<R>) -> CliResult<()>
 where
-    R: ProjectRepository + Transactional,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
-    let projects = service.list().await?;
+    let projects = ctx.project_service.list().await?;
 
     if projects.is_empty() {
         println!("no projects");
@@ -63,11 +57,11 @@ where
 }
 
 /// Creates a new project.
-async fn add<R>(service: &ProjectService<R>, slug: &str, title: Option<&str>) -> CliResult<()>
+async fn add<R>(ctx: &AppContext<R>, slug: &str, title: Option<&str>) -> CliResult<()>
 where
-    R: ProjectRepository + Transactional,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
-    let project = service.create(slug, title).await?;
+    let project = ctx.project_service.create(slug, title).await?;
     match &project.title {
         Some(title) => println!("created: {} - {title}", project.slug),
         None => println!("created: {}", project.slug),
@@ -76,40 +70,35 @@ where
 }
 
 /// Switches the active project.
-async fn switch<R>(config: &mut Config, service: &ProjectService<R>, slug: &str) -> CliResult<()>
+async fn switch<R>(ctx: &mut AppContext<R>, slug: &str) -> CliResult<()>
 where
-    R: ProjectRepository + Transactional,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
-    service.find_by(slug).await?;
-    config.set_active(slug)?;
+    ctx.project_service.find_by(slug).await?;
+    ctx.config.set_active(slug)?;
     println!("switched to: {slug}");
     Ok(())
 }
 
 /// Renames a project (changes display title).
-async fn rename<R>(service: &ProjectService<R>, slug: &str, new_title: &str) -> CliResult<()>
+async fn rename<R>(ctx: &AppContext<R>, slug: &str, new_title: &str) -> CliResult<()>
 where
-    R: ProjectRepository + Transactional,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
-    service.rename(slug, new_title).await?;
+    ctx.project_service.rename(slug, new_title).await?;
     println!("renamed: {slug} -> {new_title}");
     Ok(())
 }
 
 /// Changes the slug of a project.
-async fn reslug<R>(
-    config: &mut Config,
-    service: &ProjectService<R>,
-    slug: &str,
-    new_slug: &str,
-) -> CliResult<()>
+async fn reslug<R>(ctx: &mut AppContext<R>, slug: &str, new_slug: &str) -> CliResult<()>
 where
-    R: ProjectRepository + Transactional,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
-    service.reslug(slug, new_slug).await?;
+    ctx.project_service.reslug(slug, new_slug).await?;
 
-    if config.active_project() == Some(slug) {
-        config.set_active(new_slug)?;
+    if ctx.config.active_project() == Some(slug) {
+        ctx.config.set_active(new_slug)?;
     }
 
     println!("reslugged: {slug} -> {new_slug}");
@@ -117,15 +106,15 @@ where
 }
 
 /// Deletes a project and all its tasks.
-async fn remove<R>(config: &mut Config, service: &ProjectService<R>, slug: &str) -> CliResult<()>
+async fn remove<R>(ctx: &mut AppContext<R>, slug: &str) -> CliResult<()>
 where
-    R: ProjectRepository + Transactional,
+    R: ProjectRepository + TaskRepository + Transactional,
 {
-    service.delete(slug).await?;
+    ctx.project_service.delete(slug).await?;
 
-    if config.active_project() == Some(slug) {
-        config.active_project = None;
-        config.save()?;
+    if ctx.config.active_project() == Some(slug) {
+        ctx.config.active_project = None;
+        ctx.config.save()?;
     }
 
     println!("removed: {slug}");

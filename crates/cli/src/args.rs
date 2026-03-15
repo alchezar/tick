@@ -205,3 +205,14 @@ pub enum TaskAction {
         id: ShortId,
     },
 }
+
+impl TaskAction {
+    /// Returns the explicit `--project` slug if the variant carries one.
+    #[must_use]
+    pub fn project(&self) -> Option<&str> {
+        match self {
+            Self::Add { project, .. } | Self::List { project, .. } => project.as_deref(),
+            _ => None,
+        }
+    }
+}
