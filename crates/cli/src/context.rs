@@ -2,7 +2,7 @@
 
 use domain::{
     repository::{ProjectRepository, TaskRepository, Transactional},
-    service::{ProjectService, TaskService},
+    service::{ProjectService, ReportService, TaskService},
 };
 
 use crate::config::Config;
@@ -19,4 +19,6 @@ where
     pub project_service: ProjectService<R>,
     /// Task management service.
     pub task_service: TaskService<R>,
+    /// Standup report service.
+    pub report_service: ReportService<R>,
 }

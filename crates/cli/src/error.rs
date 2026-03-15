@@ -40,6 +40,8 @@ pub enum CliError {
     NoDataDir,
     /// No active project set.
     NoActiveProject,
+    /// Clipboard operation failed.
+    Clipboard(String),
     /// Domain-level error (task/project not found, invalid transition, etc.).
     Domain(CoreError),
 }
@@ -64,6 +66,9 @@ impl Display for CliError {
             }
             Self::NoDataDir => {
                 write!(f, "cannot determine XDG data directory")
+            }
+            Self::Clipboard(source) => {
+                write!(f, "clipboard error: {source}")
             }
             Self::NoActiveProject => {
                 write!(f, "no active project set, use `tick project switch <slug>`")

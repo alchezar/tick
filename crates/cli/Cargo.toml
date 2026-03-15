@@ -11,6 +11,7 @@ workspace = true
 domain = { path = "../domain" }
 db = { path = "../db" }
 
+arboard = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 dirs = { workspace = true }

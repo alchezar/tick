@@ -40,18 +40,6 @@ pub enum Command {
         #[arg(short, long)]
         project: Option<String>,
 
-        /// Show only the Previously section.
-        #[arg(short = 'P', long)]
-        previously: bool,
-
-        /// Show only the Today section.
-        #[arg(short, long)]
-        today: bool,
-
-        /// Show only the Current section.
-        #[arg(short = 'C', long)]
-        current: bool,
-
         /// Copy output to clipboard.
         #[arg(short, long)]
         copy: bool,
