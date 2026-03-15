@@ -66,10 +66,14 @@ async fn create_exceeds_max_depth() {
         .create("Level 2", Some(&l1.id), project.id, None)
         .await
         .unwrap();
-
-    // 4th level (l0 -> l1 -> l2 -> l3) must be rejected
-    let err = service
+    let l3 = service
         .create("Level 3", Some(&l2.id), project.id, None)
+        .await
+        .unwrap();
+
+    // 5th level (l0 -> l1 -> l2 -> l3 -> l4) must be rejected
+    let err = service
+        .create("Level 4", Some(&l3.id), project.id, None)
         .await
         .unwrap_err();
     assert!(matches!(err, CoreError::MaxDepthExceeded));
@@ -202,7 +206,7 @@ async fn block_cascade_records_changes_for_children() {
 
 #[tokio::test]
 async fn create_at_fourth_level_fails() {
-    // SPEC: "up to 3 levels of nesting: task -> subtask -> sub-subtask"
+    // SPEC: "up to 4 levels of nesting"
     let service = common::task_service();
     let project = Project::default();
     let l0 = service
@@ -217,10 +221,14 @@ async fn create_at_fourth_level_fails() {
         .create("Sub-subtask", Some(&l1.id), project.id, None)
         .await
         .unwrap();
+    let l3 = service
+        .create("Sub-sub-subtask", Some(&l2.id), project.id, None)
+        .await
+        .unwrap();
 
-    // 4th level must be rejected
+    // 5th level must be rejected
     let result = service
-        .create("Too deep", Some(&l2.id), project.id, None)
+        .create("Too deep", Some(&l3.id), project.id, None)
         .await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }
@@ -230,10 +238,14 @@ async fn move_subtree_exceeds_depth() {
     let service = common::task_service();
     let project = Project::default();
 
-    // Tree 1: a -> b (2 levels)
+    // Tree 1: a -> b -> c (3 levels)
     let a = service.create("A", None, project.id, None).await.unwrap();
-    let _b = service
+    let b = service
         .create("B", Some(&a.id), project.id, None)
+        .await
+        .unwrap();
+    let _c = service
+        .create("C", Some(&b.id), project.id, None)
         .await
         .unwrap();
 
@@ -244,7 +256,7 @@ async fn move_subtree_exceeds_depth() {
         .await
         .unwrap();
 
-    // Move A under Y: x -> y -> a -> b = 4 levels, exceeds max 3
+    // Move A under Y: x -> y -> a -> b -> c = 5 levels, exceeds max 4
     let result = service.move_to_parent(&a.id, Some(&y.id)).await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }

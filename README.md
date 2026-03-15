@@ -35,7 +35,7 @@ Today:
 | Version | Description                         | Status |
 |---------|-------------------------------------|--------|
 | v0.1    | Multi-project support               | ✅      |
-| v0.2    | CLI + SQLite                        | 🔄     |
+| v0.2    | CLI + SQLite                        | ✅      |
 | v0.3    | TUI frontend                        | ⏳      |
 | v0.4    | React frontend with Kanban view     | ⏳      |
 | v0.5    | PostgreSQL, multi-user, roles, auth | ⏳      |
@@ -55,6 +55,7 @@ tick pr ls                      # list all projects
 # Tasks
 tick ts ad "Fix login bug"                 # add root task
 tick ts ad "Fix login bug" -u <parent-id>  # add child task
+tick ts ad "Fix login bug" -d 2026-01-15   # add task with specific date
 tick ts ls                                 # list active tasks
 tick ts dn <id>                            # mark done
 tick ts bl <id>                            # mark blocked

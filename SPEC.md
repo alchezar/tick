@@ -2,7 +2,7 @@
 
 ## Overview
 
-`tick` is a task tracker designed to generate formatted daily standup reports. Tasks support up to 3 levels of nesting: task -> subtask -> sub-subtask.
+`tick` is a task tracker designed to generate formatted daily standup reports. Tasks support up to 4 levels of nesting.
 
 ---
 
@@ -46,7 +46,7 @@ Every status transition is recorded automatically. Used to reconstruct historica
 
 ### Constraints
 
-- Max nesting depth: 3 levels
+- Max nesting depth: 4 levels
 - A task with children cannot be marked as `done` - returns an error if any child is still active
 - Blocking a task cascades to all active descendants
 - `order` is maintained per parent scope (siblings only)
@@ -141,6 +141,7 @@ The active project is stored in `~/.local/share/tick/config.toml`. Task and repo
 ```
 tick ts ad <title>                     Add a root task
 tick ts ad <title> -u <id>             Add a child task
+tick ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
 tick ts ls                             List active tasks (tree view)
 tick ts ls --all                       List all tasks including done/blocked
 tick ts st <id>                        Set status to in_progress

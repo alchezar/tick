@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::model::Status;
 
 /// Maximum allowed task nesting depth.
-pub const MAX_DEPTH: usize = 3;
+pub const MAX_DEPTH: usize = 4;
 
 /// Domain-level errors for the `core` crate.
 #[derive(Debug, Error)]
