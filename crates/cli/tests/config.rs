@@ -19,9 +19,7 @@ fn save_and_load_roundtrip() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join(CONFIG_FILE);
 
-    let config = Config {
-        active_project: Some("work".to_owned()),
-    };
+    let config = Config::new(Some("work".to_owned()), None);
     config.save_to(&path).unwrap();
 
     let loaded = Config::load_from(&path).unwrap();

@@ -18,9 +18,22 @@ const APP_DIR: &str = "tick";
 pub struct Config {
     /// Slug of the currently active project.
     pub active_project: Option<String>,
+
+    /// Custom file path (overrides default XDG path when set).
+    #[serde(skip)]
+    path: Option<PathBuf>,
 }
 
 impl Config {
+    /// Creates a new config with optional active project and custom file path.
+    #[must_use]
+    pub fn new(active_project: Option<String>, path: Option<PathBuf>) -> Self {
+        Self {
+            active_project,
+            path,
+        }
+    }
+
     /// Loads config from the default XDG data directory.
     ///
     /// # Errors
@@ -29,32 +42,42 @@ impl Config {
         Self::load_from(&Self::default_path()?)
     }
 
-    /// Writes config to the default XDG data directory.
+    /// Writes config to disk (custom path if set, otherwise default XDG).
     ///
     /// # Errors
     /// Returns [`CliError::ConfigWrite`] if the file cannot be written.
     pub fn save(&self) -> CliResult<()> {
-        self.save_to(&Self::default_path()?)
+        let path = match &self.path {
+            Some(p) => p.clone(),
+            None => Self::default_path()?,
+        };
+        self.save_to(&path)
     }
 
     /// Loads config from a specific path, returning defaults if the file does not exist.
     ///
+    /// Subsequent calls to [`save`](Config::save) and [`set_active`](Config::set_active)
+    /// will use this path instead of the default XDG location.
+    ///
     /// # Errors
     /// Returns [`CliError::ConfigRead`] if the file exists but cannot be read or parsed.
     pub fn load_from(path: &Path) -> CliResult<Self> {
-        if !path.exists() {
-            return Ok(Self::default());
-        }
+        let mut config = if path.exists() {
+            let content = fs::read_to_string(path).map_err(|e| CliError::ConfigRead {
+                path: path.to_path_buf(),
+                source: e.to_string(),
+            })?;
 
-        let content = fs::read_to_string(path).map_err(|e| CliError::ConfigRead {
-            path: path.to_path_buf(),
-            source: e.to_string(),
-        })?;
+            toml::from_str(&content).map_err(|e| CliError::ConfigRead {
+                path: path.to_path_buf(),
+                source: e.to_string(),
+            })?
+        } else {
+            Self::default()
+        };
 
-        toml::from_str(&content).map_err(|e| CliError::ConfigRead {
-            path: path.to_path_buf(),
-            source: e.to_string(),
-        })
+        config.path = Some(path.to_path_buf());
+        Ok(config)
     }
 
     /// Writes config to a specific path, creating directories as needed.

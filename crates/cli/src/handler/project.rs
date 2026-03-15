@@ -24,11 +24,11 @@ where
 
 /// Shows the active project slug and title.
 #[allow(clippy::unnecessary_wraps)]
-fn show_active<R>(ctx: &AppContext<R>) -> CliResult<()>
+fn show_active<R>(context: &AppContext<R>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    match ctx.config.active_project() {
+    match context.config.active_project() {
         Some(slug) => println!("{slug}"),
         None => println!("no active project"),
     }
@@ -36,11 +36,11 @@ where
 }
 
 /// Lists all projects.
-async fn list<R>(ctx: &AppContext<R>) -> CliResult<()>
+async fn list<R>(context: &AppContext<R>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let projects = ctx.project_service.list().await?;
+    let projects = context.project_service.list().await?;
 
     if projects.is_empty() {
         println!("no projects");
@@ -57,11 +57,11 @@ where
 }
 
 /// Creates a new project.
-async fn add<R>(ctx: &AppContext<R>, slug: &str, title: Option<&str>) -> CliResult<()>
+async fn add<R>(context: &AppContext<R>, slug: &str, title: Option<&str>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let project = ctx.project_service.create(slug, title).await?;
+    let project = context.project_service.create(slug, title).await?;
     match &project.title {
         Some(title) => println!("created: {} - {title}", project.slug),
         None => println!("created: {}", project.slug),
@@ -70,35 +70,35 @@ where
 }
 
 /// Switches the active project.
-async fn switch<R>(ctx: &mut AppContext<R>, slug: &str) -> CliResult<()>
+async fn switch<R>(context: &mut AppContext<R>, slug: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    ctx.project_service.find_by(slug).await?;
-    ctx.config.set_active(slug)?;
+    context.project_service.find_by(slug).await?;
+    context.config.set_active(slug)?;
     println!("switched to: {slug}");
     Ok(())
 }
 
 /// Renames a project (changes display title).
-async fn rename<R>(ctx: &AppContext<R>, slug: &str, new_title: &str) -> CliResult<()>
+async fn rename<R>(context: &AppContext<R>, slug: &str, new_title: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    ctx.project_service.rename(slug, new_title).await?;
+    context.project_service.rename(slug, new_title).await?;
     println!("renamed: {slug} -> {new_title}");
     Ok(())
 }
 
 /// Changes the slug of a project.
-async fn reslug<R>(ctx: &mut AppContext<R>, slug: &str, new_slug: &str) -> CliResult<()>
+async fn reslug<R>(context: &mut AppContext<R>, slug: &str, new_slug: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    ctx.project_service.reslug(slug, new_slug).await?;
+    context.project_service.reslug(slug, new_slug).await?;
 
-    if ctx.config.active_project() == Some(slug) {
-        ctx.config.set_active(new_slug)?;
+    if context.config.active_project() == Some(slug) {
+        context.config.set_active(new_slug)?;
     }
 
     println!("reslugged: {slug} -> {new_slug}");
@@ -106,15 +106,15 @@ where
 }
 
 /// Deletes a project and all its tasks.
-async fn remove<R>(ctx: &mut AppContext<R>, slug: &str) -> CliResult<()>
+async fn remove<R>(context: &mut AppContext<R>, slug: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    ctx.project_service.delete(slug).await?;
+    context.project_service.delete(slug).await?;
 
-    if ctx.config.active_project() == Some(slug) {
-        ctx.config.active_project = None;
-        ctx.config.save()?;
+    if context.config.active_project() == Some(slug) {
+        context.config.active_project = None;
+        context.config.save()?;
     }
 
     println!("removed: {slug}");
