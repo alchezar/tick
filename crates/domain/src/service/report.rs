@@ -27,7 +27,6 @@ pub struct Report {
 
 impl Report {
     /// Creates a new report for the given date.
-    #[inline]
     #[must_use]
     pub fn new(
         title: impl Into<String>,
@@ -52,7 +51,6 @@ impl Report {
     /// - **Current** - actual state of today's tasks (real icons).
     ///
     /// Returns an empty string when the project has no relevant tasks.
-    #[inline]
     #[must_use]
     pub fn render(&self) -> String {
         let mut body = String::new();
@@ -85,7 +83,6 @@ impl Report {
 /// Combines multiple per-project reports into a single output string.
 ///
 /// Empty reports (projects with no relevant tasks) are skipped.
-#[inline]
 #[must_use]
 pub fn render_all(reports: &[Report]) -> String {
     reports
@@ -115,7 +112,6 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     /// Creates a new `ReportService` with the given repository.
-    #[inline]
     #[must_use]
     pub fn new(repo: R) -> Self {
         Self { repo }
@@ -127,7 +123,6 @@ where
     ///
     /// # Errors
     /// Returns an error if the repository operation fails.
-    #[inline]
     pub async fn generate(&self, date: NaiveDate, project: &Project) -> CoreResult<Report> {
         let title = project.title.as_deref().unwrap_or(&project.slug);
         let tx = self.repo.begin_transaction().await?;
@@ -147,7 +142,6 @@ where
     ///
     /// # Errors
     /// Returns an error if the repository operation fails.
-    #[inline]
     pub async fn generate_all(&self, date: NaiveDate) -> CoreResult<Vec<Report>> {
         let tx = self.repo.begin_transaction().await?;
 
@@ -237,7 +231,6 @@ where
 /// Returns the previous workday for `date`.
 ///
 /// Monday/Sunday -> Friday, Saturday -> Friday, other days -> previous day.
-#[inline]
 #[must_use]
 #[doc(hidden)]
 pub fn prev_workday(date: NaiveDate) -> NaiveDate {

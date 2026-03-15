@@ -4,7 +4,7 @@ SHELL := /bin/bash
 # Environment
 .PHONY: env-up env-down migrate restart
 # Code quality
-.PHONY: check ci local fmt lint openapi prepare
+.PHONY: check ci validate fmt lint openapi prepare
 # Testing
 .PHONY: test test_one test_in test_not
 # Development
@@ -42,7 +42,7 @@ restart: env-down env-up migrate ## Restart environment and run migrations
 
 ci: fmt lint build ## CI pipeline (GitHub Actions)
 
-local: check test ## Full local pipeline (requires running environment)
+validate: check test ## Validate full local pipeline (requires running environment)
 
 check: fmt prepare lint openapi ## Full code quality check (requires .env and db)
 

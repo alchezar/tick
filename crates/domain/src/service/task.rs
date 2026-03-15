@@ -26,7 +26,6 @@ where
     R: TaskRepository + Transactional,
 {
     /// Creates a new `TaskService` with the given repository.
-    #[inline]
     #[must_use]
     pub fn new(repo: R) -> Self {
         Self { repo }
@@ -39,7 +38,6 @@ where
     /// # Errors
     /// - [`CoreError::MaxDepthExceeded`] if nesting depth would exceed 3.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn create(
         &self,
         title: &str,
@@ -79,7 +77,6 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn start(&self, task_id: &Uuid) -> CoreResult<()> {
         self.update_status(task_id, Status::InProgress).await
     }
@@ -89,7 +86,6 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn reset(&self, task_id: &Uuid) -> CoreResult<()> {
         self.update_status(task_id, Status::NotStarted).await
     }
@@ -100,7 +96,6 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::TaskHasUnfinishedChildren`] if any child task is still active.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn done(&self, task_id: &Uuid) -> CoreResult<()> {
         if self
             .repo
@@ -121,7 +116,6 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn block(&self, task_id: &Uuid) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 
@@ -137,7 +131,6 @@ where
     /// - [`CoreError::TaskNotFound`] if the task does not exist.
     /// - [`CoreError::MaxDepthExceeded`] if the move would exceed nesting depth of 3.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn move_to_parent(&self, task_id: &Uuid, parent_id: Option<&Uuid>) -> CoreResult<()> {
         self.check_depth(parent_id, self.subtree_depth(task_id).await?)
             .await?;
@@ -152,7 +145,6 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn rename(&self, task_id: &Uuid, title: &str) -> CoreResult<()> {
         let mut task = self.find_task(task_id).await?;
 
@@ -165,7 +157,6 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn reorder(&self, task_id: &Uuid, order: usize) -> CoreResult<()> {
         let mut task = self.find_task(task_id).await?;
 
@@ -177,7 +168,6 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn status_history(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
         self.repo.list_task_changes(task_id).await
     }
@@ -188,7 +178,6 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn delete(&self, task_id: &Uuid) -> CoreResult<()> {
         self.repo.delete_task(task_id).await
     }
@@ -209,7 +198,6 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     async fn update_status(&self, task_id: &Uuid, new_status: Status) -> CoreResult<()> {
         let mut task = self.find_task(task_id).await?;
         self.update_status_inner(&mut task, new_status).await

@@ -34,7 +34,6 @@ pub struct Task {
 
 impl Task {
     /// Creates a new task with `NotStarted` status and current timestamp.
-    #[inline]
     #[must_use]
     pub fn new(title: impl Into<String>, parent: Option<Uuid>, project_id: Uuid) -> Self {
         Self {
@@ -49,7 +48,6 @@ impl Task {
     }
 
     /// Returns `true` if the task has no parent (top-level task).
-    #[inline]
     #[must_use]
     pub fn is_root(&self) -> bool {
         self.parent.is_none()
@@ -58,7 +56,6 @@ impl Task {
     /// Returns a copy of this task with the given status.
     ///
     /// Used to reconstruct historical state from status change log.
-    #[inline]
     #[must_use]
     pub fn with_status(mut self, status: Status) -> Self {
         self.status = status;
@@ -69,7 +66,6 @@ impl Task {
     ///
     /// # Errors
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
-    #[inline]
     pub fn update_status(&mut self, new_status: Status) -> CoreResult<()> {
         if !self.status.can_transit(&new_status) {
             return Err(CoreError::InvalidStatusTransition {

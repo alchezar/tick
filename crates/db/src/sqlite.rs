@@ -28,7 +28,6 @@ impl SqliteRepo {
     ///
     /// # Errors
     /// Returns [`DbError`] if the connection or migration fails.
-    #[inline]
     pub async fn open(url: &str) -> DbResult<Self> {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
@@ -59,7 +58,6 @@ impl SqliteRepo {
     ///
     /// # Errors
     /// Returns [`DbError`] if the connection or migration fails.
-    #[inline]
     pub async fn in_memory() -> DbResult<Self> {
         Self::open("sqlite::memory:").await
     }
@@ -68,7 +66,6 @@ impl SqliteRepo {
 impl Transactional for SqliteRepo {
     type Guard<'a> = SqliteGuard<'a>;
 
-    #[inline]
     async fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>> {
         let need_begin = *self.depth.borrow() == 0;
         if need_begin {
@@ -95,7 +92,6 @@ pub struct SqliteGuard<'a> {
 
 impl<'a> SqliteGuard<'a> {
     /// Creates a new uncommitted guard tied to the given repo.
-    #[inline]
     #[must_use]
     pub fn new(repo: &'a SqliteRepo) -> Self {
         Self {
@@ -106,7 +102,6 @@ impl<'a> SqliteGuard<'a> {
 }
 
 impl TransactionGuard for SqliteGuard<'_> {
-    #[inline]
     async fn commit_transaction(mut self) -> CoreResult<()> {
         self.committed = true;
         let need_commit = {
@@ -126,7 +121,6 @@ impl TransactionGuard for SqliteGuard<'_> {
 }
 
 impl Drop for SqliteGuard<'_> {
-    #[inline]
     fn drop(&mut self) {
         if self.committed {
             return;
@@ -170,7 +164,6 @@ struct ProjectRow {
 impl TryFrom<ProjectRow> for Project {
     type Error = CoreError;
 
-    #[inline]
     fn try_from(r: ProjectRow) -> CoreResult<Self> {
         Ok(Self {
             id: Uuid::parse_str(&r.id).map_err(core_err)?,
@@ -196,7 +189,6 @@ struct TaskRow {
 impl TryFrom<TaskRow> for Task {
     type Error = CoreError;
 
-    #[inline]
     fn try_from(r: TaskRow) -> CoreResult<Self> {
         let id = Uuid::parse_str(&r.id).map_err(core_err)?;
         let project_id = Uuid::parse_str(&r.project_id).map_err(core_err)?;
@@ -234,7 +226,6 @@ struct StatusChangeRow {
 impl TryFrom<StatusChangeRow> for StatusChange {
     type Error = CoreError;
 
-    #[inline]
     fn try_from(r: StatusChangeRow) -> CoreResult<Self> {
         Ok(Self {
             id: Uuid::parse_str(&r.id).map_err(core_err)?,
@@ -247,7 +238,6 @@ impl TryFrom<StatusChangeRow> for StatusChange {
 }
 
 impl ProjectRepository for SqliteRepo {
-    #[inline]
     async fn save_project(&self, project: &Project) -> CoreResult<()> {
         let id = project.id.to_string();
         let created = project.created.to_rfc3339();
@@ -271,7 +261,6 @@ impl ProjectRepository for SqliteRepo {
         Ok(())
     }
 
-    #[inline]
     async fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
         let id = id.to_string();
         sqlx::query_as!(
@@ -290,7 +279,6 @@ impl ProjectRepository for SqliteRepo {
         .transpose()
     }
 
-    #[inline]
     async fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>> {
         sqlx::query_as!(
             ProjectRow,
@@ -308,7 +296,6 @@ impl ProjectRepository for SqliteRepo {
         .transpose()
     }
 
-    #[inline]
     async fn list_projects(&self) -> CoreResult<Vec<Project>> {
         sqlx::query_as!(
             ProjectRow,
@@ -326,7 +313,6 @@ impl ProjectRepository for SqliteRepo {
         .collect()
     }
 
-    #[inline]
     async fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
         let id = project_id.to_string();
         sqlx::query!(
@@ -345,7 +331,6 @@ impl ProjectRepository for SqliteRepo {
 }
 
 impl TaskRepository for SqliteRepo {
-    #[inline]
     async fn save_task(&self, task: &Task) -> CoreResult<()> {
         let id = task.id.to_string();
         let project_id = task.project_id.to_string();
@@ -381,7 +366,6 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    #[inline]
     async fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
         let id = id.to_string();
         sqlx::query_as!(
@@ -400,7 +384,6 @@ impl TaskRepository for SqliteRepo {
         .transpose()
     }
 
-    #[inline]
     async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
         let parent = parent.to_string();
         sqlx::query_as!(
@@ -421,7 +404,6 @@ impl TaskRepository for SqliteRepo {
         .collect()
     }
 
-    #[inline]
     async fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         let project_id = project_id.to_string();
         sqlx::query_as!(
@@ -442,7 +424,6 @@ impl TaskRepository for SqliteRepo {
         .collect()
     }
 
-    #[inline]
     async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
         let id = id.to_string();
         sqlx::query!(
@@ -458,7 +439,6 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    #[inline]
     async fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
         let project_id = project_id.to_string();
         sqlx::query!(
@@ -474,7 +454,6 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    #[inline]
     async fn save_task_change(&self, change: &StatusChange) -> CoreResult<()> {
         let id = change.id.to_string();
         let task_id = change.task_id.to_string();
@@ -498,7 +477,6 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    #[inline]
     async fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
         let task_id = task_id.to_string();
         sqlx::query_as!(
@@ -519,7 +497,6 @@ impl TaskRepository for SqliteRepo {
         .collect()
     }
 
-    #[inline]
     async fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
         let start = date
             .and_hms_opt(0, 0, 0)

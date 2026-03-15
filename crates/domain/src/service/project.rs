@@ -22,7 +22,6 @@ where
     R: ProjectRepository + Transactional,
 {
     /// Creates a new `ProjectService` with the given repository.
-    #[inline]
     #[must_use]
     pub fn new(repo: R) -> Self {
         Self { repo }
@@ -33,7 +32,6 @@ where
     /// # Errors
     /// - [`CoreError::ProjectAlreadyExists`] if a project with this slug already exists.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn create(&self, slug: &str, title: Option<&str>) -> CoreResult<Project> {
         let tx = self.repo.begin_transaction().await?;
 
@@ -55,7 +53,6 @@ where
     /// # Errors
     /// - [`CoreError::ProjectNotFound`] if no project exists with this slug.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn find_by(&self, slug: &str) -> CoreResult<Project> {
         self.repo
             .find_project_by_slug(slug)
@@ -69,7 +66,6 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn list(&self) -> CoreResult<Vec<Project>> {
         self.repo.list_projects().await
     }
@@ -78,7 +74,6 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn rename(&self, slug: &str, new_title: &str) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 
@@ -95,7 +90,6 @@ where
     /// - [`CoreError::ProjectNotFound`] if no project exists with the current slug.
     /// - [`CoreError::ProjectAlreadyExists`] if `new_slug` is already taken.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn reslug(&self, slug: &str, new_slug: &str) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 
@@ -118,7 +112,6 @@ where
     /// # Errors
     /// - [`CoreError::ProjectNotFound`] if no project exists with this slug.
     /// - Returns an error if the persistence operation fails.
-    #[inline]
     pub async fn delete(&self, slug: &str) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 

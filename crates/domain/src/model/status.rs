@@ -1,7 +1,8 @@
 //! Task status, allowed transitions, and status change history.
 
+use core::error::Error;
+use core::fmt;
 use core::str::FromStr;
-use core::{error::Error, fmt};
 
 use chrono::{DateTime, Utc};
 use fmt::{Display, Formatter, Result as FmtResult};
@@ -23,7 +24,6 @@ pub enum Status {
 
 impl Status {
     /// Returns the database TEXT representation of this status.
-    #[inline]
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
@@ -35,7 +35,6 @@ impl Status {
     }
 
     /// Returns `true` if transition from current status to `to` is allowed.
-    #[inline]
     #[must_use]
     pub fn can_transit(&self, to: &Self) -> bool {
         matches!(
@@ -48,21 +47,18 @@ impl Status {
     }
 
     /// Returns `true` if the task is actionable (shown in Today section of the report).
-    #[inline]
     #[must_use]
     pub fn is_active(&self) -> bool {
         matches!(self, Status::NotStarted | Status::InProgress)
     }
 
     /// Returns `true` if the task is no longer actionable (shown in Previously section of the report).
-    #[inline]
     #[must_use]
     pub fn is_closed(&self) -> bool {
         matches!(self, Status::Done | Status::Blocked)
     }
 
     /// Returns the emoji icon representing this status in the report output.
-    #[inline]
     #[must_use]
     pub fn icon(&self) -> &'static str {
         match self {
@@ -79,7 +75,6 @@ impl Status {
 pub struct ParseStatusError(String);
 
 impl Display for ParseStatusError {
-    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "unknown status: {}", self.0)
     }
@@ -90,7 +85,6 @@ impl Error for ParseStatusError {}
 impl FromStr for Status {
     type Err = ParseStatusError;
 
-    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "not_started" => Ok(Self::NotStarted),
@@ -103,7 +97,6 @@ impl FromStr for Status {
 }
 
 impl Display for Status {
-    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.write_str(self.as_str())
     }
@@ -126,7 +119,6 @@ pub struct StatusChange {
 
 impl StatusChange {
     /// Creates a new status change record with a generated id.
-    #[inline]
     #[must_use]
     pub fn new(task_id: Uuid, old_status: Status, new_status: Status) -> Self {
         Self {

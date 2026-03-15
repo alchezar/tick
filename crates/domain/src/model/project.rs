@@ -18,7 +18,6 @@ pub struct Project {
 
 impl Project {
     /// Creates a new project with current timestamp.
-    #[inline]
     #[must_use]
     pub fn new(slug: impl Into<String>, title: Option<impl Into<String>>) -> Self {
         Self {
@@ -31,7 +30,6 @@ impl Project {
 }
 
 impl Default for Project {
-    #[inline]
     fn default() -> Self {
         Self::new("default", None::<String>)
     }

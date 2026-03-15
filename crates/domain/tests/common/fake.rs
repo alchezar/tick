@@ -1,7 +1,8 @@
 //! Fake implementations of repository traits for use in integration tests.
 
 use core::cell::RefCell;
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use chrono::NaiveDate;
 use uuid::Uuid;

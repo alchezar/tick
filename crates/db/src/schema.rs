@@ -10,7 +10,6 @@ use domain::error::{DbError, DbResult};
 ///
 /// # Errors
 /// Returns [`DbError::Migration`] if a migration fails.
-#[inline]
 pub async fn migrate(pool: &SqlitePool) -> DbResult<()> {
     sqlx::migrate!("./migrations")
         .run(pool)
