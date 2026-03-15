@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use core::error::Error;
 use core::fmt::{Display, Formatter, Result as FmtResult};
 
+use domain::error::CoreError;
+
 /// Errors produced by the CLI layer.
 #[derive(Debug)]
 pub enum CliError {
@@ -36,6 +38,10 @@ pub enum CliError {
     },
     /// XDG data directory could not be determined.
     NoDataDir,
+    /// No active project set.
+    NoActiveProject,
+    /// Domain-level error (task/project not found, invalid transition, etc.).
+    Domain(CoreError),
 }
 
 impl Display for CliError {
@@ -59,11 +65,21 @@ impl Display for CliError {
             Self::NoDataDir => {
                 write!(f, "cannot determine XDG data directory")
             }
+            Self::NoActiveProject => {
+                write!(f, "no active project set, use `tick project switch <slug>`")
+            }
+            Self::Domain(e) => Display::fmt(e, f),
         }
     }
 }
 
 impl Error for CliError {}
+
+impl From<CoreError> for CliError {
+    fn from(e: CoreError) -> Self {
+        Self::Domain(e)
+    }
+}
 
 /// Shorthand `Result` type for CLI operations.
 pub type CliResult<T> = Result<T, CliError>;
