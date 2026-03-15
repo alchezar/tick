@@ -295,3 +295,24 @@ async fn delete_task_cleans_status_changes() {
     let changes = repo.list_task_changes(&task.id).await.unwrap();
     assert!(changes.is_empty());
 }
+
+#[tokio::test]
+async fn abandon_from_any_status() {
+    let service = common::task_service();
+    let project = Project::default();
+
+    // abandon from not_started
+    let t1 = service.create("T1", None, project.id, None).await.unwrap();
+    service.abandon(&t1.id, None).await.unwrap();
+
+    // abandon from in_progress
+    let t2 = service.create("T2", None, project.id, None).await.unwrap();
+    service.start(&t2.id, None).await.unwrap();
+    service.abandon(&t2.id, None).await.unwrap();
+
+    // abandon from done
+    let t3 = service.create("T3", None, project.id, None).await.unwrap();
+    service.start(&t3.id, None).await.unwrap();
+    service.done(&t3.id, None).await.unwrap();
+    service.abandon(&t3.id, None).await.unwrap();
+}

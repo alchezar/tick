@@ -196,7 +196,10 @@ where
             .filter(|task| task.created.date_naive() <= date)
         {
             let status = self.status_at(&task.id, date).await?;
-            if (status.is_active() || changed_ids.contains(&task.id)) && seen.insert(task.id) {
+            if (status.is_active() || changed_ids.contains(&task.id))
+                && status.is_reportable()
+                && seen.insert(task.id)
+            {
                 tasks.push(task.with_status(status));
             }
         }

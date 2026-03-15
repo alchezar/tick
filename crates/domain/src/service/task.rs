@@ -115,6 +115,15 @@ where
         self.update_status(task_id, Status::Done, at).await
     }
 
+    /// Marks a task as [`Status::Abandoned`].
+    ///
+    /// # Errors
+    /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
+    /// - Returns an error if the persistence operation fails.
+    pub async fn abandon(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+        self.update_status(task_id, Status::Abandoned, at).await
+    }
+
     /// Marks a task as [`Status::Blocked`] and cascades to all active descendants.
     ///
     /// # Errors

@@ -20,6 +20,8 @@ pub enum Status {
     Done,
     /// Task is blocked and cannot progress.
     Blocked,
+    /// Task was abandoned and is no longer relevant.
+    Abandoned,
 }
 
 impl Status {
@@ -31,6 +33,7 @@ impl Status {
             Self::InProgress => "in_progress",
             Self::Done => "done",
             Self::Blocked => "blocked",
+            Self::Abandoned => "abandoned",
         }
     }
 
@@ -39,7 +42,7 @@ impl Status {
     pub fn can_transit(&self, to: &Self) -> bool {
         matches!(
             (self, to),
-            (_, Status::NotStarted)
+            (_, Status::NotStarted | Status::Abandoned)
                 | (Status::NotStarted | Status::Blocked, Status::InProgress)
                 | (Status::NotStarted | Status::InProgress, Status::Blocked)
                 | (Status::InProgress, Status::Done)
@@ -55,7 +58,13 @@ impl Status {
     /// Returns `true` if the task is no longer actionable (shown in Previously section of the report).
     #[must_use]
     pub fn is_closed(&self) -> bool {
-        matches!(self, Status::Done | Status::Blocked)
+        matches!(self, Status::Done | Status::Blocked | Status::Abandoned)
+    }
+
+    /// Returns `true` if the task should appear in reports.
+    #[must_use]
+    pub fn is_reportable(&self) -> bool {
+        *self != Status::Abandoned
     }
 
     /// Returns the emoji icon representing this status in the report output.
@@ -66,6 +75,7 @@ impl Status {
             Self::InProgress => "🔄",
             Self::Done => "✅",
             Self::Blocked => "🛑",
+            Self::Abandoned => "🚫",
         }
     }
 }
@@ -91,6 +101,7 @@ impl FromStr for Status {
             "in_progress" => Ok(Self::InProgress),
             "done" => Ok(Self::Done),
             "blocked" => Ok(Self::Blocked),
+            "abandoned" => Ok(Self::Abandoned),
             other => Err(ParseStatusError(other.to_owned())),
         }
     }

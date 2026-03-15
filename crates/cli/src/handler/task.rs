@@ -46,6 +46,9 @@ where
         TaskAction::Block { id, date } => {
             change_status(context, project_id, id, Status::Blocked, date).await
         }
+        TaskAction::Abandon { id, date } => {
+            change_status(context, project_id, id, Status::Abandoned, date).await
+        }
         TaskAction::Reset { id, date } => {
             change_status(context, project_id, id, Status::NotStarted, date).await
         }
@@ -134,10 +137,10 @@ where
 /// Prints a task and its children recursively.
 fn print_task(task: &Task, all: &[Task], depth: usize) {
     let short_id = ShortId::from(task.id);
-    let indent = " -".repeat(depth);
+    let indent = " -".repeat(depth + 1);
     let icon = task.status().icon();
     let task_title = &task.title;
-    println!("[{short_id}] {indent} {icon} {task_title}");
+    println!("[{short_id}]{indent} {icon} {task_title}");
 
     let mut children = all
         .iter()
@@ -181,6 +184,7 @@ where
         Status::Done => context.task_service.done(&task_id, at).await?,
         Status::Blocked => context.task_service.block(&task_id, at).await?,
         Status::NotStarted => context.task_service.reset(&task_id, at).await?,
+        Status::Abandoned => context.task_service.abandon(&task_id, at).await?,
     }
 
     let short_id = ShortId::from(task_id);

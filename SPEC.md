@@ -21,16 +21,16 @@
 
 ### Task
 
-| Field        | Type     | Description                                        |
-|--------------|----------|----------------------------------------------------|
-| `id`         | UUID     | Primary key                                        |
-| `project_id` | UUID     | Foreign key to `Project`                           |
-| `title`      | TEXT     | Task name                                          |
-| `status`     | TEXT     | `not_started` / `in_progress` / `done` / `blocked` |
-| `parent_id`  | UUID?    | Reference to parent task (nullable)                |
-| `order`      | INTEGER  | Display order among siblings                       |
-| `created_at` | DATETIME | Creation timestamp                                 |
-| `updated_at` | DATETIME | Last status change timestamp                       |
+| Field        | Type     | Description                                                      |
+|--------------|----------|------------------------------------------------------------------|
+| `id`         | UUID     | Primary key                                                      |
+| `project_id` | UUID     | Foreign key to `Project`                                         |
+| `title`      | TEXT     | Task name                                                        |
+| `status`     | TEXT     | `not_started` / `in_progress` / `done` / `blocked` / `abandoned` |
+| `parent_id`  | UUID?    | Reference to parent task (nullable)                              |
+| `order`      | INTEGER  | Display order among siblings                                     |
+| `created_at` | DATETIME | Creation timestamp                                               |
+| `updated_at` | DATETIME | Last status change timestamp                                     |
 
 ### StatusChange
 
@@ -62,6 +62,7 @@ not_started -> blocked
 in_progress -> blocked
 blocked     -> in_progress
 any         -> not_started  (reset)
+any         -> abandoned
 ```
 
 ---
@@ -115,11 +116,11 @@ Implementation: `tasks_snapshot(date)` - reconstructs task statuses from the sta
 
 Top-level commands (`tick <command>`):
 
-| Command   | Alias | Description                      |
-|-----------|-------|----------------------------------|
-| `project` | `pr`  | Project management               |
-| `task`    | `ts`  | Task management                  |
-| `report`  | `rp`  | Generate standup report          |
+| Command   | Alias | Description             |
+|-----------|-------|-------------------------|
+| `project` | `pr`  | Project management      |
+| `task`    | `ts`  | Task management         |
+| `report`  | `rp`  | Generate standup report |
 
 ### Project Management
 
@@ -150,6 +151,8 @@ tick ts dn <id>                        Set status to done
 tick ts dn <id> -d <YYYY-MM-DD>        Set status with specific date
 tick ts bl <id>                        Set status to blocked
 tick ts bl <id> -d <YYYY-MM-DD>        Set status with specific date
+tick ts ab <id>                        Mark task as abandoned
+tick ts ab <id> -d <YYYY-MM-DD>        Abandon with specific date
 tick ts rs <id>                        Set status to not_started
 tick ts rs <id> -d <YYYY-MM-DD>        Set status with specific date
 tick ts mv <id> -u <id>                Move task under a new parent

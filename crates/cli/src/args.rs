@@ -170,6 +170,17 @@ pub enum TaskAction {
         date: Option<NaiveDate>,
     },
 
+    /// Mark task as abandoned.
+    #[command(visible_alias = "ab")]
+    Abandon {
+        /// Task id.
+        id: ShortId,
+
+        /// Date of the status change (YYYY-MM-DD), defaults to now.
+        #[arg(short, long)]
+        date: Option<NaiveDate>,
+    },
+
     /// Set task status to `not_started`.
     #[command(visible_alias = "rs")]
     Reset {

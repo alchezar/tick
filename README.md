@@ -29,6 +29,7 @@ Today:
 | ✅    | Done        |
 | ❌    | Not started |
 | 🛑   | Blocked     |
+| 🚫   | Abandoned   |
 
 ## Roadmap
 
