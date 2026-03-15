@@ -111,78 +111,62 @@ Implementation: `tasks_snapshot(date)` - reconstructs task statuses from the sta
 
 ## CLI Interface
 
-### Flags
+### Commands
 
-| Flag             | Short | Description                      |
-|------------------|-------|----------------------------------|
-| `--project`      | `-p`  | Project scope or management mode |
-| `--task`         | `-t`  | Task management mode             |
-| `--report`       | `-r`  | Report mode                      |
-| `--add`          | `-a`  | Add a task or project            |
-| `--list`         | `-l`  | List tasks or projects           |
-| `--start`        | `-s`  | Set status: in_progress          |
-| `--done`         | `-d`  | Set status: done                 |
-| `--block`        | `-b`  | Set status: blocked              |
-| `--move`         | `-m`  | Move or reorder a task           |
-| `--rename`       |       | Rename a task                    |
-| `--remove`       |       | Delete task or project           |
-| `--reset`        |       | Set status: not_started          |
-| `--under <id>`   | `-u`  | Parent task id                   |
-| `--order <n>`    | `-o`  | Sibling position                 |
-| `--title <text>` |       | Display title for a project      |
-| `--all`          |       | Include done/blocked             |
-| `--copy`         | `-c`  | Copy output to clipboard         |
-| `--previously`   |       | Only Previously section          |
-| `--today`        |       | Only Today section               |
-| `--current`      |       | Only Current section             |
-| `--date <date>`  |       | Report for specific date         |
+Top-level commands (`tick <command>`):
+
+| Command   | Alias | Description                      |
+|-----------|-------|----------------------------------|
+| `project` | `pr`  | Project management               |
+| `task`    | `ts`  | Task management                  |
+| `report`  | `rp`  | Generate standup report          |
 
 ### Project Management
 
 ```
-tick -p                                Show active project slug and title
-tick -p -l                             List all projects (slug + title)
-tick -p -a <slug>                      Create a new project
-tick -p -a <slug> --title "Full title" Create a project with a display title
-tick -p <slug>                         Switch active project
-tick -p --rename <slug> <new-title>     Change project display title
-tick -p --reslug <slug> <new-slug>     Change project slug
-tick -p --remove <slug>                Delete project and all its tasks
+tick pr                                Show active project slug and title
+tick pr ls                             List all projects (slug + title)
+tick pr ad <slug>                      Create a new project
+tick pr ad <slug> --title "Full title" Create a project with a display title
+tick pr sw <slug>                      Switch active project
+tick pr rn <slug> <new-title>          Change project display title
+tick pr rl <slug> <new-slug>           Change project slug
+tick pr rm <slug>                      Delete project and all its tasks
 ```
 
-The active project is stored in `~/.local/share/tick/config.toml`. All `-t` and `-r` commands operate on the active project unless `-p <slug>` is prepended.
+The active project is stored in `~/.local/share/tick/config.toml`. Task and report commands operate on the active project unless `--project <slug>` is specified.
 
 ### Task Management
 
 ```
-tick -t -a <title>                     Add a root task
-tick -t -a <title> -u <id>             Add a child task
-tick -t -l                             List active tasks (tree view)
-tick -t -l --all                       List all tasks including done/blocked
-tick -t -s <id>                        Set status to in_progress
-tick -t -d <id>                        Set status to done
-tick -t -b <id>                        Set status to blocked
-tick -t --reset <id>                   Set status to not_started
-tick -t -m <id> -u <id>                Move task under a new parent
-tick -t -m <id> -o <n>                 Change display order
-tick -t --rename <id> <title>          Rename a task
-tick -t --remove <id>                  Delete task (and its children)
+tick ts ad <title>                     Add a root task
+tick ts ad <title> -u <id>             Add a child task
+tick ts ls                             List active tasks (tree view)
+tick ts ls --all                       List all tasks including done/blocked
+tick ts st <id>                        Set status to in_progress
+tick ts dn <id>                        Set status to done
+tick ts bl <id>                        Set status to blocked
+tick ts rs <id>                        Set status to not_started
+tick ts mv <id> -u <id>                Move task under a new parent
+tick ts mv <id> -o <n>                 Change display order
+tick ts rn <id> <title>                Rename a task
+tick ts rm <id>                        Delete task (and its children)
 
-tick -p <slug> -t -l                   List tasks in a specific project
+tick ts ls -p <slug>                   List tasks in a specific project
 ```
 
 ### Report
 
 ```
-tick -r                                Print standup report to stdout
-tick -r --previously                   Print only the Previously section
-tick -r --today                        Print only the Today section
-tick -r --current                      Print only the Current section
-tick -r -c                             Copy report to clipboard (macOS: pbcopy)
-tick -r --date <YYYY-MM-DD>            Generate report for a specific date
+tick rp                                Print standup report to stdout
+tick rp --previously                   Print only the Previously section
+tick rp --today                        Print only the Today section
+tick rp --current                      Print only the Current section
+tick rp -c                             Copy report to clipboard (macOS: pbcopy)
+tick rp --date <YYYY-MM-DD>            Generate report for a specific date
 
-tick -p <slug> -r                      Report for a specific project
-tick -p <slug> -r -c                   Copy report for a specific project
+tick rp -p <slug>                      Report for a specific project
+tick rp -p <slug> -c                   Copy report for a specific project
 ```
 
 ### Other
@@ -190,6 +174,7 @@ tick -p <slug> -r -c                   Copy report for a specific project
 ```
 tick --help / -h                       Show help
 tick --version / -V                    Show version
+tick <command> --help                  Show help for a command
 ```
 
 ---
@@ -208,9 +193,9 @@ Introduce multi-project support:
 
 - Add `projects` table with `id`, `slug`, `title`, `created_at`
 - Add `project_id` column to `tasks`
-- Add `-p` / `--project` flag to all commands
+- Add `project` top-level command with subcommands
 - Active project persisted in config
-- `tick -p` management commands: add, list, switch, remove
+- `tick project` management commands: add, list, switch, remove
 - Projects must be created explicitly before adding tasks
 
 ### v0.2 - CLI + SQLite
@@ -284,9 +269,9 @@ tick hubstaff setup   # prompts for refresh token, fetches org_id, saves to conf
 **CLI sketch:**
 
 ```
-tick hubstaff setup                                # one-time auth setup
-tick -p work --hubstaff-id <hubstaff_project_id>   # link tick project to Hubstaff project
-tick -r --with-time                                # report with tracked hours
+tick hs st                                          # one-time auth Hubstaff setup
+tick pr sw work --hubstaff-id <hubstaff_project_id> # link tick project to Hubstaff project
+tick rp --with-time                                 # report with tracked hours
 ```
 
 **Data model additions:**

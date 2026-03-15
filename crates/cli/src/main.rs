@@ -1,3 +1,10 @@
-//! `tick` — CLI entry point
+//! `tick` - CLI entry point.
 
-fn main() {}
+mod args;
+
+use args::Cli;
+use clap::Parser;
+
+fn main() {
+    let _cli = Cli::parse();
+}

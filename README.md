@@ -47,17 +47,23 @@ Multi-project support with create, rename, switch, and scoped commands.
 ## Usage (v0.2 - CLI)
 
 ```bash
+# Projects
+tick pr ad work --title "Work"  # create project
+tick pr sw work                 # switch active project
+tick pr ls                      # list all projects
+
 # Tasks
-tick -t -a "Fix login bug"
-tick -t -a "Fix login bug" -u <parent-id>   # child task
-tick -t -l
-tick -t -d <id>
-tick -t -b <id>
-tick -t --remove <id>
+tick ts ad "Fix login bug"                 # add root task
+tick ts ad "Fix login bug" -u <parent-id>  # add child task
+tick ts ls                                 # list active tasks
+tick ts dn <id>                            # mark done
+tick ts bl <id>                            # mark blocked
+tick ts rm <id>                            # delete task
 
 # Report
-tick -r                        # print today's report
-tick -r -c                     # copy to clipboard
+tick rp                        # print today's report
+tick rp -c                     # copy to clipboard
+tick rp --date 2026-03-15      # report for specific date
 ```
 
 ## Setup
