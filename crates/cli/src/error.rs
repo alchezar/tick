@@ -42,6 +42,11 @@ pub enum CliError {
     NoActiveProject,
     /// Clipboard operation failed.
     Clipboard(String),
+    /// Invalid date supplied to `--date`.
+    InvalidDate {
+        /// The date that could not be converted.
+        date: String,
+    },
     /// Domain-level error (task/project not found, invalid transition, etc.).
     Domain(CoreError),
 }
@@ -69,6 +74,12 @@ impl Display for CliError {
             }
             Self::Clipboard(source) => {
                 write!(f, "clipboard error: {source}")
+            }
+            Self::InvalidDate { date } => {
+                write!(
+                    f,
+                    "invalid date: '{date}' cannot be converted to a timestamp"
+                )
             }
             Self::NoActiveProject => {
                 write!(f, "no active project set, use `tick project switch <slug>`")

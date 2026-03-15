@@ -92,8 +92,14 @@ async fn delete_cascades_tasks() {
     let task_svc = TaskService::new(repo.clone());
 
     let project = project_svc.create("work", None).await.unwrap();
-    task_svc.create("Task A", None, project.id).await.unwrap();
-    task_svc.create("Task B", None, project.id).await.unwrap();
+    task_svc
+        .create("Task A", None, project.id, None)
+        .await
+        .unwrap();
+    task_svc
+        .create("Task B", None, project.id, None)
+        .await
+        .unwrap();
 
     project_svc.delete("work").await.unwrap();
 
@@ -111,9 +117,12 @@ async fn tasks_isolated_between_projects() {
     let work = project_svc.create("work", None).await.unwrap();
     let personal = project_svc.create("personal", None).await.unwrap();
 
-    task_svc.create("Work task", None, work.id).await.unwrap();
     task_svc
-        .create("Personal task", None, personal.id)
+        .create("Work task", None, work.id, None)
+        .await
+        .unwrap();
+    task_svc
+        .create("Personal task", None, personal.id, None)
         .await
         .unwrap();
 
@@ -133,7 +142,10 @@ async fn delete_project_cleans_status_changes() {
     let task_svc = TaskService::new(repo.clone());
 
     let project = project_svc.create("work", None).await.unwrap();
-    let task = task_svc.create("Task", None, project.id).await.unwrap();
+    let task = task_svc
+        .create("Task", None, project.id, None)
+        .await
+        .unwrap();
     task_svc.start(&task.id).await.unwrap();
 
     project_svc.delete("work").await.unwrap();

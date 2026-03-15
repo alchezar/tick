@@ -360,9 +360,12 @@ async fn generate_block_cascade_in_historical_report() {
     let today = Utc::now().date_naive();
 
     // Create parent + child, start both, then block parent (cascades)
-    let parent = task_svc.create("Parent", None, project.id).await.unwrap();
+    let parent = task_svc
+        .create("Parent", None, project.id, None)
+        .await
+        .unwrap();
     let child = task_svc
-        .create("Child", Some(&parent.id), project.id)
+        .create("Child", Some(&parent.id), project.id, None)
         .await
         .unwrap();
     task_svc.start(&parent.id).await.unwrap();

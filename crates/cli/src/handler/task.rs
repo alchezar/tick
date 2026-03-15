@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 
+use chrono::NaiveDate;
 use uuid::Uuid;
 
 use crate::{
@@ -32,7 +33,9 @@ where
         .id;
 
     match action {
-        TaskAction::Add { title, under, .. } => add(context, project_id, &title, under).await,
+        TaskAction::Add {
+            title, under, date, ..
+        } => add(context, project_id, &title, under, date).await,
         TaskAction::List { all, .. } => list(context, project_id, all).await,
         TaskAction::Start { id } => {
             change_status(context, project_id, id, Status::InProgress).await
@@ -56,6 +59,7 @@ async fn add<R>(
     project_id: Uuid,
     title: &str,
     under: Option<ShortId>,
+    date: Option<NaiveDate>,
 ) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
@@ -70,9 +74,19 @@ where
         None => None,
     };
 
+    let created_at = date
+        .map(|d| {
+            d.and_hms_opt(8, 0, 0)
+                .ok_or_else(|| CliError::InvalidDate {
+                    date: d.to_string(),
+                })
+                .map(|dt| dt.and_utc())
+        })
+        .transpose()?;
+
     let task = context
         .task_service
-        .create(title, parent.as_ref(), project_id)
+        .create(title, parent.as_ref(), project_id, created_at)
         .await?;
 
     let short_id = ShortId::from(task.id);

@@ -1,5 +1,6 @@
 //! Business logic for task management.
 
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::{
@@ -43,6 +44,7 @@ where
         title: &str,
         parent: Option<&Uuid>,
         project_id: Uuid,
+        created_at: Option<DateTime<Utc>>,
     ) -> CoreResult<Task> {
         self.check_depth(parent, 0).await?;
 
@@ -58,7 +60,10 @@ where
                 .collect(),
         };
 
-        let mut task = Task::new(title, parent.copied(), project_id);
+        let mut task = match created_at {
+            Some(at) => Task::new_at(title, parent.copied(), project_id, at),
+            None => Task::new(title, parent.copied(), project_id),
+        };
         let next_order = siblings
             .iter()
             .filter_map(|s| s.order)

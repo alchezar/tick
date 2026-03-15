@@ -33,12 +33,12 @@ async fn report_with_tasks() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
     ctx.task_service
-        .create("Task A", None, project.id)
+        .create("Task A", None, project.id, None)
         .await
         .unwrap();
     let t = ctx
         .task_service
-        .create("Task B", None, project.id)
+        .create("Task B", None, project.id, None)
         .await
         .unwrap();
     ctx.task_service.start(&t.id).await.unwrap();
@@ -53,7 +53,7 @@ async fn report_all_projects() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
     ctx.task_service
-        .create("Task", None, project.id)
+        .create("Task", None, project.id, None)
         .await
         .unwrap();
 
@@ -76,7 +76,7 @@ async fn report_specific_date() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
     ctx.task_service
-        .create("Task", None, project.id)
+        .create("Task", None, project.id, None)
         .await
         .unwrap();
 
@@ -91,7 +91,7 @@ async fn report_defaults_to_today() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
     ctx.task_service
-        .create("Task", None, project.id)
+        .create("Task", None, project.id, None)
         .await
         .unwrap();
 

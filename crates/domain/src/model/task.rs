@@ -47,6 +47,25 @@ impl Task {
         }
     }
 
+    /// Creates a new task with a specific creation timestamp.
+    #[must_use]
+    pub fn new_at(
+        title: impl Into<String>,
+        parent: Option<Uuid>,
+        project_id: Uuid,
+        created_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            project_id,
+            title: title.into(),
+            parent,
+            created: created_at,
+            updated: created_at,
+            ..Task::default()
+        }
+    }
+
     /// Returns `true` if the task has no parent (top-level task).
     #[must_use]
     pub fn is_root(&self) -> bool {

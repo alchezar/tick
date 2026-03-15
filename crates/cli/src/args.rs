@@ -119,6 +119,10 @@ pub enum TaskAction {
         /// Project slug (defaults to active project).
         #[arg(short, long)]
         project: Option<String>,
+
+        /// Creation date (YYYY-MM-DD), defaults to today.
+        #[arg(short, long)]
+        date: Option<NaiveDate>,
     },
 
     /// List tasks (tree view).
