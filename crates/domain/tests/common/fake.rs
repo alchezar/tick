@@ -88,8 +88,24 @@ impl TaskRepository for FakeRepo {
         Ok(())
     }
 
-    async fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
+    async fn find_task_by_id(&self, id: &Uuid) -> CoreResult<Option<Task>> {
         Ok(self.tasks.borrow().get(id).cloned())
+    }
+
+    async fn find_task_by_id_prefix(
+        &self,
+        project_id: &Uuid,
+        id_prefix: &str,
+    ) -> CoreResult<Option<Uuid>> {
+        Ok(self
+            .tasks
+            .borrow()
+            .values()
+            .find(|task| {
+                task.project_id == *project_id
+                    && task.id.simple().to_string().starts_with(id_prefix)
+            })
+            .map(|task| task.id))
     }
 
     async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
@@ -111,7 +127,6 @@ impl TaskRepository for FakeRepo {
             .cloned()
             .collect())
     }
-
     async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
         let children = self
             .tasks

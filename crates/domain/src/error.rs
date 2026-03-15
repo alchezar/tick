@@ -17,6 +17,12 @@ pub enum CoreError {
         /// `Id` of the missing task.
         id: Uuid,
     },
+    /// No task matches the given id prefix.
+    #[error("no task found matching prefix: {prefix}")]
+    TaskPrefixNotFound {
+        /// The prefix that was searched.
+        prefix: String,
+    },
     /// No project found with the given slug.
     #[error("project not found: {slug}")]
     ProjectNotFound {

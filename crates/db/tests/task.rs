@@ -15,7 +15,7 @@ async fn save_and_find_task() {
     let task = Task::new("Fix bug", None, project.id);
     repo.save_task(&task).await.unwrap();
 
-    let found = repo.find_task_by(&task.id).await.unwrap().unwrap();
+    let found = repo.find_task_by_id(&task.id).await.unwrap().unwrap();
     assert_eq!(found.id, task.id);
     assert_eq!(found.title, "Fix bug");
     assert_eq!(found.status(), Status::NotStarted);
@@ -26,7 +26,7 @@ async fn save_and_find_task() {
 async fn find_task_returns_none() {
     let (repo, _) = common::repo_with_project().await;
     assert!(
-        repo.find_task_by(&uuid::Uuid::new_v4())
+        repo.find_task_by_id(&uuid::Uuid::new_v4())
             .await
             .unwrap()
             .is_none()
@@ -43,7 +43,7 @@ async fn save_updates_task() {
     updated.title = "New title".to_owned();
     repo.save_task(&updated).await.unwrap();
 
-    let found = repo.find_task_by(&task.id).await.unwrap().unwrap();
+    let found = repo.find_task_by_id(&task.id).await.unwrap().unwrap();
     assert_eq!(found.title, "New title");
     assert_eq!(found.status(), Status::InProgress);
 }
@@ -102,7 +102,7 @@ async fn delete_task_removes_it() {
     repo.save_task(&task).await.unwrap();
 
     repo.delete_task(&task.id).await.unwrap();
-    assert!(repo.find_task_by(&task.id).await.unwrap().is_none());
+    assert!(repo.find_task_by_id(&task.id).await.unwrap().is_none());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -115,7 +115,7 @@ async fn delete_task_cascades_children() {
     repo.save_task(&child).await.unwrap();
 
     repo.delete_task(&parent.id).await.unwrap();
-    assert!(repo.find_task_by(&child.id).await.unwrap().is_none());
+    assert!(repo.find_task_by_id(&child.id).await.unwrap().is_none());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -208,6 +208,6 @@ async fn delete_project_cascades_tasks_and_changes() {
     repo.save_task_change(&change).await.unwrap();
     repo.delete_project(&project.id).await.unwrap();
 
-    assert!(repo.find_task_by(&task.id).await.unwrap().is_none());
+    assert!(repo.find_task_by_id(&task.id).await.unwrap().is_none());
     assert!(repo.list_task_changes(&task.id).await.unwrap().is_empty());
 }

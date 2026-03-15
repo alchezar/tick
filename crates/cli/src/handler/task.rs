@@ -61,7 +61,12 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     let parent = match under {
-        Some(id) => Some(id.to_uuid(&context.task_service, &project_id).await?),
+        Some(id) => Some(
+            context
+                .task_service
+                .find_by_prefix(&project_id, id.as_str())
+                .await?,
+        ),
         None => None,
     };
 
@@ -69,7 +74,9 @@ where
         .task_service
         .create(title, parent.as_ref(), project_id)
         .await?;
-    println!("[{}] created: {title}", ShortId::from(task.id));
+
+    let short_id = ShortId::from(task.id);
+    println!("[{short_id}] created: {title}");
     Ok(())
 }
 
@@ -79,7 +86,6 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     let tasks = context.task_service.list(&project_id).await?;
-
     let visible = if show_all {
         tasks
     } else {
@@ -109,9 +115,11 @@ where
 
 /// Prints a task and its children recursively.
 fn print_task(task: &Task, all: &[Task], depth: usize) {
-    let indent = "  ".repeat(depth);
+    let short_id = ShortId::from(task.id);
+    let indent = " -".repeat(depth);
     let icon = task.status().icon();
-    println!("{indent}{icon} [{}] {}", ShortId::from(task.id), task.title);
+    let task_title = &task.title;
+    println!("[{short_id}] {indent} {icon} {task_title}");
 
     let mut children = all
         .iter()
@@ -134,16 +142,20 @@ async fn change_status<R>(
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let uuid = id.to_uuid(&context.task_service, &project_id).await?;
+    let task_id = context
+        .task_service
+        .find_by_prefix(&project_id, id.as_str())
+        .await?;
 
     match status {
-        Status::InProgress => context.task_service.start(&uuid).await?,
-        Status::Done => context.task_service.done(&uuid).await?,
-        Status::Blocked => context.task_service.block(&uuid).await?,
-        Status::NotStarted => context.task_service.reset(&uuid).await?,
+        Status::InProgress => context.task_service.start(&task_id).await?,
+        Status::Done => context.task_service.done(&task_id).await?,
+        Status::Blocked => context.task_service.block(&task_id).await?,
+        Status::NotStarted => context.task_service.reset(&task_id).await?,
     }
 
-    println!("[{}] {status}", ShortId::from(uuid));
+    let short_id = ShortId::from(task_id);
+    println!("[{short_id}] {status}");
     Ok(())
 }
 
@@ -158,23 +170,28 @@ async fn move_task<R>(
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let uuid = id.to_uuid(&context.task_service, &project_id).await?;
+    let task_id = context
+        .task_service
+        .find_by_prefix(&project_id, id.as_str())
+        .await?;
 
     if let Some(parent_short) = under {
-        let parent_uuid = parent_short
-            .to_uuid(&context.task_service, &project_id)
+        let parent_uuid = context
+            .task_service
+            .find_by_prefix(&project_id, parent_short.as_str())
             .await?;
         context
             .task_service
-            .move_to_parent(&uuid, Some(&parent_uuid))
+            .move_to_parent(&task_id, Some(&parent_uuid))
             .await?;
     }
 
     if let Some(ord) = order {
-        context.task_service.reorder(&uuid, ord).await?;
+        context.task_service.reorder(&task_id, ord).await?;
     }
 
-    println!("[{}] moved", ShortId::from(uuid));
+    let short_id = ShortId::from(task_id);
+    println!("[{short_id}] moved");
     Ok(())
 }
 
@@ -188,9 +205,14 @@ async fn rename<R>(
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let uuid = id.to_uuid(&context.task_service, &project_id).await?;
-    context.task_service.rename(&uuid, title).await?;
-    println!("[{}] renamed: {title}", ShortId::from(uuid));
+    let task_id = context
+        .task_service
+        .find_by_prefix(&project_id, id.as_str())
+        .await?;
+    context.task_service.rename(&task_id, title).await?;
+
+    let short_id = ShortId::from(task_id);
+    println!("[{short_id}] renamed: {title}");
     Ok(())
 }
 
@@ -199,8 +221,13 @@ async fn remove<R>(context: &AppContext<R>, project_id: Uuid, id: ShortId) -> Cl
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let uuid = id.to_uuid(&context.task_service, &project_id).await?;
-    context.task_service.delete(&uuid).await?;
-    println!("[{}] removed", ShortId::from(uuid));
+    let task_id = context
+        .task_service
+        .find_by_prefix(&project_id, id.as_str())
+        .await?;
+    context.task_service.delete(&task_id).await?;
+
+    let short_id = ShortId::from(task_id);
+    println!("[{short_id}] removed");
     Ok(())
 }

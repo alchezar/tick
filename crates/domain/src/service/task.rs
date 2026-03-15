@@ -164,6 +164,20 @@ where
         self.repo.save_task(&task).await
     }
 
+    /// Resolves a hex id prefix to a full [`Uuid`] within a project.
+    ///
+    /// # Errors
+    /// - [`CoreError::TaskNotFound`] if no task matches the prefix.
+    /// - Returns an error if the persistence operation fails.
+    pub async fn find_by_prefix(&self, project_id: &Uuid, id_prefix: &str) -> CoreResult<Uuid> {
+        self.repo
+            .find_task_by_id_prefix(project_id, id_prefix)
+            .await?
+            .ok_or_else(|| CoreError::TaskPrefixNotFound {
+                prefix: id_prefix.to_owned(),
+            })
+    }
+
     /// Returns all tasks in a project.
     ///
     /// # Errors
@@ -195,7 +209,7 @@ where
     /// Finds a task by id or returns [`CoreError::TaskNotFound`].
     async fn find_task(&self, id: &Uuid) -> CoreResult<Task> {
         self.repo
-            .find_task_by(id)
+            .find_task_by_id(id)
             .await?
             .ok_or(CoreError::TaskNotFound { id: *id })
     }
@@ -253,7 +267,7 @@ where
     async fn depth_of(&self, task_id: &Uuid) -> CoreResult<usize> {
         let mut depth = 1_usize;
         let mut current = *task_id;
-        while let Some(task) = self.repo.find_task_by(&current).await? {
+        while let Some(task) = self.repo.find_task_by_id(&current).await? {
             match task.parent {
                 Some(id) => {
                     depth += 1;

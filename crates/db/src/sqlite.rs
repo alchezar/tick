@@ -366,7 +366,7 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    async fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>> {
+    async fn find_task_by_id(&self, id: &Uuid) -> CoreResult<Option<Task>> {
         let id = id.to_string();
         sqlx::query_as!(
             TaskRow,
@@ -382,6 +382,32 @@ impl TaskRepository for SqliteRepo {
         .map_err(db_err)?
         .map(Task::try_from)
         .transpose()
+    }
+
+    async fn find_task_by_id_prefix(
+        &self,
+        project_id: &Uuid,
+        id_prefix: &str,
+    ) -> CoreResult<Option<Uuid>> {
+        let project_id = project_id.to_string();
+        let pattern = format!("{id_prefix}%");
+
+        sqlx::query_as!(
+            TaskRow,
+            r"
+                SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                FROM tasks
+                WHERE project_id = $1 AND id LIKE $2
+                LIMIT 1
+            ",
+            project_id,
+            pattern,
+        )
+          .fetch_optional(&self.pool)
+          .await
+          .map_err(db_err)?
+          .map(|r| Uuid::parse_str(&r.id).map_err(core_err))
+          .transpose()
     }
 
     async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {

@@ -22,18 +22,6 @@ pub enum CliError {
         /// The original input.
         input: String,
     },
-    /// No task matches the given id prefix.
-    IdNotFound {
-        /// The prefix that was searched.
-        prefix: String,
-    },
-    /// Multiple tasks match the given id prefix.
-    IdAmbiguous {
-        /// The prefix that was searched.
-        prefix: String,
-        /// Number of matches.
-        count: usize,
-    },
     /// Config file cannot be read or parsed.
     ConfigRead {
         /// Path to the config file.
@@ -67,15 +55,6 @@ impl Display for CliError {
             }
             Self::IdInvalidHex { input } => {
                 write!(f, "invalid id: '{input}' is not a valid hex string")
-            }
-            Self::IdNotFound { prefix } => {
-                write!(f, "no task found matching id prefix '{prefix}'")
-            }
-            Self::IdAmbiguous { prefix, count } => {
-                write!(
-                    f,
-                    "ambiguous id prefix '{prefix}': {count} tasks match, use more characters"
-                )
             }
             Self::ConfigRead { path, source } => {
                 write!(f, "cannot read config {}: {source}", path.display())

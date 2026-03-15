@@ -105,7 +105,19 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn find_task_by(&self, id: &Uuid) -> CoreResult<Option<Task>>;
+    async fn find_task_by_id(&self, id: &Uuid) -> CoreResult<Option<Task>>;
+
+    /// Finds a task id by hex prefix within a project.
+    ///
+    /// Returns `Ok(None)` if no task matches.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    async fn find_task_by_id_prefix(
+        &self,
+        project_id: &Uuid,
+        id_prefix: &str,
+    ) -> CoreResult<Option<Uuid>>;
 
     /// Returns all direct children of the given parent task.
     ///
