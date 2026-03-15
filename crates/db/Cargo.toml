@@ -11,6 +11,7 @@ workspace = true
 domain = { path = "../domain" }
 
 chrono = { workspace = true }
+dirs = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
