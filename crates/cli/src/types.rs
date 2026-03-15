@@ -36,7 +36,7 @@ impl FromStr for ShortId {
 
         (clean.len() >= Self::MIN_LEN)
             .then_some(())
-            .ok_or(CliError::TooShortId {
+            .ok_or(CliError::IdTooShort {
                 got: clean.len(),
                 min: Self::MIN_LEN,
             })?;
@@ -45,7 +45,7 @@ impl FromStr for ShortId {
             .chars()
             .all(|c| c.is_ascii_hexdigit())
             .then_some(())
-            .ok_or_else(|| CliError::InvalidHexId {
+            .ok_or_else(|| CliError::IdInvalidHex {
                 input: s.to_owned(),
             })?;
 
