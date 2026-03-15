@@ -1,9 +1,8 @@
 //! `tick` - CLI entry point.
 
-mod args;
-
-use args::Cli;
 use clap::Parser;
+
+use cli::args::Cli;
 
 fn main() {
     let _cli = Cli::parse();

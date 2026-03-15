@@ -2,7 +2,8 @@
 
 use chrono::NaiveDate;
 use clap::{Parser, Subcommand};
-use uuid::Uuid;
+
+use crate::types::ShortId;
 
 /// Task tracker with standup report generation.
 #[derive(Debug, Parser)]
@@ -125,7 +126,7 @@ pub enum TaskAction {
 
         /// Parent task id (creates a subtask).
         #[arg(short, long)]
-        under: Option<Uuid>,
+        under: Option<ShortId>,
 
         /// Project slug (defaults to active project).
         #[arg(short, long)]
@@ -148,39 +149,39 @@ pub enum TaskAction {
     #[command(visible_alias = "st")]
     Start {
         /// Task id.
-        id: Uuid,
+        id: ShortId,
     },
 
     /// Set task status to done.
     #[command(visible_alias = "dn")]
     Done {
         /// Task id.
-        id: Uuid,
+        id: ShortId,
     },
 
     /// Set task status to blocked.
     #[command(visible_alias = "bl")]
     Block {
         /// Task id.
-        id: Uuid,
+        id: ShortId,
     },
 
     /// Set task status to `not_started`.
     #[command(visible_alias = "rs")]
     Reset {
         /// Task id.
-        id: Uuid,
+        id: ShortId,
     },
 
     /// Move task under a new parent or change display order.
     #[command(visible_alias = "mv")]
     Move {
         /// Task id.
-        id: Uuid,
+        id: ShortId,
 
         /// New parent task id.
         #[arg(short, long)]
-        under: Option<Uuid>,
+        under: Option<ShortId>,
 
         /// New sibling display order.
         #[arg(short, long)]
@@ -191,7 +192,7 @@ pub enum TaskAction {
     #[command(visible_alias = "rn")]
     Rename {
         /// Task id.
-        id: Uuid,
+        id: ShortId,
 
         /// New title.
         title: String,
@@ -201,6 +202,6 @@ pub enum TaskAction {
     #[command(visible_alias = "rm")]
     Remove {
         /// Task id.
-        id: Uuid,
+        id: ShortId,
     },
 }
