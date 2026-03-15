@@ -44,15 +44,15 @@ fn render_formats_hierarchy() {
     let project = Project::default();
     let mut root = Task::new("Milestone", None, project.id);
     root.order = Some(0);
-    root.update_status(Status::InProgress).unwrap();
+    root.update_status(Status::InProgress, None).unwrap();
 
     let mut child = Task::new("Task", Some(root.id), project.id);
     child.order = Some(0);
 
     let mut grandchild = Task::new("Subtask", Some(child.id), project.id);
     grandchild.order = Some(0);
-    grandchild.update_status(Status::InProgress).unwrap();
-    grandchild.update_status(Status::Done).unwrap();
+    grandchild.update_status(Status::InProgress, None).unwrap();
+    grandchild.update_status(Status::Done, None).unwrap();
 
     let report = Report::new("default", vec![grandchild], vec![root, child], today);
 
@@ -81,30 +81,30 @@ fn render_real_world_report() {
     let project = Project::default();
     let mut task1 = Task::new("Task 1: runtime token validation", None, project.id);
     task1.created = yesterday;
-    task1.update_status(Status::InProgress).unwrap();
+    task1.update_status(Status::InProgress, None).unwrap();
     task1.order = Some(0);
 
     let mut ip = Task::new("IP token encryption", None, project.id);
     ip.created = yesterday;
-    ip.update_status(Status::InProgress).unwrap();
+    ip.update_status(Status::InProgress, None).unwrap();
     ip.order = Some(1);
 
     let mut ci = Task::new("CI build fix", None, project.id);
     ci.created = yesterday;
-    ci.update_status(Status::InProgress).unwrap();
+    ci.update_status(Status::InProgress, None).unwrap();
     ci.order = Some(2);
 
     let mut task7 = Task::new("Task 7", None, project.id);
     task7.created = yesterday;
-    task7.update_status(Status::InProgress).unwrap();
+    task7.update_status(Status::InProgress, None).unwrap();
     task7.order = Some(3);
 
     // Previously: done children (created yesterday)
     let make_done = |title, parent, order| {
         let mut t = Task::new(title, Some(parent), project.id);
         t.created = yesterday;
-        t.update_status(Status::InProgress).unwrap();
-        t.update_status(Status::Done).unwrap();
+        t.update_status(Status::InProgress, None).unwrap();
+        t.update_status(Status::Done, None).unwrap();
         t.order = Some(order);
         t
     };
@@ -127,8 +127,8 @@ fn render_real_world_report() {
     };
 
     let mut t1 = make_todo("replace error_tools with thiserror", ci.id, 3);
-    t1.update_status(Status::InProgress).unwrap();
-    t1.update_status(Status::Done).unwrap();
+    t1.update_status(Status::InProgress, None).unwrap();
+    t1.update_status(Status::Done, None).unwrap();
     let t2 = make_todo("move build jobs limit to ci workflow", ci.id, 4);
     let t3 = make_todo("workspace feature flags rule", ci.id, 5);
     let t4 = make_todo(
@@ -216,14 +216,16 @@ fn today_section_shows_old_done_as_planned() {
     let mut done_today = Task::new("Finished task", None, project.id);
     done_today.order = Some(0);
     done_today.created = yesterday.and_hms_opt(10, 0, 0).unwrap().and_utc();
-    done_today.update_status(Status::InProgress).unwrap();
-    done_today.update_status(Status::Done).unwrap();
+    done_today.update_status(Status::InProgress, None).unwrap();
+    done_today.update_status(Status::Done, None).unwrap();
 
     // Task created yesterday, still in progress -> Today: 🔄, Current: 🔄
     let mut still_active = Task::new("Active task", None, project.id);
     still_active.order = Some(1);
     still_active.created = yesterday.and_hms_opt(10, 0, 0).unwrap().and_utc();
-    still_active.update_status(Status::InProgress).unwrap();
+    still_active
+        .update_status(Status::InProgress, None)
+        .unwrap();
 
     // Task created today, not started -> Today: ❌, Current: ❌
     let mut new_task = Task::new("New task", None, project.id);
@@ -267,7 +269,7 @@ async fn generate_today_includes_active_and_changed() {
     a.created = common::datetime(yesterday, 9);
     a.order = Some(0);
     repo.save_task(&a).await.unwrap();
-    let mut ch = StatusChange::new(a.id, Status::NotStarted, Status::InProgress);
+    let mut ch = StatusChange::new(a.id, Status::NotStarted, Status::InProgress, None);
     ch.changed_at = common::datetime(yesterday, 10);
     repo.save_task_change(&ch).await.unwrap();
 
@@ -276,10 +278,10 @@ async fn generate_today_includes_active_and_changed() {
     b.created = common::datetime(yesterday, 9);
     b.order = Some(1);
     repo.save_task(&b).await.unwrap();
-    let mut ch1 = StatusChange::new(b.id, Status::NotStarted, Status::InProgress);
+    let mut ch1 = StatusChange::new(b.id, Status::NotStarted, Status::InProgress, None);
     ch1.changed_at = common::datetime(yesterday, 11);
     repo.save_task_change(&ch1).await.unwrap();
-    let mut ch2 = StatusChange::new(b.id, Status::InProgress, Status::Done);
+    let mut ch2 = StatusChange::new(b.id, Status::InProgress, Status::Done, None);
     ch2.changed_at = common::datetime(today, 14);
     repo.save_task_change(&ch2).await.unwrap();
 
@@ -308,11 +310,11 @@ async fn generate_past_date_reconstructs_status() {
     task.order = Some(0);
     repo.save_task(&task).await.unwrap();
 
-    let mut ch1 = StatusChange::new(task.id, Status::NotStarted, Status::InProgress);
+    let mut ch1 = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
     ch1.changed_at = common::datetime(monday, 10);
     repo.save_task_change(&ch1).await.unwrap();
 
-    let mut ch2 = StatusChange::new(task.id, Status::InProgress, Status::Done);
+    let mut ch2 = StatusChange::new(task.id, Status::InProgress, Status::Done, None);
     ch2.changed_at = common::datetime(tuesday, 14);
     repo.save_task_change(&ch2).await.unwrap();
 
@@ -368,9 +370,9 @@ async fn generate_block_cascade_in_historical_report() {
         .create("Child", Some(&parent.id), project.id, None)
         .await
         .unwrap();
-    task_svc.start(&parent.id).await.unwrap();
-    task_svc.start(&child.id).await.unwrap();
-    task_svc.block(&parent.id).await.unwrap();
+    task_svc.start(&parent.id, None).await.unwrap();
+    task_svc.start(&child.id, None).await.unwrap();
+    task_svc.block(&parent.id, None).await.unwrap();
 
     let report = report_svc.generate(today, &project).await.unwrap();
 
@@ -456,14 +458,14 @@ async fn generate_all_returns_reports_for_all_projects() {
     let mut t1 = Task::new("Work task", None, work.id);
     t1.order = Some(0);
     repo.save_task(&t1).await.unwrap();
-    let mut ch1 = StatusChange::new(t1.id, Status::NotStarted, Status::InProgress);
+    let mut ch1 = StatusChange::new(t1.id, Status::NotStarted, Status::InProgress, None);
     ch1.changed_at = common::datetime(today, 9);
     repo.save_task_change(&ch1).await.unwrap();
 
     let mut t2 = Task::new("Personal task", None, personal.id);
     t2.order = Some(0);
     repo.save_task(&t2).await.unwrap();
-    let mut ch2 = StatusChange::new(t2.id, Status::NotStarted, Status::InProgress);
+    let mut ch2 = StatusChange::new(t2.id, Status::NotStarted, Status::InProgress, None);
     ch2.changed_at = common::datetime(today, 10);
     repo.save_task_change(&ch2).await.unwrap();
 

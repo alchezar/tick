@@ -142,6 +142,10 @@ pub enum TaskAction {
     Start {
         /// Task id.
         id: ShortId,
+
+        /// Date of the status change (YYYY-MM-DD), defaults to now.
+        #[arg(short, long)]
+        date: Option<NaiveDate>,
     },
 
     /// Set task status to done.
@@ -149,6 +153,10 @@ pub enum TaskAction {
     Done {
         /// Task id.
         id: ShortId,
+
+        /// Date of the status change (YYYY-MM-DD), defaults to now.
+        #[arg(short, long)]
+        date: Option<NaiveDate>,
     },
 
     /// Set task status to blocked.
@@ -156,6 +164,10 @@ pub enum TaskAction {
     Block {
         /// Task id.
         id: ShortId,
+
+        /// Date of the status change (YYYY-MM-DD), defaults to now.
+        #[arg(short, long)]
+        date: Option<NaiveDate>,
     },
 
     /// Set task status to `not_started`.
@@ -163,6 +175,10 @@ pub enum TaskAction {
     Reset {
         /// Task id.
         id: ShortId,
+
+        /// Date of the status change (YYYY-MM-DD), defaults to now.
+        #[arg(short, long)]
+        date: Option<NaiveDate>,
     },
 
     /// Move task under a new parent or change display order.

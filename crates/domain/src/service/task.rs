@@ -82,8 +82,8 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    pub async fn start(&self, task_id: &Uuid) -> CoreResult<()> {
-        self.update_status(task_id, Status::InProgress).await
+    pub async fn start(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+        self.update_status(task_id, Status::InProgress, at).await
     }
 
     /// Resets status to [`Status::NotStarted`].
@@ -91,8 +91,8 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    pub async fn reset(&self, task_id: &Uuid) -> CoreResult<()> {
-        self.update_status(task_id, Status::NotStarted).await
+    pub async fn reset(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+        self.update_status(task_id, Status::NotStarted, at).await
     }
 
     /// Marks a task as [`Status::Done`].
@@ -101,7 +101,7 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::TaskHasUnfinishedChildren`] if any child task is still active.
     /// - Returns an error if the persistence operation fails.
-    pub async fn done(&self, task_id: &Uuid) -> CoreResult<()> {
+    pub async fn done(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         if self
             .repo
             .child_tasks_of(task_id)
@@ -112,7 +112,7 @@ where
             return Err(CoreError::TaskHasUnfinishedChildren);
         }
 
-        self.update_status(task_id, Status::Done).await
+        self.update_status(task_id, Status::Done, at).await
     }
 
     /// Marks a task as [`Status::Blocked`] and cascades to all active descendants.
@@ -121,11 +121,11 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    pub async fn block(&self, task_id: &Uuid) -> CoreResult<()> {
+    pub async fn block(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 
-        self.update_status(task_id, Status::Blocked).await?;
-        self.block_children(task_id).await?;
+        self.update_status(task_id, Status::Blocked, at).await?;
+        self.block_children(task_id, at).await?;
 
         tx.commit_transaction().await
     }
@@ -225,16 +225,26 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    async fn update_status(&self, task_id: &Uuid, new_status: Status) -> CoreResult<()> {
+    async fn update_status(
+        &self,
+        task_id: &Uuid,
+        new_status: Status,
+        at: Option<DateTime<Utc>>,
+    ) -> CoreResult<()> {
         let mut task = self.find_task(task_id).await?;
-        self.update_status_inner(&mut task, new_status).await
+        self.update_status_inner(&mut task, new_status, at).await
     }
 
     /// Applies a status transition to a task, saves it and records the change.
-    async fn update_status_inner(&self, task: &mut Task, new_status: Status) -> CoreResult<()> {
+    async fn update_status_inner(
+        &self,
+        task: &mut Task,
+        new_status: Status,
+        at: Option<DateTime<Utc>>,
+    ) -> CoreResult<()> {
         let old_status = task.status();
-        let status_change = StatusChange::new(task.id, old_status, new_status);
-        task.update_status(new_status)?;
+        let status_change = StatusChange::new(task.id, old_status, new_status, at);
+        task.update_status(new_status, at)?;
         let tx = self.repo.begin_transaction().await?;
 
         self.repo.save_task(task).await?;
@@ -244,12 +254,12 @@ where
     }
 
     /// Recursively blocks all active descendants of the given task.
-    async fn block_children(&self, parent_id: &Uuid) -> CoreResult<()> {
+    async fn block_children(&self, parent_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         for mut child in self.repo.child_tasks_of(parent_id).await? {
             if child.status().is_active() {
-                self.update_status_inner(&mut child, Status::Blocked)
+                self.update_status_inner(&mut child, Status::Blocked, at)
                     .await?;
-                Box::pin(self.block_children(&child.id)).await?;
+                Box::pin(self.block_children(&child.id, at)).await?;
             }
         }
         Ok(())

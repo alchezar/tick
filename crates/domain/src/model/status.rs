@@ -120,13 +120,18 @@ pub struct StatusChange {
 impl StatusChange {
     /// Creates a new status change record with a generated id.
     #[must_use]
-    pub fn new(task_id: Uuid, old_status: Status, new_status: Status) -> Self {
+    pub fn new(
+        task_id: Uuid,
+        old_status: Status,
+        new_status: Status,
+        changed_at: Option<DateTime<Utc>>,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             task_id,
             old_status,
             new_status,
-            changed_at: Utc::now(),
+            changed_at: changed_at.unwrap_or_else(Utc::now),
         }
     }
 }

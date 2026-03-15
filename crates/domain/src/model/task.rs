@@ -85,7 +85,11 @@ impl Task {
     ///
     /// # Errors
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
-    pub fn update_status(&mut self, new_status: Status) -> CoreResult<()> {
+    pub fn update_status(
+        &mut self,
+        new_status: Status,
+        at: Option<DateTime<Utc>>,
+    ) -> CoreResult<()> {
         if !self.status.can_transit(&new_status) {
             return Err(CoreError::InvalidStatusTransition {
                 from: self.status,
@@ -93,7 +97,7 @@ impl Task {
             });
         }
         self.status = new_status;
-        self.updated = Utc::now();
+        self.updated = at.unwrap_or_else(Utc::now);
         Ok(())
     }
 }

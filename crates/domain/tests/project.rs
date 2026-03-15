@@ -146,7 +146,7 @@ async fn delete_project_cleans_status_changes() {
         .create("Task", None, project.id, None)
         .await
         .unwrap();
-    task_svc.start(&task.id).await.unwrap();
+    task_svc.start(&task.id, None).await.unwrap();
 
     project_svc.delete("work").await.unwrap();
 

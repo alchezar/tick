@@ -71,7 +71,10 @@ async fn start_changes_status() {
         .await
         .unwrap();
 
-    let action = TaskAction::Start { id: t.id.into() };
+    let action = TaskAction::Start {
+        id: t.id.into(),
+        date: None,
+    };
     task::handle(action, &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
@@ -87,9 +90,12 @@ async fn done_changes_status() {
         .create("Task", None, project.id, None)
         .await
         .unwrap();
-    ctx.task_service.start(&t.id).await.unwrap();
+    ctx.task_service.start(&t.id, None).await.unwrap();
 
-    let action = TaskAction::Done { id: t.id.into() };
+    let action = TaskAction::Done {
+        id: t.id.into(),
+        date: None,
+    };
     task::handle(action, &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
@@ -105,9 +111,12 @@ async fn block_changes_status() {
         .create("Task", None, project.id, None)
         .await
         .unwrap();
-    ctx.task_service.start(&t.id).await.unwrap();
+    ctx.task_service.start(&t.id, None).await.unwrap();
 
-    let action = TaskAction::Block { id: t.id.into() };
+    let action = TaskAction::Block {
+        id: t.id.into(),
+        date: None,
+    };
     task::handle(action, &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
@@ -123,9 +132,12 @@ async fn reset_changes_status() {
         .create("Task", None, project.id, None)
         .await
         .unwrap();
-    ctx.task_service.start(&t.id).await.unwrap();
+    ctx.task_service.start(&t.id, None).await.unwrap();
 
-    let action = TaskAction::Reset { id: t.id.into() };
+    let action = TaskAction::Reset {
+        id: t.id.into(),
+        date: None,
+    };
     task::handle(action, &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();

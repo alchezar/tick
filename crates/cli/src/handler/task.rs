@@ -37,13 +37,17 @@ where
             title, under, date, ..
         } => add(context, project_id, &title, under, date).await,
         TaskAction::List { all, .. } => list(context, project_id, all).await,
-        TaskAction::Start { id } => {
-            change_status(context, project_id, id, Status::InProgress).await
+        TaskAction::Start { id, date } => {
+            change_status(context, project_id, id, Status::InProgress, date).await
         }
-        TaskAction::Done { id } => change_status(context, project_id, id, Status::Done).await,
-        TaskAction::Block { id } => change_status(context, project_id, id, Status::Blocked).await,
-        TaskAction::Reset { id } => {
-            change_status(context, project_id, id, Status::NotStarted).await
+        TaskAction::Done { id, date } => {
+            change_status(context, project_id, id, Status::Done, date).await
+        }
+        TaskAction::Block { id, date } => {
+            change_status(context, project_id, id, Status::Blocked, date).await
+        }
+        TaskAction::Reset { id, date } => {
+            change_status(context, project_id, id, Status::NotStarted, date).await
         }
         TaskAction::Move { id, under, order } => {
             move_task(context, project_id, id, under, order).await
@@ -152,6 +156,7 @@ async fn change_status<R>(
     project_id: Uuid,
     id: ShortId,
     status: Status,
+    date: Option<NaiveDate>,
 ) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
@@ -161,11 +166,21 @@ where
         .find_by_prefix(&project_id, id.as_str())
         .await?;
 
+    let at = date
+        .map(|d| {
+            d.and_hms_opt(8, 0, 0)
+                .ok_or_else(|| CliError::InvalidDate {
+                    date: d.to_string(),
+                })
+                .map(|dt| dt.and_utc())
+        })
+        .transpose()?;
+
     match status {
-        Status::InProgress => context.task_service.start(&task_id).await?,
-        Status::Done => context.task_service.done(&task_id).await?,
-        Status::Blocked => context.task_service.block(&task_id).await?,
-        Status::NotStarted => context.task_service.reset(&task_id).await?,
+        Status::InProgress => context.task_service.start(&task_id, at).await?,
+        Status::Done => context.task_service.done(&task_id, at).await?,
+        Status::Blocked => context.task_service.block(&task_id, at).await?,
+        Status::NotStarted => context.task_service.reset(&task_id, at).await?,
     }
 
     let short_id = ShortId::from(task_id);

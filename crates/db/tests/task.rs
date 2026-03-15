@@ -144,7 +144,7 @@ async fn save_and_list_status_changes() {
     let task = Task::new("Task", None, project.id);
     repo.save_task(&task).await.unwrap();
 
-    let change = StatusChange::new(task.id, Status::NotStarted, Status::InProgress);
+    let change = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
     repo.save_task_change(&change).await.unwrap();
 
     let changes = repo.list_task_changes(&task.id).await.unwrap();
@@ -162,7 +162,7 @@ async fn list_task_changes_on_date() {
     let date = NaiveDate::from_ymd_opt(2026, 3, 8).unwrap();
     let dt = date.and_hms_opt(10, 0, 0).unwrap().and_utc();
 
-    let mut change = StatusChange::new(task.id, Status::NotStarted, Status::InProgress);
+    let mut change = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
     change.changed_at = dt;
     repo.save_task_change(&change).await.unwrap();
 
@@ -204,7 +204,7 @@ async fn delete_project_cascades_tasks_and_changes() {
     let task = Task::new("Task", None, project.id);
     repo.save_task(&task).await.unwrap();
 
-    let change = StatusChange::new(task.id, Status::NotStarted, Status::InProgress);
+    let change = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
     repo.save_task_change(&change).await.unwrap();
     repo.delete_project(&project.id).await.unwrap();
 

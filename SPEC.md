@@ -145,9 +145,13 @@ tick ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
 tick ts ls                             List active tasks (tree view)
 tick ts ls --all                       List all tasks including done/blocked
 tick ts st <id>                        Set status to in_progress
+tick ts st <id> -d <YYYY-MM-DD>        Set status with specific date
 tick ts dn <id>                        Set status to done
+tick ts dn <id> -d <YYYY-MM-DD>        Set status with specific date
 tick ts bl <id>                        Set status to blocked
+tick ts bl <id> -d <YYYY-MM-DD>        Set status with specific date
 tick ts rs <id>                        Set status to not_started
+tick ts rs <id> -d <YYYY-MM-DD>        Set status with specific date
 tick ts mv <id> -u <id>                Move task under a new parent
 tick ts mv <id> -o <n>                 Change display order
 tick ts rn <id> <title>                Rename a task

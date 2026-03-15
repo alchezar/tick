@@ -24,7 +24,7 @@ async fn done_fails_with_active_child() {
         .await
         .unwrap();
 
-    let err = service.done(&parent.id).await.unwrap_err();
+    let err = service.done(&parent.id, None).await.unwrap_err();
     assert!(matches!(err, CoreError::TaskHasUnfinishedChildren));
 }
 
@@ -40,14 +40,14 @@ async fn block_cascades_to_children() {
         .create("Child", Some(&parent.id), project.id, None)
         .await
         .unwrap();
-    service.start(&child.id).await.unwrap();
-    service.start(&parent.id).await.unwrap();
+    service.start(&child.id, None).await.unwrap();
+    service.start(&parent.id, None).await.unwrap();
 
-    service.block(&parent.id).await.unwrap();
+    service.block(&parent.id, None).await.unwrap();
 
     // If cascade worked, child is now Blocked - start(child) must succeed.
     // If cascade did not work, child is still InProgress - start(child) would fail.
-    service.start(&child.id).await.unwrap();
+    service.start(&child.id, None).await.unwrap();
 }
 
 #[tokio::test]
@@ -99,9 +99,9 @@ async fn done_succeeds_without_children() {
         .create("Task", None, Project::default().id, None)
         .await
         .unwrap();
-    service.start(&task.id).await.unwrap();
+    service.start(&task.id, None).await.unwrap();
 
-    service.done(&task.id).await.unwrap();
+    service.done(&task.id, None).await.unwrap();
 }
 
 #[tokio::test]
@@ -111,9 +111,9 @@ async fn start_fails_if_already_in_progress() {
         .create("Task", None, Project::default().id, None)
         .await
         .unwrap();
-    service.start(&task.id).await.unwrap();
+    service.start(&task.id, None).await.unwrap();
 
-    let err = service.start(&task.id).await.unwrap_err();
+    let err = service.start(&task.id, None).await.unwrap_err();
     assert!(matches!(err, CoreError::InvalidStatusTransition { .. }));
 }
 
@@ -124,11 +124,11 @@ async fn reset_from_done() {
         .create("Task", None, Project::default().id, None)
         .await
         .unwrap();
-    service.start(&task.id).await.unwrap();
-    service.done(&task.id).await.unwrap();
+    service.start(&task.id, None).await.unwrap();
+    service.done(&task.id, None).await.unwrap();
 
     // Done -> NotStarted must succeed
-    service.reset(&task.id).await.unwrap();
+    service.reset(&task.id, None).await.unwrap();
 }
 
 #[tokio::test]
@@ -139,7 +139,7 @@ async fn status_change_recorded_on_transition() {
         .await
         .unwrap();
 
-    service.start(&task.id).await.unwrap();
+    service.start(&task.id, None).await.unwrap();
 
     let history = service.status_history(&task.id).await.unwrap();
     assert_eq!(history.len(), 1);
@@ -156,9 +156,9 @@ async fn status_change_full_lifecycle() {
         .await
         .unwrap();
 
-    service.start(&task.id).await.unwrap();
-    service.done(&task.id).await.unwrap();
-    service.reset(&task.id).await.unwrap();
+    service.start(&task.id, None).await.unwrap();
+    service.done(&task.id, None).await.unwrap();
+    service.reset(&task.id, None).await.unwrap();
 
     let history = service.status_history(&task.id).await.unwrap();
     assert_eq!(history.len(), 3);
@@ -185,10 +185,10 @@ async fn block_cascade_records_changes_for_children() {
         .create("Child", Some(&parent.id), project.id, None)
         .await
         .unwrap();
-    service.start(&parent.id).await.unwrap();
-    service.start(&child.id).await.unwrap();
+    service.start(&parent.id, None).await.unwrap();
+    service.start(&child.id, None).await.unwrap();
 
-    service.block(&parent.id).await.unwrap();
+    service.block(&parent.id, None).await.unwrap();
 
     let parent_history = service.status_history(&parent.id).await.unwrap();
     let child_history = service.status_history(&child.id).await.unwrap();
@@ -288,7 +288,7 @@ async fn delete_task_cleans_status_changes() {
         .create("Task", None, project.id, None)
         .await
         .unwrap();
-    task_svc.start(&task.id).await.unwrap();
+    task_svc.start(&task.id, None).await.unwrap();
 
     task_svc.delete(&task.id).await.unwrap();
 
