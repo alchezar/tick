@@ -6,7 +6,7 @@ use cli::{args::ProjectAction, handler::project};
 
 #[tokio::test]
 async fn add_creates_project() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     let action = ProjectAction::Add {
         slug: "work".to_owned(),
         title: Some("Work".to_owned()),
@@ -21,7 +21,7 @@ async fn add_creates_project() {
 
 #[tokio::test]
 async fn add_without_title() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     let action = ProjectAction::Add {
         slug: "side".to_owned(),
         title: None,
@@ -36,7 +36,7 @@ async fn add_without_title() {
 
 #[tokio::test]
 async fn list_empty() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
 
     project::handle(Some(ProjectAction::List), &mut ctx)
         .await
@@ -45,7 +45,7 @@ async fn list_empty() {
 
 #[tokio::test]
 async fn list_after_add() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     ctx.project_service.create("a", None).await.unwrap();
     ctx.project_service.create("b", Some("B")).await.unwrap();
 
@@ -56,7 +56,7 @@ async fn list_after_add() {
 
 #[tokio::test]
 async fn switch_sets_active() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     ctx.project_service.create("work", None).await.unwrap();
 
     let action = ProjectAction::Switch {
@@ -69,7 +69,7 @@ async fn switch_sets_active() {
 
 #[tokio::test]
 async fn switch_nonexistent_fails() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
 
     let action = ProjectAction::Switch {
         slug: "nope".to_owned(),
@@ -81,7 +81,7 @@ async fn switch_nonexistent_fails() {
 
 #[tokio::test]
 async fn rename_changes_title() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     ctx.project_service
         .create("work", Some("Old"))
         .await
@@ -99,7 +99,7 @@ async fn rename_changes_title() {
 
 #[tokio::test]
 async fn reslug_changes_slug() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     ctx.project_service.create("old", None).await.unwrap();
 
     let action = ProjectAction::Reslug {
@@ -114,7 +114,7 @@ async fn reslug_changes_slug() {
 
 #[tokio::test]
 async fn reslug_updates_active_project() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     ctx.project_service.create("work", None).await.unwrap();
     ctx.config.active_project = Some("work".to_owned());
 
@@ -129,7 +129,7 @@ async fn reslug_updates_active_project() {
 
 #[tokio::test]
 async fn remove_deletes_project() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     ctx.project_service.create("tmp", None).await.unwrap();
 
     let action = ProjectAction::Remove {
@@ -143,7 +143,7 @@ async fn remove_deletes_project() {
 
 #[tokio::test]
 async fn remove_clears_active_if_deleted() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
     ctx.project_service.create("work", None).await.unwrap();
     ctx.config.active_project = Some("work".to_owned());
 
@@ -157,7 +157,7 @@ async fn remove_clears_active_if_deleted() {
 
 #[tokio::test]
 async fn show_active_no_project() {
-    let (mut ctx, _) = common::context().await;
+    let (mut ctx, _dir) = common::context().await;
 
     project::handle(None, &mut ctx).await.unwrap();
 }
