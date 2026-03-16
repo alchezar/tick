@@ -143,8 +143,8 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 tt ts ad <title>                     Add a root task
 tt ts ad <title> -u <id>             Add a child task
 tt ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
-tt ts ls                             List active tasks (tree view)
-tt ts ls --all                       List all tasks including done/blocked
+tt ts                                List active tasks (tree view)
+tt ts -a                             List all tasks including done/blocked
 tt ts st <id>                        Set status to in_progress
 tt ts st <id> -d <YYYY-MM-DD>        Set status with specific date
 tt ts dn <id>                        Set status to done
@@ -160,21 +160,21 @@ tt ts mv <id> -o <n>                 Change display order
 tt ts rn <id> <title>                Rename a task
 tt ts rm <id>                        Delete task (and its children)
 
-tt ts ls -p <slug>                   List tasks in a specific project
+tt ts -p <slug>                      List tasks in a specific project
 ```
 
 ### Report
 
 ```
-tt rp                                Print standup report to stdout
+tt rp                                Report for active project
+tt rp -a                             Report for all projects
+tt rp -p <slug>                      Report for a specific project
+tt rp -c                             Copy report to clipboard (macOS: pbcopy)
+tt rp -a -c                          Copy report for all projects
+tt rp --date <YYYY-MM-DD>            Generate report for a specific date
 tt rp --previously                   Print only the Previously section
 tt rp --today                        Print only the Today section
 tt rp --current                      Print only the Current section
-tt rp -c                             Copy report to clipboard (macOS: pbcopy)
-tt rp --date <YYYY-MM-DD>            Generate report for a specific date
-
-tt rp -p <slug>                      Report for a specific project
-tt rp -p <slug> -c                   Copy report for a specific project
 ```
 
 ### Other

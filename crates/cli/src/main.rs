@@ -41,8 +41,9 @@ async fn run() -> CliResult<()> {
         Command::Task { action } => task::handle(action, &context).await,
         Command::Report {
             project,
+            all,
             copy,
             date,
-        } => report::handle(project.as_deref(), copy, date, &context).await,
+        } => report::handle(project.as_deref(), all, copy, date, &context).await,
     }
 }

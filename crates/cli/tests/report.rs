@@ -14,7 +14,7 @@ fn today() -> NaiveDate {
 async fn report_no_projects() {
     let (ctx, _dir) = common::context().await;
 
-    report::handle(None, false, Some(today()), &ctx)
+    report::handle(None, false, false, Some(today()), &ctx)
         .await
         .unwrap();
 }
@@ -23,7 +23,7 @@ async fn report_no_projects() {
 async fn report_empty_project() {
     let (ctx, _dir) = common::setup().await;
 
-    report::handle(Some("work"), false, Some(today()), &ctx)
+    report::handle(Some("work"), false,false, Some(today()), &ctx)
         .await
         .unwrap();
 }
@@ -43,7 +43,7 @@ async fn report_with_tasks() {
         .unwrap();
     ctx.task_service.start(&t.id, None).await.unwrap();
 
-    report::handle(Some("work"), false, Some(today()), &ctx)
+    report::handle(Some("work"), false,false, Some(today()), &ctx)
         .await
         .unwrap();
 }
@@ -57,7 +57,7 @@ async fn report_all_projects() {
         .await
         .unwrap();
 
-    report::handle(None, false, Some(today()), &ctx)
+    report::handle(None, false,false, Some(today()), &ctx)
         .await
         .unwrap();
 }
@@ -66,7 +66,7 @@ async fn report_all_projects() {
 async fn report_nonexistent_project_fails() {
     let (ctx, _dir) = common::context().await;
 
-    let result = report::handle(Some("nope"), false, Some(today()), &ctx).await;
+    let result = report::handle(Some("nope"), false,false, Some(today()), &ctx).await;
 
     assert!(result.is_err());
 }
@@ -81,7 +81,7 @@ async fn report_specific_date() {
         .unwrap();
 
     let date = NaiveDate::from_ymd_opt(2025, 1, 15).unwrap();
-    report::handle(Some("work"), false, Some(date), &ctx)
+    report::handle(Some("work"), false,false, Some(date), &ctx)
         .await
         .unwrap();
 }
@@ -95,7 +95,7 @@ async fn report_defaults_to_today() {
         .await
         .unwrap();
 
-    report::handle(Some("work"), false, None, &ctx)
+    report::handle(Some("work"), false,false, None, &ctx)
         .await
         .unwrap();
 }

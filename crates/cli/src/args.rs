@@ -40,6 +40,10 @@ pub enum Command {
         #[arg(short, long)]
         project: Option<String>,
 
+        /// Report for all projects.
+        #[arg(short, long)]
+        all: bool,
+
         /// Copy output to clipboard.
         #[arg(short, long)]
         copy: bool,

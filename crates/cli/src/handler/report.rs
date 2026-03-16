@@ -18,6 +18,7 @@ use domain::{
 /// Returns [`CliError`] on domain or config errors.
 pub async fn handle<R>(
     project: Option<&str>,
+    all: bool,
     copy: bool,
     date: Option<NaiveDate>,
     context: &AppContext<R>,
@@ -27,13 +28,16 @@ where
 {
     let date = date.unwrap_or_else(|| Local::now().date_naive());
 
-    let output = if let Some(slug) = project {
+    let output = if all {
+        let reports = context.report_service.generate_all(date).await?;
+        service::render_all(&reports)
+    } else {
+        let slug = project
+            .or(context.config.active_project())
+            .ok_or(CliError::NoActiveProject)?;
         let project = context.project_service.find_by(slug).await?;
         let report = context.report_service.generate(date, &project).await?;
         report.render()
-    } else {
-        let reports = context.report_service.generate_all(date).await?;
-        service::render_all(&reports)
     };
 
     if output.is_empty() {

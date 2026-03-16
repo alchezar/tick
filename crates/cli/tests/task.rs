@@ -17,7 +17,7 @@ async fn add_creates_task() {
         project: None,
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let project = ctx.project_service.find_by("work").await.unwrap();
     let tasks = ctx.task_service.list(&project.id).await.unwrap();
@@ -43,7 +43,7 @@ async fn add_subtask() {
         project: None,
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let tasks = ctx.task_service.list(&project.id).await.unwrap();
     let child = tasks.iter().find(|t| t.title == "Child").unwrap();
@@ -58,7 +58,7 @@ async fn list_empty() {
         all: false,
         project: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 }
 
 #[tokio::test]
@@ -75,7 +75,7 @@ async fn start_changes_status() {
         id: t.id.into(),
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
     assert_eq!(updated[0].status(), Status::InProgress);
@@ -96,7 +96,7 @@ async fn done_changes_status() {
         id: t.id.into(),
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
     assert_eq!(updated[0].status(), Status::Done);
@@ -117,7 +117,7 @@ async fn block_changes_status() {
         id: t.id.into(),
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
     assert_eq!(updated[0].status(), Status::Blocked);
@@ -138,7 +138,7 @@ async fn reset_changes_status() {
         id: t.id.into(),
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
     assert_eq!(updated[0].status(), Status::NotStarted);
@@ -158,7 +158,7 @@ async fn rename_changes_title() {
         id: t.id.into(),
         title: "New".to_owned(),
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
     assert_eq!(updated[0].title, "New");
@@ -175,7 +175,7 @@ async fn remove_deletes_task() {
         .unwrap();
 
     let action = TaskAction::Remove { id: t.id.into() };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let tasks = ctx.task_service.list(&project.id).await.unwrap();
     assert!(tasks.is_empty());
@@ -196,7 +196,7 @@ async fn move_reorder() {
         under: None,
         order: Some(5),
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let updated = ctx.task_service.list(&project.id).await.unwrap();
     assert_eq!(updated[0].order, Some(5));
@@ -214,7 +214,7 @@ async fn no_active_project_fails() {
         project: None,
         date: None,
     };
-    let result = task::handle(action, &ctx).await;
+    let result = task::handle(Some(action), &ctx).await;
 
     assert!(result.is_err());
 }
@@ -231,7 +231,7 @@ async fn explicit_project_flag() {
         project: Some("other".to_owned()),
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let project = ctx.project_service.find_by("other").await.unwrap();
     let tasks = ctx.task_service.list(&project.id).await.unwrap();
@@ -249,7 +249,7 @@ async fn add_with_date_sets_created_at() {
         project: None,
         date: Some(date),
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let project = ctx.project_service.find_by("work").await.unwrap();
     let tasks = ctx.task_service.list(&project.id).await.unwrap();
@@ -268,7 +268,7 @@ async fn add_without_date_uses_today() {
         project: None,
         date: None,
     };
-    task::handle(action, &ctx).await.unwrap();
+    task::handle(Some(action), &ctx).await.unwrap();
 
     let project = ctx.project_service.find_by("work").await.unwrap();
     let tasks = ctx.task_service.list(&project.id).await.unwrap();
