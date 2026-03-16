@@ -8,7 +8,7 @@ SHELL := /bin/bash
 # Testing
 .PHONY: test test_one test_in test_not
 # Development
-.PHONY: build dev run clean
+.PHONY: build release dev run clean
 
 #===============================================================================
 # Help
@@ -110,16 +110,19 @@ build: ## Build all workspace crates
 	@echo "[*] Building workspace..."
 	@cargo build --workspace
 
+release: ## Build release binary and copy to project root
+	@echo "[*] Building CLI (release)..."
+	@cargo build --bin tt --release
+	@cp target/release/tt .
+	@echo "[+] Built: ./tt"
+
 dev: ## Run CLI in debug mode with .env loaded
 	@echo "[*] Running CLI (debug)..."
 	@set -a && . ./.env && set +a && cargo run --bin tt
 
-run: ## Build release binary, copy to project root, and run
-	@echo "[*] Building CLI (release)..."
-	@cargo build --bin tt --release
-	@cp target/release/tt .
-	@echo "[*] Running ./tt..."
-	@./tt
+run: ## Run CLI in release mode
+	@echo "[*] Running CLI (release)..."
+	@cargo run --bin tt --release
 
 clean: ## Clean build artifacts
 	@echo "[*] Cleaning build artifacts..."
