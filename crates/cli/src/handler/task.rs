@@ -20,10 +20,15 @@ use domain::{
 ///
 /// # Errors
 /// Returns [`CliError`] on domain, config, or resolve errors.
-pub async fn handle<R>(action: TaskAction, context: &AppContext<R>) -> CliResult<()>
+pub async fn handle<R>(action: Option<TaskAction>, context: &AppContext<R>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
+    let action = action.unwrap_or(TaskAction::List {
+        all: false,
+        project: None,
+    });
+
     let project_id = action
         .project()
         .or(context.config.active_project())

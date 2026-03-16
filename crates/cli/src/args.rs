@@ -25,12 +25,12 @@ pub enum Command {
         action: Option<ProjectAction>,
     },
 
-    /// Task management.
+    /// Task management (defaults to list).
     #[command(visible_alias = "ts")]
     Task {
-        /// Task action.
+        /// Task action (omit to list tasks).
         #[command(subcommand)]
-        action: TaskAction,
+        action: Option<TaskAction>,
     },
 
     /// Generate standup report.
