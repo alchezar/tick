@@ -82,7 +82,7 @@ impl Display for CliError {
                 )
             }
             Self::NoActiveProject => {
-                write!(f, "no active project set, use `tick project switch <slug>`")
+                write!(f, "no active project set, use `tt project switch <slug>`")
             }
             Self::Domain(e) => Display::fmt(e, f),
         }

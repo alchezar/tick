@@ -1,4 +1,4 @@
-//! `tick` - CLI entry point.
+//! `tt` - CLI entry point.
 
 use std::process;
 
@@ -23,8 +23,6 @@ async fn main() {
 }
 
 async fn run() -> CliResult<()> {
-    dotenv::dotenv().ok();
-
     let cli = Cli::parse();
     let config = Config::load()?;
     let repo = SqliteRepo::open_default()

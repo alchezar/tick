@@ -1,6 +1,10 @@
 # Rust build artifacts
 /target
 
+# Compiled binaries
+/cli
+/tt
+
 # Secrets
 .secrets/
 .env

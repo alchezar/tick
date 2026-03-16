@@ -112,11 +112,14 @@ build: ## Build all workspace crates
 
 dev: ## Run CLI in debug mode with .env loaded
 	@echo "[*] Running CLI (debug)..."
-	@set -a && . ./.env && set +a && cargo run --bin cli
+	@set -a && . ./.env && set +a && cargo run --bin tt
 
-run: ## Run CLI in release mode with .env loaded
-	@echo "[*] Running CLI (release)..."
-	@set -a && . ./.env && set +a && cargo run --bin cli --release
+run: ## Build release binary, copy to project root, and run
+	@echo "[*] Building CLI (release)..."
+	@cargo build --bin tt --release
+	@cp target/release/tt .
+	@echo "[*] Running ./tt..."
+	@./tt
 
 clean: ## Clean build artifacts
 	@echo "[*] Cleaning build artifacts..."

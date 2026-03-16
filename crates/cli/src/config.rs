@@ -11,9 +11,9 @@ use crate::error::{CliError, CliResult};
 pub const CONFIG_FILE: &str = "config.toml";
 
 /// Application directory name under XDG data dir.
-const APP_DIR: &str = "tick";
+const APP_DIR: &str = "tt";
 
-/// Persistent configuration stored at `~/.local/share/tick/config.toml`.
+/// Persistent configuration stored at `~/.local/share/tt/config.toml`.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Config {
     /// Slug of the currently active project.
@@ -118,7 +118,7 @@ impl Config {
         self.active_project.as_deref()
     }
 
-    /// Returns the default config file path (`~/.local/share/tick/config.toml`).
+    /// Returns the default config file path (`~/.local/share/tt/config.toml`).
     fn default_path() -> CliResult<PathBuf> {
         dirs::data_dir()
             .map(|d| d.join(APP_DIR).join(CONFIG_FILE))

@@ -1,10 +1,10 @@
-# tick
+# tt
 
 Task tracker with automatic daily standup report generation for team chats.
 
 ## What it does
 
-You manage tasks and subtasks in `tick`. At the end of the day, you run one command and get a formatted text block ready to paste into your project chat:
+You manage tasks and subtasks in `tt`. At the end of the day, you run one command and get a formatted text block ready to paste into your project chat:
 
 ```
 Previously:
@@ -49,23 +49,23 @@ Multi-project support with create, rename, switch, and scoped commands.
 
 ```bash
 # Projects
-tick pr ad work --title "Work"  # create project
-tick pr sw work                 # switch active project
-tick pr ls                      # list all projects
+tt pr ad work --title "Work"  # create project
+tt pr sw work                 # switch active project
+tt pr ls                      # list all projects
 
 # Tasks
-tick ts ad "Fix login bug"                 # add root task
-tick ts ad "Fix login bug" -u <parent-id>  # add child task
-tick ts ad "Fix login bug" -d 2026-01-15   # add task with specific date
-tick ts ls                                 # list active tasks
-tick ts dn <id>                            # mark done
-tick ts bl <id>                            # mark blocked
-tick ts rm <id>                            # delete task
+tt ts ad "Fix login bug"                 # add root task
+tt ts ad "Fix login bug" -u <parent-id>  # add child task
+tt ts ad "Fix login bug" -d 2026-01-15   # add task with specific date
+tt ts ls                                 # list active tasks
+tt ts dn <id>                            # mark done
+tt ts bl <id>                            # mark blocked
+tt ts rm <id>                            # delete task
 
 # Report
-tick rp                        # print today's report
-tick rp -c                     # copy to clipboard
-tick rp --date 2026-03-15      # report for specific date
+tt rp                        # print today's report
+tt rp -c                     # copy to clipboard
+tt rp --date 2026-03-15      # report for specific date
 ```
 
 ## Setup

@@ -1,4 +1,4 @@
-//! `tick-core` — domain logic, business rules, repository traits
+//! `tt-core` - domain logic, business rules, repository traits
 
 pub mod error;
 pub mod model;

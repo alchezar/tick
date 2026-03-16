@@ -54,7 +54,7 @@ impl SqliteRepo {
 
     /// Opens the default `SQLite` database at the XDG data directory.
     ///
-    /// Path: `~/.local/share/tick/tick.db` (or platform equivalent).
+    /// Path: `~/.local/share/tt/tt.db` (or platform equivalent).
     /// Creates the directory if it does not exist.
     /// Respects `DATABASE_URL` env var as an override.
     ///
@@ -67,10 +67,12 @@ impl SqliteRepo {
 
         let data_dir = dirs::data_dir()
             .ok_or_else(|| DbError::Query("cannot determine data directory".to_owned()))?;
-        let db_dir = data_dir.join("tick");
+        let db_dir = data_dir.join("tt");
         std::fs::create_dir_all(&db_dir).map_err(|e| DbError::Query(e.to_string()))?;
 
-        Self::open(&format!("sqlite:{}", db_dir.join("tick.db").display())).await
+        let path = db_dir.join("tt.db");
+        let encoded = path.to_string_lossy().replace(' ', "%20");
+        Self::open(&format!("sqlite:{encoded}?mode=rwc")).await
     }
 
     /// Creates an in-memory `SQLite` database with migrations applied.

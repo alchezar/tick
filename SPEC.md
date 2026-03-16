@@ -1,8 +1,8 @@
-# tick - Technical Specification
+# tt - Technical Specification
 
 ## Overview
 
-`tick` is a task tracker designed to generate formatted daily standup reports. Tasks support up to 4 levels of nesting.
+`tt` is a task tracker designed to generate formatted daily standup reports. Tasks support up to 4 levels of nesting.
 
 ---
 
@@ -114,7 +114,7 @@ Implementation: `tasks_snapshot(date)` - reconstructs task statuses from the sta
 
 ### Commands
 
-Top-level commands (`tick <command>`):
+Top-level commands (`tt <command>`):
 
 | Command   | Alias | Description             |
 |-----------|-------|-------------------------|
@@ -125,64 +125,64 @@ Top-level commands (`tick <command>`):
 ### Project Management
 
 ```
-tick pr                                Show active project slug and title
-tick pr ls                             List all projects (slug + title)
-tick pr ad <slug>                      Create a new project
-tick pr ad <slug> --title "Full title" Create a project with a display title
-tick pr sw <slug>                      Switch active project
-tick pr rn <slug> <new-title>          Change project display title
-tick pr rl <slug> <new-slug>           Change project slug
-tick pr rm <slug>                      Delete project and all its tasks
+tt pr                                Show active project slug and title
+tt pr ls                             List all projects (slug + title)
+tt pr ad <slug>                      Create a new project
+tt pr ad <slug> --title "Full title" Create a project with a display title
+tt pr sw <slug>                      Switch active project
+tt pr rn <slug> <new-title>          Change project display title
+tt pr rl <slug> <new-slug>           Change project slug
+tt pr rm <slug>                      Delete project and all its tasks
 ```
 
-The active project is stored in `~/.local/share/tick/config.toml`. Task and report commands operate on the active project unless `--project <slug>` is specified.
+The active project is stored in `~/.local/share/tt/config.toml`. Task and report commands operate on the active project unless `--project <slug>` is specified.
 
 ### Task Management
 
 ```
-tick ts ad <title>                     Add a root task
-tick ts ad <title> -u <id>             Add a child task
-tick ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
-tick ts ls                             List active tasks (tree view)
-tick ts ls --all                       List all tasks including done/blocked
-tick ts st <id>                        Set status to in_progress
-tick ts st <id> -d <YYYY-MM-DD>        Set status with specific date
-tick ts dn <id>                        Set status to done
-tick ts dn <id> -d <YYYY-MM-DD>        Set status with specific date
-tick ts bl <id>                        Set status to blocked
-tick ts bl <id> -d <YYYY-MM-DD>        Set status with specific date
-tick ts ab <id>                        Mark task as abandoned
-tick ts ab <id> -d <YYYY-MM-DD>        Abandon with specific date
-tick ts rs <id>                        Set status to not_started
-tick ts rs <id> -d <YYYY-MM-DD>        Set status with specific date
-tick ts mv <id> -u <id>                Move task under a new parent
-tick ts mv <id> -o <n>                 Change display order
-tick ts rn <id> <title>                Rename a task
-tick ts rm <id>                        Delete task (and its children)
+tt ts ad <title>                     Add a root task
+tt ts ad <title> -u <id>             Add a child task
+tt ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
+tt ts ls                             List active tasks (tree view)
+tt ts ls --all                       List all tasks including done/blocked
+tt ts st <id>                        Set status to in_progress
+tt ts st <id> -d <YYYY-MM-DD>        Set status with specific date
+tt ts dn <id>                        Set status to done
+tt ts dn <id> -d <YYYY-MM-DD>        Set status with specific date
+tt ts bl <id>                        Set status to blocked
+tt ts bl <id> -d <YYYY-MM-DD>        Set status with specific date
+tt ts ab <id>                        Mark task as abandoned
+tt ts ab <id> -d <YYYY-MM-DD>        Abandon with specific date
+tt ts rs <id>                        Set status to not_started
+tt ts rs <id> -d <YYYY-MM-DD>        Set status with specific date
+tt ts mv <id> -u <id>                Move task under a new parent
+tt ts mv <id> -o <n>                 Change display order
+tt ts rn <id> <title>                Rename a task
+tt ts rm <id>                        Delete task (and its children)
 
-tick ts ls -p <slug>                   List tasks in a specific project
+tt ts ls -p <slug>                   List tasks in a specific project
 ```
 
 ### Report
 
 ```
-tick rp                                Print standup report to stdout
-tick rp --previously                   Print only the Previously section
-tick rp --today                        Print only the Today section
-tick rp --current                      Print only the Current section
-tick rp -c                             Copy report to clipboard (macOS: pbcopy)
-tick rp --date <YYYY-MM-DD>            Generate report for a specific date
+tt rp                                Print standup report to stdout
+tt rp --previously                   Print only the Previously section
+tt rp --today                        Print only the Today section
+tt rp --current                      Print only the Current section
+tt rp -c                             Copy report to clipboard (macOS: pbcopy)
+tt rp --date <YYYY-MM-DD>            Generate report for a specific date
 
-tick rp -p <slug>                      Report for a specific project
-tick rp -p <slug> -c                   Copy report for a specific project
+tt rp -p <slug>                      Report for a specific project
+tt rp -p <slug> -c                   Copy report for a specific project
 ```
 
 ### Other
 
 ```
-tick --help / -h                       Show help
-tick --version / -V                    Show version
-tick <command> --help                  Show help for a command
+tt --help / -h                       Show help
+tt --version / -V                    Show version
+tt <command> --help                  Show help for a command
 ```
 
 ---
@@ -203,7 +203,7 @@ Introduce multi-project support:
 - Add `project_id` column to `tasks`
 - Add `project` top-level command with subcommands
 - Active project persisted in config
-- `tick project` management commands: add, list, switch, remove
+- `tt project` management commands: add, list, switch, remove
 - Projects must be created explicitly before adding tasks
 
 ### v0.2 - CLI + SQLite
@@ -215,7 +215,7 @@ crates/
   db/         - SQLite persistence via sqlx
 ```
 
-Single binary, no server. Database stored at `~/.local/share/tick/tick.db` (XDG). Active project stored at `~/.local/share/tick/config.toml`.
+Single binary, no server. Database stored at `~/.local/share/tt/tt.db` (XDG). Active project stored at `~/.local/share/tt/config.toml`.
 
 ### v0.3 - TUI
 
@@ -252,7 +252,7 @@ setup:    HUBSTAFF_REFRESH_TOKEN -> exchange -> access_token + expiry -> save to
 runtime:  check expiry -> if expired, re-exchange -> use access_token for API calls
 ```
 
-**Config storage (`~/.local/share/tick/config.toml`):**
+**Config storage (`~/.local/share/tt/config.toml`):**
 
 ```toml
 [hubstaff]
@@ -264,22 +264,22 @@ organization_id = 12345   # fetched once during setup, never again
 **Setup command:**
 
 ```
-tick hubstaff setup   # prompts for refresh token, fetches org_id, saves to config
+tt hubstaff setup   # prompts for refresh token, fetches org_id, saves to config
 ```
 
 **Potential use cases:**
 
 | Use case          | Description                                         |
 |-------------------|-----------------------------------------------------|
-| Project linking   | Bind a tick project slug to a Hubstaff project id   |
+| Project linking   | Bind a tt project slug to a Hubstaff project id     |
 | Report enrichment | Show tracked time per task alongside standup report |
 
 **CLI sketch:**
 
 ```
-tick hs st                                          # one-time auth Hubstaff setup
-tick pr sw work --hubstaff-id <hubstaff_project_id> # link tick project to Hubstaff project
-tick rp --with-time                                 # report with tracked hours
+tt hs st                                          # one-time auth Hubstaff setup
+tt pr sw work --hubstaff-id <hubstaff_project_id> # link tt project to Hubstaff project
+tt rp --with-time                                 # report with tracked hours
 ```
 
 **Data model additions:**

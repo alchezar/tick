@@ -7,7 +7,7 @@ use crate::types::ShortId;
 
 /// Task tracker with standup report generation.
 #[derive(Debug, Parser)]
-#[command(name = "tick", version, about)]
+#[command(name = "tt", version, about)]
 pub struct Cli {
     /// Top-level command.
     #[command(subcommand)]
