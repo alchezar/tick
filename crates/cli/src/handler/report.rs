@@ -47,7 +47,7 @@ where
             .map_err(|e| CliError::Clipboard(e.to_string()))?;
         println!("copied to clipboard");
     } else {
-        print!("{output}");
+        print!("{}", super::terminal_emoji(&output));
     }
 
     Ok(())

@@ -138,7 +138,7 @@ where
 fn print_task(task: &Task, all: &[Task], depth: usize) {
     let short_id = ShortId::from(task.id);
     let indent = " -".repeat(depth + 1);
-    let icon = task.status().icon();
+    let icon = super::terminal_emoji(task.status().icon());
     let task_title = &task.title;
     println!("[{short_id}]{indent} {icon} {task_title}");
 
