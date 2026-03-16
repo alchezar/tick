@@ -144,7 +144,7 @@ tt ts ad <title>                     Add a root task
 tt ts ad <title> -u <id>             Add a child task
 tt ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
 tt ts                                List active tasks (tree view)
-tt ts -a                             List all tasks including done/blocked
+tt ts -a                             List all tasks including done/abandoned
 tt ts st <id>                        Set status to in_progress
 tt ts st <id> -d <YYYY-MM-DD>        Set status with specific date
 tt ts dn <id>                        Set status to done
@@ -169,7 +169,7 @@ tt ts -p <slug>                      List tasks in a specific project
 tt rp                                Report for active project
 tt rp -a                             Report for all projects
 tt rp -p <slug>                      Report for a specific project
-tt rp -c                             Copy report to clipboard (macOS: pbcopy)
+tt rp -c                             Copy report to clipboard (without Current section)
 tt rp -a -c                          Copy report for all projects
 tt rp --date <YYYY-MM-DD>            Generate report for a specific date
 tt rp --previously                   Print only the Previously section

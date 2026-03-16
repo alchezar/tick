@@ -57,14 +57,15 @@ tt pr ls                      # list all projects
 tt ts ad "Fix login bug"                 # add root task
 tt ts ad "Fix login bug" -u <parent-id>  # add child task
 tt ts ad "Fix login bug" -d 2026-01-15   # add task with specific date
-tt ts ls                                 # list active tasks
+tt ts                                    # list active tasks
 tt ts dn <id>                            # mark done
 tt ts bl <id>                            # mark blocked
 tt ts rm <id>                            # delete task
 
 # Report
-tt rp                        # print today's report
-tt rp -c                     # copy to clipboard
+tt rp                        # report for active project
+tt rp -a                     # report for all projects
+tt rp -c                     # copy to clipboard (without Current section)
 tt rp --date 2026-03-15      # report for specific date
 ```
 

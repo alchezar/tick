@@ -52,13 +52,16 @@ impl Status {
     /// Returns `true` if the task is actionable (shown in Today section of the report).
     #[must_use]
     pub fn is_active(&self) -> bool {
-        matches!(self, Status::NotStarted | Status::InProgress)
+        matches!(
+            self,
+            Status::NotStarted | Status::InProgress | Status::Blocked
+        )
     }
 
     /// Returns `true` if the task is no longer actionable (shown in Previously section of the report).
     #[must_use]
     pub fn is_closed(&self) -> bool {
-        matches!(self, Status::Done | Status::Blocked | Status::Abandoned)
+        matches!(self, Status::Done | Status::Abandoned)
     }
 
     /// Returns `true` if the task should appear in reports.

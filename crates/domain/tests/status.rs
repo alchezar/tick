@@ -40,14 +40,14 @@ fn is_active() {
     assert!(Status::NotStarted.is_active());
     assert!(Status::InProgress.is_active());
     assert!(!Status::Done.is_active());
-    assert!(!Status::Blocked.is_active());
+    assert!(Status::Blocked.is_active());
     assert!(!Status::Abandoned.is_active());
 }
 
 #[test]
 fn is_closed() {
     assert!(Status::Done.is_closed());
-    assert!(Status::Blocked.is_closed());
+    assert!(!Status::Blocked.is_closed());
     assert!(Status::Abandoned.is_closed());
     assert!(!Status::NotStarted.is_closed());
     assert!(!Status::InProgress.is_closed());
