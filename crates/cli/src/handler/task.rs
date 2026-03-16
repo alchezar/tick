@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use uuid::Uuid;
 
 use crate::{
@@ -110,9 +110,13 @@ where
     let visible = if show_all {
         tasks
     } else {
+        let today = Local::now().date_naive();
         tasks
             .into_iter()
-            .filter(|t| t.status().is_active())
+            .filter(|t| {
+                t.status().is_active()
+                    || (t.status().is_closed() && t.updated.date_naive() == today)
+            })
             .collect::<Vec<_>>()
     };
 
