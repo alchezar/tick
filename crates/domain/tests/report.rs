@@ -56,7 +56,7 @@ fn render_formats_hierarchy() {
 
     let report = Report::new("default", vec![grandchild], vec![root, child], today);
 
-    let rendered = report.render();
+    let rendered = report.render(true);
 
     assert!(rendered.contains("default\n\n"));
     assert!(rendered.contains("Previously:\n"));
@@ -202,7 +202,7 @@ fn render_real_world_report() {
         " - - ❌ apply fmt and clippy fix for related modules\n",
     );
 
-    assert_eq!(report.render(), expected);
+    assert_eq!(report.render(true), expected);
 }
 
 #[test]
@@ -251,7 +251,7 @@ fn today_section_shows_old_done_as_planned() {
         " - ❌ New task\n",
     );
 
-    assert_eq!(report.render(), expected);
+    assert_eq!(report.render(true), expected);
 }
 
 #[tokio::test]
@@ -414,7 +414,7 @@ fn render_all_combines_multiple_projects() {
     let r1 = Report::new("Work", vec![], vec![task_a], today);
     let r2 = Report::new("Personal", vec![], vec![task_b], today);
 
-    let output = service::render_all(&[r1, r2]);
+    let output = service::render_all(&[r1, r2], true);
 
     assert!(output.contains("Work\n\n"));
     assert!(output.contains("Personal\n\n"));
@@ -432,7 +432,7 @@ fn render_all_skips_empty_reports() {
     let empty = Report::new("Empty", vec![], vec![], today);
     let filled = Report::new("Filled", vec![], vec![task], today);
 
-    let output = service::render_all(&[empty, filled]);
+    let output = service::render_all(&[empty, filled], true);
 
     assert!(!output.contains("Empty"));
     assert!(output.contains("Filled\n\n"));
@@ -440,7 +440,7 @@ fn render_all_skips_empty_reports() {
 
 #[test]
 fn render_all_empty_input() {
-    let output = service::render_all(&[]);
+    let output = service::render_all(&[], true);
     assert!(output.is_empty());
 }
 
@@ -493,7 +493,7 @@ async fn generate_all_empty_project_produces_empty_report() {
     assert_eq!(reports.len(), 1);
     assert!(reports[0].prev.is_empty());
     assert!(reports[0].current.is_empty());
-    assert!(reports[0].render().is_empty());
+    assert!(reports[0].render(true).is_empty());
 }
 
 #[tokio::test]

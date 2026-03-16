@@ -52,7 +52,7 @@ impl Report {
     ///
     /// Returns an empty string when the project has no relevant tasks.
     #[must_use]
-    pub fn render(&self) -> String {
+    pub fn render(&self, include_current: bool) -> String {
         let mut body = String::new();
 
         if !self.prev.is_empty() {
@@ -67,9 +67,11 @@ impl Report {
             body.push_str("Today:\n");
             body.push_str(&render_section(&self.current, Some(self.date)));
 
-            body.push('\n');
-            body.push_str("Current:\n");
-            body.push_str(&render_section(&self.current, None));
+            if include_current {
+                body.push('\n');
+                body.push_str("Current:\n");
+                body.push_str(&render_section(&self.current, None));
+            }
         }
 
         if body.is_empty() {
@@ -84,10 +86,10 @@ impl Report {
 ///
 /// Empty reports (projects with no relevant tasks) are skipped.
 #[must_use]
-pub fn render_all(reports: &[Report]) -> String {
+pub fn render_all(reports: &[Report], include_current: bool) -> String {
     reports
         .iter()
-        .map(Report::render)
+        .map(|r| r.render(include_current))
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
