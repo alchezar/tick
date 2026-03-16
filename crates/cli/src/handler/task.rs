@@ -138,18 +138,23 @@ where
     roots.sort_by_key(|t| t.order);
 
     for root in roots {
-        print_task(root, &visible, 0);
+        print_task(root, &visible, 0, show_all);
     }
     Ok(())
 }
 
 /// Prints a task and its children recursively.
-fn print_task(task: &Task, all: &[Task], depth: usize) {
+fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool) {
     let short_id = ShortId::from(task.id);
+    let updated = if show_date {
+        format!("|{}", task.updated.format("%Y-%m-%d"))
+    } else {
+        String::new()
+    };
     let indent = " -".repeat(depth + 1);
     let icon = super::terminal_emoji(task.status().icon());
     let task_title = &task.title;
-    println!("[{short_id}]{indent} {icon} {task_title}");
+    println!("[{short_id}{updated}]{indent} {icon} {task_title}");
 
     let mut children = all
         .iter()
@@ -158,7 +163,7 @@ fn print_task(task: &Task, all: &[Task], depth: usize) {
     children.sort_by_key(|t| t.order);
 
     for child in children {
-        print_task(child, all, depth + 1);
+        print_task(child, all, depth + 1, show_date);
     }
 }
 
