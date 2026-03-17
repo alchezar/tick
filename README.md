@@ -55,7 +55,7 @@ tt pr ls                      # list all projects
 
 # Tasks
 tt ts ad "Fix login bug"                 # add root task
-tt ts ad "Fix login bug" -u <parent-id>  # add child task
+tt ts ad "Fix login bug" -p <parent-id>  # add child task
 tt ts ad "Fix login bug" -d 2026-01-15   # add task with specific date
 tt ts                                    # list active tasks
 tt ts dn <id>                            # mark done

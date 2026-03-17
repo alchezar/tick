@@ -39,8 +39,11 @@ where
 
     match action {
         TaskAction::Add {
-            title, under, date, ..
-        } => add(context, project_id, &title, under, date).await,
+            title,
+            parent,
+            date,
+            ..
+        } => add(context, project_id, &title, parent, date).await,
         TaskAction::List { all, .. } => list(context, project_id, all).await,
         TaskAction::Start { id, date } => {
             change_status(context, project_id, id, Status::InProgress, date).await
@@ -57,9 +60,13 @@ where
         TaskAction::Reset { id, date } => {
             change_status(context, project_id, id, Status::NotStarted, date).await
         }
-        TaskAction::Move { id, under, order } => {
-            move_task(context, project_id, id, under, order).await
-        }
+        TaskAction::Move {
+            id,
+            parent,
+            up,
+            down,
+            order,
+        } => move_task(context, project_id, id, parent, up, down, order).await,
         TaskAction::Rename { id, title } => rename(context, project_id, id, &title).await,
         TaskAction::Remove { id } => remove(context, project_id, id).await,
     }
@@ -70,13 +77,13 @@ async fn add<R>(
     context: &AppContext<R>,
     project_id: Uuid,
     title: &str,
-    under: Option<ShortId>,
+    parent: Option<ShortId>,
     date: Option<NaiveDate>,
 ) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let parent = match under {
+    let parent = match parent {
         Some(id) => Some(
             context
                 .task_service
@@ -206,12 +213,14 @@ where
     Ok(())
 }
 
-/// Moves a task under a new parent or changes its order.
+/// Moves a task to a new parent or changes its display order.
 async fn move_task<R>(
     context: &AppContext<R>,
     project_id: Uuid,
     id: ShortId,
-    under: Option<ShortId>,
+    parent: Option<ShortId>,
+    up: bool,
+    down: bool,
     order: Option<usize>,
 ) -> CliResult<()>
 where
@@ -222,7 +231,7 @@ where
         .find_by_prefix(&project_id, id.as_str())
         .await?;
 
-    if let Some(parent_short) = under {
+    if let Some(parent_short) = parent {
         let parent_uuid = context
             .task_service
             .find_by_prefix(&project_id, parent_short.as_str())
@@ -233,7 +242,29 @@ where
             .await?;
     }
 
-    if let Some(ord) = order {
+    let new_order = if up || down {
+        let tasks = context.task_service.list(&project_id).await?;
+        let task = tasks.iter().find(|t| t.id == task_id);
+        let current = task.and_then(|t| t.order).unwrap_or(0);
+        let parent = task.and_then(|t| t.parent);
+        let max_order = tasks
+            .iter()
+            .filter(|t| t.parent == parent && t.id != task_id)
+            .filter_map(|t| t.order)
+            .max()
+            .unwrap_or(0);
+        if (up && current == 0) || (down && current >= max_order) {
+            None
+        } else if up {
+            Some(current.saturating_sub(1))
+        } else {
+            Some(current + 1)
+        }
+    } else {
+        order
+    };
+
+    if let Some(ord) = new_order {
         let mut tasks = context.task_service.list(&project_id).await?;
         context
             .task_service

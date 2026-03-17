@@ -141,7 +141,7 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 
 ```
 tt ts ad <title>                     Add a root task
-tt ts ad <title> -u <id>             Add a child task
+tt ts ad <title> -p <id>             Add a child task
 tt ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
 tt ts                                List active tasks (tree view)
 tt ts -a                             List all tasks including done/abandoned
@@ -155,8 +155,10 @@ tt ts ab <id>                        Mark task as abandoned
 tt ts ab <id> -d <YYYY-MM-DD>        Abandon with specific date
 tt ts rs <id>                        Set status to not_started
 tt ts rs <id> -d <YYYY-MM-DD>        Set status with specific date
-tt ts mv <id> -u <id>                Move task under a new parent
+tt ts mv <id> -p <id>                Move task to a new parent
 tt ts mv <id> -o <n>                 Change display order
+tt ts mv <id> -u                     Move one position up
+tt ts mv <id> -d                     Move one position down
 tt ts rn <id> <title>                Rename a task
 tt ts rm <id>                        Delete task (and its children)
 

@@ -118,7 +118,7 @@ pub enum TaskAction {
 
         /// Parent task id (creates a subtask).
         #[arg(short, long)]
-        under: Option<ShortId>,
+        parent: Option<ShortId>,
 
         /// Project slug (defaults to active project).
         #[arg(short, long)]
@@ -196,18 +196,26 @@ pub enum TaskAction {
         date: Option<NaiveDate>,
     },
 
-    /// Move task under a new parent or change display order.
+    /// Move task to a new parent or change display order.
     #[command(visible_alias = "mv")]
     Move {
         /// Task id.
         id: ShortId,
 
         /// New parent task id.
-        #[arg(short, long)]
-        under: Option<ShortId>,
+        #[arg(short, long, group = "action")]
+        parent: Option<ShortId>,
+
+        /// Move one position up among siblings.
+        #[arg(short, long, group = "action")]
+        up: bool,
+
+        /// Move one position down among siblings.
+        #[arg(short, long, group = "action")]
+        down: bool,
 
         /// New sibling display order.
-        #[arg(short, long)]
+        #[arg(short, long, group = "action")]
         order: Option<usize>,
     },
 
