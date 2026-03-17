@@ -39,8 +39,6 @@ fn friday_returns_thursday() {
 
 #[test]
 fn render_formats_hierarchy() {
-    let today = Utc::now().date_naive();
-
     let project = Project::default();
     let mut root = Task::new("Milestone", None, project.id);
     root.order = Some(0);
@@ -54,7 +52,16 @@ fn render_formats_hierarchy() {
     grandchild.update_status(Status::InProgress, None).unwrap();
     grandchild.update_status(Status::Done, None).unwrap();
 
-    let report = Report::new("default", vec![grandchild], vec![root, child], today);
+    // Morning plan: both created today -> NotStarted
+    let morning_root = root.clone().with_status(Status::NotStarted);
+    let morning_child = child.clone().with_status(Status::NotStarted);
+
+    let report = Report::new(
+        "default",
+        vec![grandchild],
+        vec![morning_root, morning_child],
+        vec![root, child],
+    );
 
     let rendered = report.render(true);
 
@@ -139,6 +146,18 @@ fn render_real_world_report() {
     let t5 = make_todo("IF NOT EXISTS to migration 002 guard table", ci.id, 7);
     let t6 = make_todo("apply fmt and clippy fix for related modules", task7.id, 0);
 
+    // Morning plan: root tasks were InProgress yesterday, new children NotStarted
+    let morning_t1 = make_todo("replace error_tools with thiserror", ci.id, 3);
+    let morning_t2 = make_todo("move build jobs limit to ci workflow", ci.id, 4);
+    let morning_t3 = make_todo("workspace feature flags rule", ci.id, 5);
+    let morning_t4 = make_todo(
+        "stub ufw in deploy tests and lint targets in Makefile",
+        ci.id,
+        6,
+    );
+    let morning_t5 = make_todo("IF NOT EXISTS to migration 002 guard table", ci.id, 7);
+    let morning_t6 = make_todo("apply fmt and clippy fix for related modules", task7.id, 0);
+
     let report = Report::new(
         "default",
         vec![
@@ -155,8 +174,19 @@ fn render_real_world_report() {
             b2,
             b3,
         ],
+        vec![
+            task1.clone(),
+            ip.clone(),
+            ci.clone(),
+            morning_t1,
+            morning_t2,
+            morning_t3,
+            morning_t4,
+            morning_t5,
+            task7.clone(),
+            morning_t6,
+        ],
         vec![task1, ip, ci, t1, t2, t3, t4, t5, task7, t6],
-        today,
     );
 
     // Root tasks created yesterday -> keep 🔄 in Today
@@ -206,13 +236,12 @@ fn render_real_world_report() {
 }
 
 #[test]
-fn today_section_shows_old_done_as_planned() {
-    let today = Utc::now().date_naive();
-    let yesterday = today - Duration::days(1);
+fn today_section_shows_morning_status() {
+    let yesterday = Utc::now().date_naive() - Duration::days(1);
 
     let project = Project::default();
 
-    // Task created yesterday, completed today -> Today: ❌, Current: ✅
+    // Task created yesterday, completed today -> Today: 🔄 (was InProgress yesterday), Current: ✅
     let mut done_today = Task::new("Finished task", None, project.id);
     done_today.order = Some(0);
     done_today.created = yesterday.and_hms_opt(10, 0, 0).unwrap().and_utc();
@@ -231,17 +260,22 @@ fn today_section_shows_old_done_as_planned() {
     let mut new_task = Task::new("New task", None, project.id);
     new_task.order = Some(2);
 
+    // Morning statuses: done_today was InProgress yesterday, new_task didn't exist
+    let morning_done = done_today.clone().with_status(Status::InProgress);
+    let morning_active = still_active.clone();
+    let morning_new = new_task.clone();
+
     let report = Report::new(
         "default",
         vec![],
+        vec![morning_done, morning_active, morning_new],
         vec![done_today, still_active, new_task],
-        today,
     );
 
     let expected = concat!(
         "default\n\n",
         "Today:\n",
-        " - ❌ Finished task\n",
+        " - 🔄 Finished task\n",
         " - 🔄 Active task\n",
         " - ❌ New task\n",
         "\n",
@@ -293,6 +327,13 @@ async fn generate_today_includes_active_and_changed() {
     let task_b = report.current.iter().find(|t| t.id == b.id).unwrap();
     assert_eq!(task_a.status(), Status::InProgress);
     assert_eq!(task_b.status(), Status::Done);
+
+    // Today (morning): A = InProgress (unchanged), B = InProgress (was InProgress yesterday)
+    assert_eq!(report.today.len(), 2);
+    let morning_a = report.today.iter().find(|t| t.id == a.id).unwrap();
+    let morning_b = report.today.iter().find(|t| t.id == b.id).unwrap();
+    assert_eq!(morning_a.status(), Status::InProgress);
+    assert_eq!(morning_b.status(), Status::InProgress);
 }
 
 #[tokio::test]
@@ -403,16 +444,14 @@ fn sunday_returns_friday() {
 
 #[test]
 fn render_all_combines_multiple_projects() {
-    let today = Utc::now().date_naive();
-
     let mut task_a = Task::new("Task A", None, Project::default().id);
     task_a.order = Some(0);
 
     let mut task_b = Task::new("Task B", None, Project::default().id);
     task_b.order = Some(0);
 
-    let r1 = Report::new("Work", vec![], vec![task_a], today);
-    let r2 = Report::new("Personal", vec![], vec![task_b], today);
+    let r1 = Report::new("Work", vec![], vec![task_a.clone()], vec![task_a]);
+    let r2 = Report::new("Personal", vec![], vec![task_b.clone()], vec![task_b]);
 
     let output = service::render_all(&[r1, r2], true);
 
@@ -424,13 +463,11 @@ fn render_all_combines_multiple_projects() {
 
 #[test]
 fn render_all_skips_empty_reports() {
-    let today = Utc::now().date_naive();
-
     let mut task = Task::new("Task", None, Project::default().id);
     task.order = Some(0);
 
-    let empty = Report::new("Empty", vec![], vec![], today);
-    let filled = Report::new("Filled", vec![], vec![task], today);
+    let empty = Report::new("Empty", vec![], vec![], vec![]);
+    let filled = Report::new("Filled", vec![], vec![task.clone()], vec![task]);
 
     let output = service::render_all(&[empty, filled], true);
 
@@ -492,6 +529,7 @@ async fn generate_all_empty_project_produces_empty_report() {
 
     assert_eq!(reports.len(), 1);
     assert!(reports[0].prev.is_empty());
+    assert!(reports[0].today.is_empty());
     assert!(reports[0].current.is_empty());
     assert!(reports[0].render(true).is_empty());
 }

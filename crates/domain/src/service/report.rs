@@ -18,11 +18,10 @@ pub struct Report {
     pub title: String,
     /// Tasks whose `updated_at` falls on the previous workday.
     pub prev: Vec<Task>,
-    /// Active tasks (`not_started` / `in_progress`) plus any task updated today,
-    /// deduplicated by id. Used for both Today (planned) and Current (actual) sections.
+    /// Morning plan: tasks with their status as of end-of-previous-day.
+    pub today: Vec<Task>,
+    /// Actual state: tasks with their real end-of-day status.
     pub current: Vec<Task>,
-    /// Report date, used to determine "morning plan" icons in the Today section.
-    date: NaiveDate,
 }
 
 impl Report {
@@ -31,14 +30,14 @@ impl Report {
     pub fn new(
         title: impl Into<String>,
         prev: Vec<Task>,
+        today: Vec<Task>,
         current: Vec<Task>,
-        date: NaiveDate,
     ) -> Self {
         Self {
             title: title.into(),
             prev,
+            today,
             current,
-            date,
         }
     }
 
@@ -46,8 +45,7 @@ impl Report {
     ///
     /// Output starts with the project title, followed by three sections:
     /// - **Previously** - tasks updated on the previous workday (real icons).
-    /// - **Today** - morning plan: tasks created or completed today show ❌,
-    ///   others keep their real icon.
+    /// - **Today** - morning plan: tasks with their status as of end-of-previous-day.
     /// - **Current** - actual state of today's tasks (real icons).
     ///
     /// Returns an empty string when the project has no relevant tasks.
@@ -57,20 +55,20 @@ impl Report {
 
         if !self.prev.is_empty() {
             body.push_str("Previously:\n");
-            body.push_str(&render_section(&self.prev, None));
+            body.push_str(&render_section(&self.prev));
         }
 
-        if !self.current.is_empty() {
+        if !self.today.is_empty() {
             if !body.is_empty() {
                 body.push('\n');
             }
             body.push_str("Today:\n");
-            body.push_str(&render_section(&self.current, Some(self.date)));
+            body.push_str(&render_section(&self.today));
 
             if include_current {
                 body.push('\n');
                 body.push_str("Current:\n");
-                body.push_str(&render_section(&self.current, None));
+                body.push_str(&render_section(&self.current));
             }
         }
 
@@ -129,11 +127,12 @@ where
         let title = project.title.as_deref().unwrap_or(&project.slug);
         let tx = self.repo.begin_transaction().await?;
 
+        let (today, current) = self.tasks_today(date, &project.id).await?;
         let report = Report::new(
             title,
             self.tasks_prev(date, &project.id).await?,
-            self.tasks_today(date, &project.id).await?,
-            date,
+            today,
+            current,
         );
 
         tx.commit_transaction().await?;
@@ -164,22 +163,34 @@ where
     /// shown with their status as of that day.
     async fn tasks_prev(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         let prev_day = prev_workday(date);
-        self.tasks_snapshot(prev_day, project_id).await
+        self.tasks_on(prev_day, project_id).await
     }
 
-    /// Returns tasks for the Today / Current sections.
+    /// Returns tasks for the Today (morning plan) and Current sections.
     ///
-    /// Includes tasks that were active on `date` or had a status change on `date`,
-    /// each with status reconstructed from the change log.
-    async fn tasks_today(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        self.tasks_snapshot(date, project_id).await
+    /// Today tasks have their status as of end-of-previous-day.
+    /// Current tasks have their real end-of-day status.
+    async fn tasks_today(
+        &self,
+        date: NaiveDate,
+        project_id: &Uuid,
+    ) -> CoreResult<(Vec<Task>, Vec<Task>)> {
+        let current = self.tasks_on(date, project_id).await?;
+        let yesterday = date - Duration::days(1);
+
+        let mut today = Vec::new();
+        for task in &current {
+            let morning = self.status_at(&task.id, yesterday).await?;
+            today.push(task.clone().with_status(morning));
+        }
+
+        Ok((today, current))
     }
 
     /// Builds a snapshot of tasks relevant to `date`:
-    /// those that were active on `date` or had a status change on `date`,
-    /// each reconstructed with the status it had at end-of-day.
-    async fn tasks_snapshot(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        let tx = self.repo.begin_transaction().await?;
+    /// those that were active or had a status change on `date`,
+    /// each with their end-of-day status.
+    async fn tasks_on(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
         let changed_ids = self
             .repo
             .list_task_changes_on(date)
@@ -205,7 +216,6 @@ where
                 tasks.push(task.with_status(status));
             }
         }
-        tx.commit_transaction().await?;
         Ok(tasks)
     }
 
@@ -246,25 +256,8 @@ pub fn prev_workday(date: NaiveDate) -> NaiveDate {
     }
 }
 
-/// Returns the display icon for a task.
-///
-/// When `today` is `Some(date)`, applies "morning plan" logic:
-/// tasks created on that date or already `Done` are shown as `NotStarted`.
-fn task_icon(task: &Task, today: Option<NaiveDate>) -> &'static str {
-    if let Some(date) = today
-        && (task.created.date_naive() == date || task.status() == Status::Done)
-    {
-        return Status::NotStarted.icon();
-    }
-
-    task.status().icon()
-}
-
 /// Renders a flat list of tasks as an indented hierarchy string.
-///
-/// When `today` is `Some(date)`, icons follow the "morning plan" rule.
-/// When `None`, real status icons are used.
-fn render_section(tasks: &[Task], today: Option<NaiveDate>) -> String {
+fn render_section(tasks: &[Task]) -> String {
     let ids = tasks.iter().map(|t| t.id).collect::<HashSet<_>>();
 
     let mut roots = tasks
@@ -275,23 +268,17 @@ fn render_section(tasks: &[Task], today: Option<NaiveDate>) -> String {
 
     let mut out = String::new();
     for root in roots {
-        render_task(root, tasks, 1, today, &mut out);
+        render_task(root, tasks, 1, &mut out);
     }
     out
 }
 
 /// Recursively appends a task and its children to `out`.
-fn render_task(
-    task: &Task,
-    all: &[Task],
-    depth: usize,
-    today: Option<NaiveDate>,
-    out: &mut String,
-) {
+fn render_task(task: &Task, all: &[Task], depth: usize, out: &mut String) {
     let indent = " -".repeat(depth);
     String::push_str(
         out,
-        &format!("{} {} {}\n", indent, task_icon(task, today), task.title),
+        &format!("{} {} {}\n", indent, task.status().icon(), task.title),
     );
 
     let mut children = all
@@ -301,6 +288,6 @@ fn render_task(
     children.sort_by_key(|t| t.order);
 
     for child in children {
-        render_task(child, all, depth + 1, today, out);
+        render_task(child, all, depth + 1, out);
     }
 }

@@ -80,23 +80,19 @@ Weekend logic:
 
 ### Today
 
-"Morning plan" view - the same task set as Current, but with modified icons to simulate the state at the beginning of the workday:
+"Morning plan" view - each task is shown with its status as of end-of-previous-day (`status_at(yesterday)`). This reflects what the plan looked like at the start of the workday:
 
-| Condition                           | Icon      |
-|-------------------------------------|-----------|
-| Task created today (any status)     | ❌         |
-| Task created earlier, status `done` | ❌         |
-| Task created earlier, other status  | real icon |
-
-This allows adding new tasks throughout the day while maintaining a stable "planned" view.
+- Task created today -> ❌ (did not exist yesterday)
+- Task that was `in_progress` yesterday and completed today -> 🔄 (was in progress at morning)
+- Task that was `done` before today and not changed -> does not appear
 
 ### Current
 
-Actual state of today's tasks with real status icons. Uses the same task set as Today.
+Actual state of today's tasks with real status icons.
 
 A task appears if it was active on `date` or had a status change on `date`. A task can appear in both Previously and Current simultaneously - e.g. a task started yesterday will show in Previously (status changed) and in Current (still active).
 
-Implementation: `tasks_snapshot(date)` - reconstructs task statuses from the status change log.
+Implementation: `tasks_on(date)` - reconstructs task statuses from the status change log.
 
 ### Output Rules
 
