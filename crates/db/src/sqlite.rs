@@ -11,7 +11,7 @@ use crate::schema;
 use domain::{
     error::{CoreError, CoreResult, DbError, DbResult},
     model::{Project, Status, StatusChange, Task},
-    repository::{ProjectRepository, TaskRepository, TransactionGuard, Transactional},
+    repository::{ProjectRepository, TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
 /// `SQLite` repository backed by a connection pool.
@@ -453,24 +453,93 @@ impl TaskRepository for SqliteRepo {
         .collect()
     }
 
-    async fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        let project_id = project_id.to_string();
-        sqlx::query_as!(
-            TaskRow,
-            r"
-                SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
-                FROM tasks
-                WHERE project_id = $1
-                ORDER BY display_order
-            ",
-            project_id,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(db_err)?
-        .into_iter()
-        .map(Task::try_from)
-        .collect()
+    async fn list_tasks(&self, filter: &TaskFilter) -> CoreResult<Vec<Task>> {
+        match filter {
+            TaskFilter::ByProject(id) => {
+                let id = id.to_string();
+                sqlx::query_as!(
+                    TaskRow,
+                    r"
+                        SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                        FROM tasks
+                        WHERE project_id = $1
+                        ORDER BY display_order
+                    ",
+                    id,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?
+                .into_iter()
+                .map(Task::try_from)
+                .collect()
+            }
+            TaskFilter::RootsByProject(id) => {
+                let id = id.to_string();
+                sqlx::query_as!(
+                    TaskRow,
+                    r"
+                        SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                        FROM tasks
+                        WHERE project_id = $1 AND parent_id IS NULL
+                        ORDER BY display_order
+                    ",
+                    id,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?
+                .into_iter()
+                .map(Task::try_from)
+                .collect()
+            }
+            TaskFilter::ActiveByProject(id, date) => {
+                let id = id.to_string();
+                let date = date.to_string();
+                sqlx::query_as!(
+                    TaskRow,
+                    r"
+                        SELECT t.id, t.project_id, t.title, t.status, t.parent_id, t.display_order, t.created_at, t.updated_at
+                        FROM tasks t
+                        WHERE t.project_id = $1
+                          AND (
+                            t.status IN ('not_started', 'in_progress', 'blocked')
+                            OR (t.status IN ('done', 'abandoned') AND DATE(t.updated_at) = $2)
+                          )
+                        ORDER BY t.display_order
+                    ",
+                    id,
+                    date,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?
+                .into_iter()
+                .map(Task::try_from)
+                .collect()
+            }
+            TaskFilter::CreatedBefore(id, date) => {
+                let id = id.to_string();
+                let date = date.to_string();
+                sqlx::query_as!(
+                    TaskRow,
+                    r"
+                        SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                        FROM tasks
+                        WHERE project_id = $1 AND DATE(created_at) <= $2
+                        ORDER BY display_order
+                    ",
+                    id,
+                    date,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?
+                .into_iter()
+                .map(Task::try_from)
+                .collect()
+            }
+        }
     }
 
     async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {

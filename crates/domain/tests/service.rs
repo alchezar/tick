@@ -5,7 +5,7 @@ mod common;
 use domain::{
     error::CoreError,
     model::{Project, Status},
-    repository::TaskRepository,
+    repository::{TaskFilter, TaskRepository},
     service::TaskService,
 };
 
@@ -371,7 +371,10 @@ async fn reorder_shifts_siblings_and_skips_other_parents() {
         .unwrap();
 
     // Move C to position 0: expected result A->1, B->2, C->0, child unchanged
-    let mut all_tasks = service.list(&project.id).await.unwrap();
+    let mut all_tasks = service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
     service.reorder(&c.id, 0, &mut all_tasks).await.unwrap();
 
     let updated_a = repo.find_task_by_id(&a.id).await.unwrap().unwrap();

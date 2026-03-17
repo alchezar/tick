@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     error::CoreResult,
     model::{Project, Status, Task},
-    repository::{ProjectRepository, TaskRepository, TransactionGuard, Transactional},
+    repository::{ProjectRepository, TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
 /// Structured output of a generated standup report for a single project.
@@ -203,10 +203,8 @@ where
         let mut tasks = Vec::new();
         for task in self
             .repo
-            .list_tasks(project_id)
+            .list_tasks(&TaskFilter::CreatedBefore(*project_id, date))
             .await?
-            .into_iter()
-            .filter(|task| task.created.date_naive() <= date)
         {
             let status = self.status_at(&task.id, date).await?;
             if (status.is_active() || changed_ids.contains(&task.id))

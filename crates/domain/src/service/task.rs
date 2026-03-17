@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::{
     error::{CoreError, CoreResult, MAX_DEPTH},
     model::{Status, StatusChange, Task},
-    repository::{TaskRepository, TransactionGuard, Transactional},
+    repository::{TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
 /// Encapsulates all business rules for task management.
@@ -51,13 +51,11 @@ where
         let tx = self.repo.begin_transaction().await?;
         let siblings = match parent {
             Some(id) => self.repo.child_tasks_of(id).await?,
-            None => self
-                .repo
-                .list_tasks(&project_id)
-                .await?
-                .into_iter()
-                .filter(Task::is_root)
-                .collect(),
+            None => {
+                self.repo
+                    .list_tasks(&TaskFilter::RootsByProject(project_id))
+                    .await?
+            }
         };
 
         let mut task = match created_at {
@@ -217,8 +215,8 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    pub async fn list(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        self.repo.list_tasks(project_id).await
+    pub async fn list(&self, filter: &TaskFilter) -> CoreResult<Vec<Task>> {
+        self.repo.list_tasks(filter).await
     }
 
     /// Returns the full status change history for a task, ordered by `changed_at`.

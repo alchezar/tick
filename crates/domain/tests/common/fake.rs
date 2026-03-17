@@ -10,7 +10,7 @@ use uuid::Uuid;
 use domain::{
     error::CoreResult,
     model::{Project, StatusChange, Task},
-    repository::{ProjectRepository, TaskRepository, TransactionGuard, Transactional},
+    repository::{ProjectRepository, TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
 /// In-memory implementation of repository traits for use in tests.
@@ -118,14 +118,28 @@ impl TaskRepository for FakeRepo {
             .collect())
     }
 
-    async fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>> {
-        Ok(self
-            .tasks
-            .borrow()
-            .values()
-            .filter(|task| task.project_id == *project_id)
-            .cloned()
-            .collect())
+    async fn list_tasks(&self, filter: &TaskFilter) -> CoreResult<Vec<Task>> {
+        let tasks = self.tasks.borrow();
+        let iter = tasks.values();
+        Ok(match filter {
+            TaskFilter::ByProject(id) => iter.filter(|t| t.project_id == *id).cloned().collect(),
+            TaskFilter::RootsByProject(id) => iter
+                .filter(|t| t.project_id == *id && t.parent.is_none())
+                .cloned()
+                .collect(),
+            TaskFilter::ActiveByProject(id, date) => iter
+                .filter(|t| {
+                    t.project_id == *id
+                        && (t.status().is_active()
+                            || (t.status().is_closed() && t.updated.date_naive() == *date))
+                })
+                .cloned()
+                .collect(),
+            TaskFilter::CreatedBefore(id, date) => iter
+                .filter(|t| t.project_id == *id && t.created.date_naive() <= *date)
+                .cloned()
+                .collect(),
+        })
     }
     async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
         let children = self

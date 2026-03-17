@@ -13,7 +13,7 @@ use crate::{
 };
 use domain::{
     model::{Status, Task},
-    repository::{ProjectRepository, TaskRepository, Transactional},
+    repository::{ProjectRepository, TaskFilter, TaskRepository, Transactional},
 };
 
 /// Dispatches a task subcommand.
@@ -118,19 +118,12 @@ async fn list<R>(context: &AppContext<R>, project_id: Uuid, show_all: bool) -> C
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let tasks = context.task_service.list(&project_id).await?;
-    let visible = if show_all {
-        tasks
+    let filter = if show_all {
+        TaskFilter::ByProject(project_id)
     } else {
-        let today = Local::now().date_naive();
-        tasks
-            .into_iter()
-            .filter(|t| {
-                t.status().is_active()
-                    || (t.status().is_closed() && t.updated.date_naive() == today)
-            })
-            .collect::<Vec<_>>()
+        TaskFilter::ActiveByProject(project_id, Local::now().date_naive())
     };
+    let visible = context.task_service.list(&filter).await?;
 
     if visible.is_empty() {
         println!("no tasks");
@@ -243,7 +236,10 @@ where
     }
 
     let new_order = if up || down {
-        let tasks = context.task_service.list(&project_id).await?;
+        let tasks = context
+            .task_service
+            .list(&TaskFilter::ByProject(project_id))
+            .await?;
         let task = tasks.iter().find(|t| t.id == task_id);
         let current = task.and_then(|t| t.order).unwrap_or(0);
         let parent = task.and_then(|t| t.parent);
@@ -265,7 +261,10 @@ where
     };
 
     if let Some(ord) = new_order {
-        let mut tasks = context.task_service.list(&project_id).await?;
+        let mut tasks = context
+            .task_service
+            .list(&TaskFilter::ByProject(project_id))
+            .await?;
         context
             .task_service
             .reorder(&task_id, ord, &mut tasks)

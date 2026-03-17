@@ -6,7 +6,7 @@ use chrono::NaiveDate;
 
 use domain::{
     model::{Project, Status, StatusChange, Task},
-    repository::{ProjectRepository, TaskRepository},
+    repository::{ProjectRepository, TaskFilter, TaskRepository},
 };
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -90,7 +90,10 @@ async fn list_tasks_by_project() {
         .await
         .unwrap();
 
-    let work_tasks = repo.list_tasks(&project.id).await.unwrap();
+    let work_tasks = repo
+        .list_tasks(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
     assert_eq!(work_tasks.len(), 1);
     assert_eq!(work_tasks[0].title, "Work task");
 }
@@ -135,7 +138,12 @@ async fn delete_all_tasks_by_project() {
         .unwrap();
 
     repo.delete_all_tasks_by(&project.id).await.unwrap();
-    assert!(repo.list_tasks(&project.id).await.unwrap().is_empty());
+    assert!(
+        repo.list_tasks(&TaskFilter::ByProject(project.id))
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -192,7 +200,10 @@ async fn task_order_preserved() {
     repo.save_task(&t1).await.unwrap();
     repo.save_task(&t2).await.unwrap();
 
-    let tasks = repo.list_tasks(&project.id).await.unwrap();
+    let tasks = repo
+        .list_tasks(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
     assert_eq!(tasks[0].title, "First");
     assert_eq!(tasks[1].title, "Second");
     assert_eq!(tasks[2].title, "Third");

@@ -185,12 +185,6 @@ tt <command> --help                  Show help for a command
 
 ---
 
-## Technical Debt
-
-- `TaskRepository::list_all(project_id)` is used in `tasks_snapshot()` and `TaskService::create()` for different purposes. As the task count grows, this becomes inefficient. Replace with specialized queries: `list_roots(project_id)` (for order calculation) and `list_until(project_id, date)` (for report snapshots).
-
----
-
 ## Architecture
 
 ### v0.1 - Projects

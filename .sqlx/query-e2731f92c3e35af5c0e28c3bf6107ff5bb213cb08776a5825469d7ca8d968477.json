@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                        SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at\n                        FROM tasks\n                        WHERE project_id = $1 AND DATE(created_at) <= $2\n                        ORDER BY display_order\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "project_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "status",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "parent_id",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "display_order",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 7,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "e2731f92c3e35af5c0e28c3bf6107ff5bb213cb08776a5825469d7ca8d968477"
+}

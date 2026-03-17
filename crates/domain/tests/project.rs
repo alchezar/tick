@@ -4,7 +4,7 @@ mod common;
 
 use domain::{
     error::CoreError,
-    repository::TaskRepository,
+    repository::{TaskFilter, TaskRepository},
     service::{ProjectService, TaskService},
 };
 
@@ -104,7 +104,10 @@ async fn delete_cascades_tasks() {
     project_svc.delete("work").await.unwrap();
 
     // Tasks should be gone too
-    let tasks = repo.list_tasks(&project.id).await.unwrap();
+    let tasks = repo
+        .list_tasks(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
     assert!(tasks.is_empty());
 }
 
@@ -126,8 +129,14 @@ async fn tasks_isolated_between_projects() {
         .await
         .unwrap();
 
-    let work_tasks = repo.list_tasks(&work.id).await.unwrap();
-    let personal_tasks = repo.list_tasks(&personal.id).await.unwrap();
+    let work_tasks = repo
+        .list_tasks(&TaskFilter::ByProject(work.id))
+        .await
+        .unwrap();
+    let personal_tasks = repo
+        .list_tasks(&TaskFilter::ByProject(personal.id))
+        .await
+        .unwrap();
 
     assert_eq!(work_tasks.len(), 1);
     assert_eq!(work_tasks[0].title, "Work task");

@@ -8,6 +8,19 @@ use crate::{
     model::{Project, StatusChange, Task},
 };
 
+/// Filter for querying tasks at the repository level.
+#[derive(Debug, Clone)]
+pub enum TaskFilter {
+    /// All tasks in a project.
+    ByProject(Uuid),
+    /// Only root tasks (no parent) in a project.
+    RootsByProject(Uuid),
+    /// Active tasks + tasks whose status changed on the given date.
+    ActiveByProject(Uuid, NaiveDate),
+    /// Tasks created on or before the given date.
+    CreatedBefore(Uuid, NaiveDate),
+}
+
 /// Provides `RAII`-based transaction demarcation.
 ///
 /// Implementations must support nesting via a depth counter:
@@ -127,13 +140,13 @@ pub trait TaskRepository {
     /// Returns an error if the underlying storage operation fails.
     async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>>;
 
-    /// Returns all tasks regardless of status.
+    /// Returns tasks matching the given filter.
     ///
-    /// Returns `Ok(vec![])` if no tasks exist.
+    /// Returns `Ok(vec![])` if no tasks match.
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn list_tasks(&self, project_id: &Uuid) -> CoreResult<Vec<Task>>;
+    async fn list_tasks(&self, filter: &TaskFilter) -> CoreResult<Vec<Task>>;
 
     /// Deletes a task and all its children by id.
     ///
