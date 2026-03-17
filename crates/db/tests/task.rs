@@ -211,3 +211,39 @@ async fn delete_project_cascades_tasks_and_changes() {
     assert!(repo.find_task_by_id(&task.id).await.unwrap().is_none());
     assert!(repo.list_task_changes(&task.id).await.unwrap().is_empty());
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn delete_task_changes_after_cutoff() {
+    let (repo, project) = common::repo_with_project().await;
+    let task = Task::new("Task", None, project.id);
+    repo.save_task(&task).await.unwrap();
+
+    let date = |d: u32| {
+        NaiveDate::from_ymd_opt(2026, 3, d)
+            .unwrap()
+            .and_hms_opt(8, 0, 0)
+            .unwrap()
+            .and_utc()
+    };
+
+    let mut c1 = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
+    c1.changed_at = date(10);
+    repo.save_task_change(&c1).await.unwrap();
+
+    let mut c2 = StatusChange::new(task.id, Status::InProgress, Status::Done, None);
+    c2.changed_at = date(15);
+    repo.save_task_change(&c2).await.unwrap();
+
+    let mut c3 = StatusChange::new(task.id, Status::Done, Status::NotStarted, None);
+    c3.changed_at = date(16);
+    repo.save_task_change(&c3).await.unwrap();
+
+    // Delete changes after mar12 - should remove c2 and c3
+    repo.delete_task_changes_after(&task.id, date(12))
+        .await
+        .unwrap();
+
+    let remaining = repo.list_task_changes(&task.id).await.unwrap();
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].new_status, Status::InProgress);
+}

@@ -546,6 +546,27 @@ impl TaskRepository for SqliteRepo {
         .collect()
     }
 
+    async fn delete_task_changes_after(
+        &self,
+        task_id: &Uuid,
+        after: DateTime<Utc>,
+    ) -> CoreResult<()> {
+        let task_id = task_id.to_string();
+        let after = after.to_rfc3339();
+        sqlx::query!(
+            r"
+                DELETE FROM status_changes
+                WHERE task_id = $1 AND changed_at > $2
+            ",
+            task_id,
+            after,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(())
+    }
+
     async fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
         let start = date
             .and_hms_opt(0, 0, 0)

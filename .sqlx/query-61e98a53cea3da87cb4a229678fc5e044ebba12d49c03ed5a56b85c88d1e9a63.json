@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                DELETE FROM status_changes\n                WHERE task_id = $1 AND changed_at > $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "61e98a53cea3da87cb4a229678fc5e044ebba12d49c03ed5a56b85c88d1e9a63"
+}

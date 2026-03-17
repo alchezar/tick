@@ -316,3 +316,39 @@ async fn abandon_from_any_status() {
     service.done(&t3.id, None).await.unwrap();
     service.abandon(&t3.id, None).await.unwrap();
 }
+
+#[tokio::test]
+async fn backdated_status_change_removes_future_changes() {
+    let repo = FakeRepo::default();
+    let service = TaskService::new(repo.clone());
+    let project = Project::default();
+
+    let task = service
+        .create("Task", None, project.id, None)
+        .await
+        .unwrap();
+
+    let mar10 = common::datetime(common::date(2026, 3, 10), 8);
+    let mar15 = common::datetime(common::date(2026, 3, 15), 8);
+    let mar16 = common::datetime(common::date(2026, 3, 16), 8);
+    let mar12 = common::datetime(common::date(2026, 3, 12), 8);
+
+    // Build history: start -> done -> reset -> start
+    service.start(&task.id, Some(mar10)).await.unwrap();
+    service.done(&task.id, Some(mar15)).await.unwrap();
+    service.reset(&task.id, Some(mar16)).await.unwrap();
+    service.start(&task.id, Some(mar16)).await.unwrap();
+
+    assert_eq!(service.status_history(&task.id).await.unwrap().len(), 4);
+
+    // Backdate done to mar12 - must remove changes after mar12
+    service.done(&task.id, Some(mar12)).await.unwrap();
+
+    let history = service.status_history(&task.id).await.unwrap();
+    // Should have: start@mar10, done@mar12 (mar15/mar16 changes removed)
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0].new_status, Status::InProgress);
+    assert_eq!(history[0].changed_at, mar10);
+    assert_eq!(history[1].new_status, Status::Done);
+    assert_eq!(history[1].changed_at, mar12);
+}

@@ -1,6 +1,6 @@
 //! Repository traits - persistence contracts for projects and tasks.
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use uuid::Uuid;
 
 use crate::{
@@ -168,4 +168,16 @@ pub trait TaskRepository {
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
     async fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>>;
+
+    /// Deletes all status changes for a task that occurred strictly after `after`.
+    ///
+    /// Used to rewrite history when a status change is backdated via `-d`.
+    ///
+    /// # Errors
+    /// Returns an error if the underlying storage operation fails.
+    async fn delete_task_changes_after(
+        &self,
+        task_id: &Uuid,
+        after: DateTime<Utc>,
+    ) -> CoreResult<()>;
 }

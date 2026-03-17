@@ -4,7 +4,7 @@ use core::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use uuid::Uuid;
 
 use domain::{
@@ -175,5 +175,16 @@ impl TaskRepository for FakeRepo {
             .filter(|change| change.changed_at.date_naive() == date)
             .cloned()
             .collect())
+    }
+
+    async fn delete_task_changes_after(
+        &self,
+        task_id: &Uuid,
+        after: DateTime<Utc>,
+    ) -> CoreResult<()> {
+        self.status_changes
+            .borrow_mut()
+            .retain(|c| !(c.task_id == *task_id && c.changed_at > after));
+        Ok(())
     }
 }

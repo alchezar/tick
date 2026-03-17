@@ -257,6 +257,11 @@ where
         let tx = self.repo.begin_transaction().await?;
 
         self.repo.save_task(task).await?;
+        if at.is_some() {
+            self.repo
+                .delete_task_changes_after(&task.id, status_change.changed_at)
+                .await?;
+        }
         self.repo.save_task_change(&status_change).await?;
 
         tx.commit_transaction().await
