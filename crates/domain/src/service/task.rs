@@ -171,11 +171,32 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    pub async fn reorder(&self, task_id: &Uuid, order: usize) -> CoreResult<()> {
+    pub async fn reorder(
+        &self,
+        task_id: &Uuid,
+        new_order: usize,
+        siblings: &mut [Task],
+    ) -> CoreResult<()> {
+        let tx = self.repo.begin_transaction().await?;
+
         let mut task = self.find_task(task_id).await?;
 
-        task.order = Some(order);
-        self.repo.save_task(&task).await
+        task.order = Some(new_order);
+        self.repo.save_task(&task).await?;
+
+        for sibling in siblings.iter_mut() {
+            if sibling.id == *task_id || sibling.parent != task.parent {
+                continue;
+            }
+            if let Some(ref mut sibling_order) = sibling.order
+                && *sibling_order >= new_order
+            {
+                *sibling_order += 1;
+                self.repo.save_task(sibling).await?;
+            }
+        }
+
+        tx.commit_transaction().await
     }
 
     /// Resolves a hex id prefix to a full [`Uuid`] within a project.

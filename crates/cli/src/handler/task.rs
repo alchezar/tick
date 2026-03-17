@@ -234,7 +234,11 @@ where
     }
 
     if let Some(ord) = order {
-        context.task_service.reorder(&task_id, ord).await?;
+        let mut tasks = context.task_service.list(&project_id).await?;
+        context
+            .task_service
+            .reorder(&task_id, ord, &mut tasks)
+            .await?;
     }
 
     let short_id = ShortId::from(task_id);

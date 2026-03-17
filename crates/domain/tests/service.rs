@@ -352,3 +352,36 @@ async fn backdated_status_change_removes_future_changes() {
     assert_eq!(history[1].new_status, Status::Done);
     assert_eq!(history[1].changed_at, mar12);
 }
+
+#[tokio::test]
+async fn reorder_shifts_siblings_and_skips_other_parents() {
+    let repo = FakeRepo::default();
+    let service = TaskService::new(repo.clone());
+    let project = Project::default();
+
+    // Root tasks: A(0), B(1), C(2)
+    let a = service.create("A", None, project.id, None).await.unwrap();
+    let b = service.create("B", None, project.id, None).await.unwrap();
+    let c = service.create("C", None, project.id, None).await.unwrap();
+
+    // Child of A - must not be affected by root reorder
+    let child = service
+        .create("Child", Some(&a.id), project.id, None)
+        .await
+        .unwrap();
+
+    // Move C to position 0: expected result A->1, B->2, C->0, child unchanged
+    let mut all_tasks = service.list(&project.id).await.unwrap();
+    service.reorder(&c.id, 0, &mut all_tasks).await.unwrap();
+
+    let updated_a = repo.find_task_by_id(&a.id).await.unwrap().unwrap();
+    let updated_b = repo.find_task_by_id(&b.id).await.unwrap().unwrap();
+    let updated_c = repo.find_task_by_id(&c.id).await.unwrap().unwrap();
+    let updated_child = repo.find_task_by_id(&child.id).await.unwrap().unwrap();
+
+    assert_eq!(updated_c.order, Some(0));
+    assert_eq!(updated_a.order, Some(1));
+    assert_eq!(updated_b.order, Some(2));
+    // Child of A has order 0 within its own parent - must stay unchanged
+    assert_eq!(updated_child.order, Some(0));
+}
