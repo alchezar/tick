@@ -13,8 +13,13 @@ use crate::{
 pub enum TaskFilter {
     /// All tasks in a project.
     ByProject(Uuid),
-    /// Only root tasks (no parent) in a project.
-    RootsByProject(Uuid),
+    /// Direct children of a parent (`Some`) or root tasks (`None`) in a project.
+    ChildrenOf {
+        /// Parent task id, or `None` for root tasks.
+        parent_id: Option<Uuid>,
+        /// Project to scope the query to.
+        project_id: Uuid,
+    },
     /// Active tasks + tasks whose status changed on the given date.
     ActiveByProject(Uuid, NaiveDate),
     /// Tasks created on or before the given date.

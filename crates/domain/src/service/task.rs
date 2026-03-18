@@ -42,25 +42,24 @@ where
     pub async fn create(
         &self,
         title: &str,
-        parent: Option<&Uuid>,
+        parent_id: Option<&Uuid>,
         project_id: Uuid,
         created_at: Option<DateTime<Utc>>,
     ) -> CoreResult<Task> {
-        self.check_depth(parent, 0).await?;
+        self.check_depth(parent_id, 0).await?;
 
         let tx = self.repo.begin_transaction().await?;
-        let siblings = match parent {
-            Some(id) => self.repo.child_tasks_of(id).await?,
-            None => {
-                self.repo
-                    .list_tasks(&TaskFilter::RootsByProject(project_id))
-                    .await?
-            }
-        };
+        let siblings = self
+            .repo
+            .list_tasks(&TaskFilter::ChildrenOf {
+                parent_id: parent_id.copied(),
+                project_id,
+            })
+            .await?;
 
         let mut task = match created_at {
-            Some(at) => Task::new_at(title, parent.copied(), project_id, at),
-            None => Task::new(title, parent.copied(), project_id),
+            Some(at) => Task::new_at(title, parent_id.copied(), project_id, at),
+            None => Task::new(title, parent_id.copied(), project_id),
         };
         let next_order = siblings
             .iter()
@@ -155,14 +154,13 @@ where
         let mut task = self.find_task(task_id).await?;
         task.parent = parent_id.copied();
 
-        let siblings = match parent_id {
-            Some(id) => self.repo.child_tasks_of(id).await?,
-            None => {
-                self.repo
-                    .list_tasks(&TaskFilter::RootsByProject(project_id))
-                    .await?
-            }
-        };
+        let siblings = self
+            .repo
+            .list_tasks(&TaskFilter::ChildrenOf {
+                parent_id: parent_id.copied(),
+                project_id,
+            })
+            .await?;
         let next_order = siblings
             .iter()
             .filter(|s| s.id != *task_id)
@@ -283,15 +281,18 @@ where
         self.repo.delete_task(task_id).await
     }
 
-    // -------------------------------------------------------------------------
-
     /// Finds a task by id or returns [`CoreError::TaskNotFound`].
-    async fn find_task(&self, id: &Uuid) -> CoreResult<Task> {
+    ///
+    /// # Errors
+    /// Returns an error if the persistence operation fails.
+    pub async fn find_task(&self, id: &Uuid) -> CoreResult<Task> {
         self.repo
             .find_task_by_id(id)
             .await?
             .ok_or(CoreError::TaskNotFound { id: *id })
     }
+
+    // -------------------------------------------------------------------------
 
     /// Updates the status of a task.
     ///

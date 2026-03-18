@@ -236,18 +236,19 @@ where
     }
 
     if up || down {
-        let tasks = context
-            .task_service
-            .list(&TaskFilter::ByProject(project_id))
-            .await?;
-        let task = tasks.iter().find(|t| t.id == task_id);
-        let current = task.and_then(|t| t.order).unwrap_or(0);
-        let task_parent = task.and_then(|t| t.parent);
+        let task = context.task_service.find_task(&task_id).await?;
+        let current = task.order.unwrap_or(0);
 
-        let mut siblings: Vec<_> = tasks
-            .iter()
-            .filter(|t| t.parent == task_parent && t.id != task_id)
-            .collect();
+        let mut siblings = context
+            .task_service
+            .list(&TaskFilter::ChildrenOf {
+                parent_id: task.parent,
+                project_id,
+            })
+            .await?
+            .into_iter()
+            .filter(|t| t.id != task_id)
+            .collect::<Vec<_>>();
         siblings.sort_by_key(|t| t.order.unwrap_or(0));
 
         let neighbor = if up {
@@ -266,7 +267,10 @@ where
     } else if let Some(ord) = order {
         let mut tasks = context
             .task_service
-            .list(&TaskFilter::ByProject(project_id))
+            .list(&TaskFilter::ChildrenOf {
+                parent_id: None,
+                project_id,
+            })
             .await?;
         context
             .task_service

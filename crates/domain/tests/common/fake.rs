@@ -123,8 +123,11 @@ impl TaskRepository for FakeRepo {
         let iter = tasks.values();
         Ok(match filter {
             TaskFilter::ByProject(id) => iter.filter(|t| t.project_id == *id).cloned().collect(),
-            TaskFilter::RootsByProject(id) => iter
-                .filter(|t| t.project_id == *id && t.parent.is_none())
+            TaskFilter::ChildrenOf {
+                parent_id,
+                project_id,
+            } => iter
+                .filter(|t| t.project_id == *project_id && t.parent == *parent_id)
                 .cloned()
                 .collect(),
             TaskFilter::ActiveByProject(id, date) => iter

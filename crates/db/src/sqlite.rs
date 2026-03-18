@@ -474,25 +474,50 @@ impl TaskRepository for SqliteRepo {
                 .map(Task::try_from)
                 .collect()
             }
-            TaskFilter::RootsByProject(id) => {
-                let id = id.to_string();
-                sqlx::query_as!(
-                    TaskRow,
-                    r"
-                        SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
-                        FROM tasks
-                        WHERE project_id = $1 AND parent_id IS NULL
-                        ORDER BY display_order
-                    ",
-                    id,
-                )
-                .fetch_all(&self.pool)
-                .await
-                .map_err(db_err)?
-                .into_iter()
-                .map(Task::try_from)
-                .collect()
-            }
+            #[allow(clippy::single_match_else)]
+            TaskFilter::ChildrenOf {
+                parent_id,
+                project_id,
+            } => match parent_id {
+                Some(parent_id) => {
+                    let parent_id = parent_id.to_string();
+                    sqlx::query_as!(
+                        TaskRow,
+                        r"
+                            SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                            FROM tasks
+                            WHERE parent_id = $1
+                            ORDER BY display_order
+                        ",
+                        parent_id,
+                    )
+                    .fetch_all(&self.pool)
+                    .await
+                    .map_err(db_err)?
+                    .into_iter()
+                    .map(Task::try_from)
+                    .collect()
+                }
+                None => {
+                    let project_id = project_id.to_string();
+                    sqlx::query_as!(
+                        TaskRow,
+                        r"
+                            SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                            FROM tasks
+                            WHERE project_id = $1 AND parent_id IS NULL
+                            ORDER BY display_order
+                        ",
+                        project_id,
+                    )
+                    .fetch_all(&self.pool)
+                    .await
+                    .map_err(db_err)?
+                    .into_iter()
+                    .map(Task::try_from)
+                    .collect()
+                }
+            },
             TaskFilter::ActiveByProject(id, date) => {
                 let id = id.to_string();
                 let date = date.to_string();
