@@ -257,7 +257,7 @@ async fn move_subtree_exceeds_depth() {
         .unwrap();
 
     // Move A under Y: x -> y -> a -> b -> c = 5 levels, exceeds max 4
-    let result = service.move_to_parent(&a.id, Some(&y.id)).await;
+    let result = service.move_to_parent(&a.id, Some(&y.id), project.id).await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }
 

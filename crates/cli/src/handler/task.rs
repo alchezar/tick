@@ -231,36 +231,39 @@ where
             .await?;
         context
             .task_service
-            .move_to_parent(&task_id, Some(&parent_uuid))
+            .move_to_parent(&task_id, Some(&parent_uuid), project_id)
             .await?;
     }
 
-    let new_order = if up || down {
+    if up || down {
         let tasks = context
             .task_service
             .list(&TaskFilter::ByProject(project_id))
             .await?;
         let task = tasks.iter().find(|t| t.id == task_id);
         let current = task.and_then(|t| t.order).unwrap_or(0);
-        let parent = task.and_then(|t| t.parent);
-        let max_order = tasks
-            .iter()
-            .filter(|t| t.parent == parent && t.id != task_id)
-            .filter_map(|t| t.order)
-            .max()
-            .unwrap_or(0);
-        if (up && current == 0) || (down && current >= max_order) {
-            None
-        } else if up {
-            Some(current.saturating_sub(1))
-        } else {
-            Some(current + 1)
-        }
-    } else {
-        order
-    };
+        let task_parent = task.and_then(|t| t.parent);
 
-    if let Some(ord) = new_order {
+        let mut siblings: Vec<_> = tasks
+            .iter()
+            .filter(|t| t.parent == task_parent && t.id != task_id)
+            .collect();
+        siblings.sort_by_key(|t| t.order.unwrap_or(0));
+
+        let neighbor = if up {
+            siblings.iter().rfind(|t| t.order.unwrap_or(0) < current)
+        } else {
+            siblings.iter().find(|t| t.order.unwrap_or(0) > current)
+        };
+
+        if let Some(neighbor) = neighbor {
+            let neighbor_order = neighbor.order.unwrap_or(0);
+            context
+                .task_service
+                .swap_order(&task_id, current, &neighbor.id, neighbor_order)
+                .await?;
+        }
+    } else if let Some(ord) = order {
         let mut tasks = context
             .task_service
             .list(&TaskFilter::ByProject(project_id))

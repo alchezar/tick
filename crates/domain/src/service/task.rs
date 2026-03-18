@@ -143,12 +143,34 @@ where
     /// - [`CoreError::TaskNotFound`] if the task does not exist.
     /// - [`CoreError::MaxDepthExceeded`] if the move would exceed nesting depth of 3.
     /// - Returns an error if the persistence operation fails.
-    pub async fn move_to_parent(&self, task_id: &Uuid, parent_id: Option<&Uuid>) -> CoreResult<()> {
+    pub async fn move_to_parent(
+        &self,
+        task_id: &Uuid,
+        parent_id: Option<&Uuid>,
+        project_id: Uuid,
+    ) -> CoreResult<()> {
         self.check_depth(parent_id, self.subtree_depth(task_id).await?)
             .await?;
 
         let mut task = self.find_task(task_id).await?;
         task.parent = parent_id.copied();
+
+        let siblings = match parent_id {
+            Some(id) => self.repo.child_tasks_of(id).await?,
+            None => {
+                self.repo
+                    .list_tasks(&TaskFilter::RootsByProject(project_id))
+                    .await?
+            }
+        };
+        let next_order = siblings
+            .iter()
+            .filter(|s| s.id != *task_id)
+            .filter_map(|s| s.order)
+            .max()
+            .map_or(0, |m| m + 1);
+        task.order = Some(next_order);
+
         self.repo.save_task(&task).await
     }
 
@@ -193,6 +215,30 @@ where
                 self.repo.save_task(sibling).await?;
             }
         }
+
+        tx.commit_transaction().await
+    }
+
+    /// Swaps the display order of two sibling tasks.
+    ///
+    /// # Errors
+    /// - [`CoreError::TaskNotFound`] if either task does not exist.
+    /// - Returns an error if the persistence operation fails.
+    pub async fn swap_order(
+        &self,
+        id_a: &Uuid,
+        order_a: usize,
+        id_b: &Uuid,
+        order_b: usize,
+    ) -> CoreResult<()> {
+        let tx = self.repo.begin_transaction().await?;
+
+        let mut task_a = self.find_task(id_a).await?;
+        let mut task_b = self.find_task(id_b).await?;
+        task_a.order = Some(order_b);
+        task_b.order = Some(order_a);
+        self.repo.save_task(&task_a).await?;
+        self.repo.save_task(&task_b).await?;
 
         tx.commit_transaction().await
     }

@@ -309,7 +309,7 @@ async fn move_down() {
     let updated_a = tasks.iter().find(|t| t.id == a.id).unwrap();
     let updated_b = tasks.iter().find(|t| t.id == b.id).unwrap();
     assert_eq!(updated_a.order, Some(1));
-    assert_eq!(updated_b.order, Some(2));
+    assert_eq!(updated_b.order, Some(0));
 }
 
 #[tokio::test]
