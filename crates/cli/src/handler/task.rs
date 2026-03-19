@@ -25,6 +25,8 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     let action = action.unwrap_or(TaskAction::List {
+        from: None,
+        until: None,
         all: false,
         project: None,
     });
@@ -44,7 +46,9 @@ where
             date,
             ..
         } => add(context, project_id, &title, parent, date).await,
-        TaskAction::List { all, .. } => list(context, project_id, all).await,
+        TaskAction::List {
+            from, until, all, ..
+        } => list(context, project_id, all, from, until).await,
         TaskAction::Start { id, date } => {
             change_status(context, project_id, id, Status::InProgress, date).await
         }
@@ -114,16 +118,30 @@ where
 }
 
 /// Lists tasks as a tree.
-async fn list<R>(context: &AppContext<R>, project_id: Uuid, show_all: bool) -> CliResult<()>
+async fn list<R>(
+    context: &AppContext<R>,
+    project_id: Uuid,
+    show_all: bool,
+    from: Option<NaiveDate>,
+    until: Option<NaiveDate>,
+) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let filter = if show_all {
+    let show_date = show_all || from.is_some() || until.is_some();
+    let filter = if show_all || from.is_some() || until.is_some() {
         TaskFilter::ByProject(project_id)
     } else {
         TaskFilter::ActiveByProject(project_id, Local::now().date_naive())
     };
-    let visible = context.task_service.list(&filter).await?;
+    let mut visible = context.task_service.list(&filter).await?;
+
+    if let Some(from) = from {
+        visible.retain(|t| t.status().is_active() || t.updated.date_naive() >= from);
+    }
+    if let Some(until) = until {
+        visible.retain(|t| t.status().is_active() || t.updated.date_naive() < until);
+    }
 
     if visible.is_empty() {
         println!("no tasks");
@@ -138,7 +156,7 @@ where
     roots.sort_by_key(|t| t.order);
 
     for root in roots {
-        print_task(root, &visible, 0, show_all);
+        print_task(root, &visible, 0, show_date);
     }
     Ok(())
 }

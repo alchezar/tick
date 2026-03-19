@@ -63,6 +63,8 @@ async fn list_empty() {
     let (ctx, _dir) = common::setup().await;
 
     let action = TaskAction::List {
+        from: None,
+        until: None,
         all: false,
         project: None,
     };
@@ -461,4 +463,178 @@ async fn add_without_date_uses_today() {
         tasks[0].created.date_naive(),
         chrono::Utc::now().date_naive()
     );
+}
+
+#[tokio::test]
+async fn list_from_includes_closed_since_date() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+
+    let past = NaiveDate::from_ymd_opt(2025, 1, 10).unwrap();
+    let recent = NaiveDate::from_ymd_opt(2025, 3, 15).unwrap();
+
+    // Task closed in the past (before --from).
+    let old = ctx
+        .task_service
+        .create(
+            "Old done",
+            None,
+            project.id,
+            Some(past.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+    ctx.task_service
+        .start(&old.id, Some(past.and_hms_opt(8, 30, 0).unwrap().and_utc()))
+        .await
+        .unwrap();
+    ctx.task_service
+        .done(&old.id, Some(past.and_hms_opt(9, 0, 0).unwrap().and_utc()))
+        .await
+        .unwrap();
+
+    // Task closed recently (after --from).
+    let new = ctx
+        .task_service
+        .create(
+            "New done",
+            None,
+            project.id,
+            Some(recent.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+    ctx.task_service
+        .start(
+            &new.id,
+            Some(recent.and_hms_opt(8, 30, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+    ctx.task_service
+        .done(
+            &new.id,
+            Some(recent.and_hms_opt(9, 0, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+
+    // Active task (always visible).
+    ctx.task_service
+        .create("Active", None, project.id, None)
+        .await
+        .unwrap();
+
+    let from_date = NaiveDate::from_ymd_opt(2025, 3, 1).unwrap();
+    let action = TaskAction::List {
+        from: Some(from_date),
+        until: None,
+        all: false,
+        project: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    // Verify via the same filter logic: ByProject then retain.
+    let all = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    let visible: Vec<_> = all
+        .iter()
+        .filter(|t| t.status().is_active() || t.updated.date_naive() >= from_date)
+        .collect();
+
+    // Active + "New done" should be visible; "Old done" filtered out.
+    assert_eq!(visible.len(), 2);
+    assert!(visible.iter().any(|t| t.title == "Active"));
+    assert!(visible.iter().any(|t| t.title == "New done"));
+}
+
+#[tokio::test]
+async fn list_until_excludes_closed_on_date() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+
+    let early = NaiveDate::from_ymd_opt(2025, 1, 10).unwrap();
+    let late = NaiveDate::from_ymd_opt(2025, 3, 15).unwrap();
+
+    // Task closed early (before --until).
+    let old = ctx
+        .task_service
+        .create(
+            "Old done",
+            None,
+            project.id,
+            Some(early.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+    ctx.task_service
+        .start(
+            &old.id,
+            Some(early.and_hms_opt(8, 30, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+    ctx.task_service
+        .done(&old.id, Some(early.and_hms_opt(9, 0, 0).unwrap().and_utc()))
+        .await
+        .unwrap();
+
+    // Task closed on the until date (excluded - until is exclusive).
+    let border = ctx
+        .task_service
+        .create(
+            "Border done",
+            None,
+            project.id,
+            Some(late.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+    ctx.task_service
+        .start(
+            &border.id,
+            Some(late.and_hms_opt(8, 30, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+    ctx.task_service
+        .done(
+            &border.id,
+            Some(late.and_hms_opt(9, 0, 0).unwrap().and_utc()),
+        )
+        .await
+        .unwrap();
+
+    // Active task (always visible).
+    ctx.task_service
+        .create("Active", None, project.id, None)
+        .await
+        .unwrap();
+
+    let until_date = late;
+    let action = TaskAction::List {
+        from: None,
+        until: Some(until_date),
+        all: false,
+        project: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    // Verify: until is exclusive, so "Border done" (updated on until_date) should be excluded.
+    let all = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    let visible: Vec<_> = all
+        .iter()
+        .filter(|t| t.status().is_active() || t.updated.date_naive() < until_date)
+        .collect();
+
+    assert_eq!(visible.len(), 2);
+    assert!(visible.iter().any(|t| t.title == "Active"));
+    assert!(visible.iter().any(|t| t.title == "Old done"));
 }

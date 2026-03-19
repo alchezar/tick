@@ -140,6 +140,8 @@ tt ts ad <title>                     Add a root task
 tt ts ad <title> -p <id>             Add a child task
 tt ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
 tt ts                                List active tasks (tree view)
+tt ts -f <YYYY-MM-DD>                List active + closed since date (inclusive)
+tt ts -u <YYYY-MM-DD>                List active + closed before date (exclusive)
 tt ts -a                             List all tasks including done/abandoned
 tt ts st <id>                        Set status to in_progress
 tt ts st <id> -d <YYYY-MM-DD>        Set status with specific date

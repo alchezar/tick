@@ -132,8 +132,16 @@ pub enum TaskAction {
     /// List tasks (tree view).
     #[command(visible_alias = "ls")]
     List {
+        /// Include done and blocked tasks from specific date (YYYY-MM-DD).
+        #[arg(short, long, group = "period")]
+        from: Option<NaiveDate>,
+
+        /// Include done and blocked tasks until specific date (YYYY-MM-DD).
+        #[arg(short, long, group = "period")]
+        until: Option<NaiveDate>,
+
         /// Include done and blocked tasks.
-        #[arg(short, long)]
+        #[arg(short, long, group = "period")]
         all: bool,
 
         /// Project slug (defaults to active project).
