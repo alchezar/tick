@@ -120,70 +120,66 @@ Top-level commands (`tt <command>`):
 
 ### Project Management
 
-```
-tt pr                                Show active project slug and title
-tt pr ls                             List all projects (slug + title)
-tt pr ad <slug>                      Create a new project
-tt pr ad <slug> --title "Full title" Create a project with a display title
-tt pr sw <slug>                      Switch active project
-tt pr rn <slug> <new-title>          Change project display title
-tt pr rl <slug> <new-slug>           Change project slug
-tt pr rm <slug>                      Delete project and all its tasks
-```
+| Full command                            | Short command                 | Description                           |
+|-----------------------------------------|-------------------------------|---------------------------------------|
+| `tt project`                            | `tt pr`                       | Show active project slug and title    |
+| `tt project list`                       | `tt pr ls`                    | List all projects (slug + title)      |
+| `tt project add <slug>`                 | `tt pr ad <slug>`             | Create a new project                  |
+| `tt project add <slug> --title "Title"` | `tt pr ad <slug> -t "Title"`  | Create a project with a display title |
+| `tt project switch <slug>`              | `tt pr sw <slug>`             | Switch active project                 |
+| `tt project rename <slug> <new-title>`  | `tt pr rn <slug> <new-title>` | Change project display title          |
+| `tt project reslug <slug> <new-slug>`   | `tt pr rl <slug> <new-slug>`  | Change project slug                   |
+| `tt project remove <slug>`              | `tt pr rm <slug>`             | Delete project and all its tasks      |
 
 The active project is stored in `~/.local/share/tt/config.toml`. Task and report commands operate on the active project unless `--project <slug>` is specified.
 
 ### Task Management
 
-```
-tt ts ad <title>                     Add a root task
-tt ts ad <title> -p <id>             Add a child task
-tt ts ad <title> -d <YYYY-MM-DD>     Add a task with a specific creation date
-tt ts                                List active tasks (tree view)
-tt ts -f <YYYY-MM-DD>                List active + closed since date (inclusive)
-tt ts -u <YYYY-MM-DD>                List active + closed before date (exclusive)
-tt ts -a                             List all tasks including done/abandoned
-tt ts st <id>                        Set status to in_progress
-tt ts st <id> -d <YYYY-MM-DD>        Set status with specific date
-tt ts dn <id>                        Set status to done
-tt ts dn <id> -d <YYYY-MM-DD>        Set status with specific date
-tt ts bl <id>                        Set status to blocked
-tt ts bl <id> -d <YYYY-MM-DD>        Set status with specific date
-tt ts ab <id>                        Mark task as abandoned
-tt ts ab <id> -d <YYYY-MM-DD>        Abandon with specific date
-tt ts rs <id>                        Set status to not_started
-tt ts rs <id> -d <YYYY-MM-DD>        Set status with specific date
-tt ts mv <id> -p <id>                Move task to a new parent
-tt ts mv <id> -o <n>                 Change display order
-tt ts mv <id> -u                     Move one position up
-tt ts mv <id> -d                     Move one position down
-tt ts rn <id> <title>                Rename a task
-tt ts rm <id>                        Delete task (and its children)
-
-tt ts -p <slug>                      List tasks in a specific project
-```
+| Full command                               | Short command                      | Description                                  |
+|--------------------------------------------|------------------------------------|----------------------------------------------|
+| `tt task add <title>`                      | `tt ts ad <title>`                 | Add a root task                              |
+| `tt task add <title> --parent <id>`        | `tt ts ad <title> -p <id>`         | Add a child task                             |
+| `tt task add <title> --date <YYYY-MM-DD>`  | `tt ts ad <title> -d <YYYY-MM-DD>` | Add a task with a specific creation date     |
+| `tt task list`                             | `tt ts`                            | List active tasks (tree view)                |
+| `tt task list --from <YYYY-MM-DD>`         | `tt ts -f <YYYY-MM-DD>`            | List active + closed since date (inclusive)  |
+| `tt task list --until <YYYY-MM-DD>`        | `tt ts -u <YYYY-MM-DD>`            | List active + closed before date (exclusive) |
+| `tt task list --all`                       | `tt ts -a`                         | List all tasks including done/abandoned      |
+| `tt task start <id>`                       | `tt ts st <id>`                    | Set status to in_progress                    |
+| `tt task start <id> --date <YYYY-MM-DD>`   | `tt ts st <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
+| `tt task done <id>`                        | `tt ts dn <id>`                    | Set status to done                           |
+| `tt task done <id> --date <YYYY-MM-DD>`    | `tt ts dn <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
+| `tt task block <id>`                       | `tt ts bl <id>`                    | Set status to blocked                        |
+| `tt task block <id> --date <YYYY-MM-DD>`   | `tt ts bl <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
+| `tt task abandon <id>`                     | `tt ts ab <id>`                    | Mark task as abandoned                       |
+| `tt task abandon <id> --date <YYYY-MM-DD>` | `tt ts ab <id> -d <YYYY-MM-DD>`    | Abandon with specific date                   |
+| `tt task reset <id>`                       | `tt ts rs <id>`                    | Set status to not_started                    |
+| `tt task reset <id> --date <YYYY-MM-DD>`   | `tt ts rs <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
+| `tt task move <id> --parent <id>`          | `tt ts mv <id> -p <id>`            | Move task to a new parent                    |
+| `tt task move <id> --order <n>`            | `tt ts mv <id> -o <n>`             | Change display order                         |
+| `tt task move <id> --up`                   | `tt ts mv <id> -u`                 | Move one position up                         |
+| `tt task move <id> --down`                 | `tt ts mv <id> -d`                 | Move one position down                       |
+| `tt task rename <id> <title>`              | `tt ts rn <id> <title>`            | Rename a task                                |
+| `tt task remove <id>`                      | `tt ts rm <id>`                    | Delete task (and its children)               |
+| `tt task list --project <slug>`            | `tt ts -p <slug>`                  | List tasks in a specific project             |
 
 ### Report
 
-```
-tt rp                                Report for active project
-tt rp -a                             Report for all projects
-tt rp -p <slug>                      Report for a specific project
-tt rp -c                             Copy report to clipboard (without Current section)
-tt rp -a -c                          Copy report for all projects
-tt rp --date <YYYY-MM-DD>            Generate report for a specific date
-tt rp --previously                   Print only the Previously section
-tt rp --today                        Print only the Today section
-tt rp --current                      Print only the Current section
-```
+| Full command                    | Short command           | Description                                |
+|---------------------------------|-------------------------|--------------------------------------------|
+| `tt report`                     | `tt rp`                 | Report for active project                  |
+| `tt report --all`               | `tt rp -a`              | Report for all projects                    |
+| `tt report --project <slug>`    | `tt rp -p <slug>`       | Report for a specific project              |
+| `tt report --copy`              | `tt rp -c`              | Copy report to clipboard (without Current) |
+| `tt report --all --copy`        | `tt rp -a -c`           | Copy report for all projects               |
+| `tt report --date <YYYY-MM-DD>` | `tt rp -d <YYYY-MM-DD>` | Generate report for a specific date        |
 
 ### Other
 
-```
-tt --help / -h                       Show help
-tt --version / -V                    Show version
-tt <command> --help                  Show help for a command
-```
+| Full command          | Short command | Description             |
+|-----------------------|---------------|-------------------------|
+| `tt --help`           | `tt -h`       | Show help               |
+| `tt --version`        | `tt -V`       | Show version            |
+| `tt <command> --help` |               | Show help for a command |
 
 ---
 
