@@ -1,15 +1,19 @@
 //! Handler for project management commands.
 
-use crate::{args::ProjectAction, context::AppContext, error::CliResult};
+use crate::{args::ProjectAction, context::AppContext, error::CliResult, guard::Confirm};
 use domain::repository::{ProjectRepository, TaskRepository, Transactional};
 
 /// Dispatches a project subcommand.
 ///
 /// # Errors
 /// Returns [`CliError`](crate::error::CliError) on domain or config errors.
-pub async fn handle<R>(action: Option<ProjectAction>, ctx: &mut AppContext<R>) -> CliResult<()>
+pub async fn handle<R, C>(
+    action: Option<ProjectAction>,
+    ctx: &mut AppContext<R, C>,
+) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
+    C: Confirm,
 {
     match action {
         None => show_active(ctx),
@@ -24,7 +28,7 @@ where
 
 /// Shows the active project slug and title.
 #[allow(clippy::unnecessary_wraps)]
-fn show_active<R>(context: &AppContext<R>) -> CliResult<()>
+fn show_active<R, C>(context: &AppContext<R, C>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
@@ -36,7 +40,7 @@ where
 }
 
 /// Lists all projects.
-async fn list<R>(context: &AppContext<R>) -> CliResult<()>
+async fn list<R, C>(context: &AppContext<R, C>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
@@ -57,7 +61,7 @@ where
 }
 
 /// Creates a new project.
-async fn add<R>(context: &AppContext<R>, slug: &str, title: Option<&str>) -> CliResult<()>
+async fn add<R, C>(context: &AppContext<R, C>, slug: &str, title: Option<&str>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
@@ -70,7 +74,7 @@ where
 }
 
 /// Switches the active project.
-async fn switch<R>(context: &mut AppContext<R>, slug: &str) -> CliResult<()>
+async fn switch<R, C>(context: &mut AppContext<R, C>, slug: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
@@ -81,7 +85,7 @@ where
 }
 
 /// Renames a project (changes display title).
-async fn rename<R>(context: &AppContext<R>, slug: &str, new_title: &str) -> CliResult<()>
+async fn rename<R, C>(context: &AppContext<R, C>, slug: &str, new_title: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
@@ -91,7 +95,7 @@ where
 }
 
 /// Changes the slug of a project.
-async fn reslug<R>(context: &mut AppContext<R>, slug: &str, new_slug: &str) -> CliResult<()>
+async fn reslug<R, C>(context: &mut AppContext<R, C>, slug: &str, new_slug: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
@@ -106,10 +110,16 @@ where
 }
 
 /// Deletes a project and all its tasks.
-async fn remove<R>(context: &mut AppContext<R>, slug: &str) -> CliResult<()>
+async fn remove<R, C>(context: &mut AppContext<R, C>, slug: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
+    C: Confirm,
 {
+    context
+        .confirmer
+        .borrow_mut()
+        .confirm(&format!(r#"project "{slug}""#))?;
+
     context.project_service.delete(slug).await?;
 
     if context.config.active_project() == Some(slug) {
@@ -117,6 +127,6 @@ where
         context.config.save()?;
     }
 
-    println!("removed: {slug}");
+    println!(r#"Project "{slug}" removed"#);
     Ok(())
 }

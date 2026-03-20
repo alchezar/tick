@@ -175,11 +175,11 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 
 ### Other
 
-| Full command          | Short command | Description             |
-|-----------------------|---------------|-------------------------|
-| `tt --help`           | `tt -h`       | Show help               |
-| `tt --version`        | `tt -V`       | Show version            |
-| `tt <command> --help` |               | Show help for a command |
+| Full command          | Short command     | Description             |
+|-----------------------|-------------------|-------------------------|
+| `tt --help`           | `tt -h`           | Show help               |
+| `tt --version`        | `tt -V`           | Show version            |
+| `tt <command> --help` | `tt <command> -h` | Show help for a command |
 
 ---
 

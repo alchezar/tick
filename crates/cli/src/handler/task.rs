@@ -9,6 +9,7 @@ use crate::{
     args::TaskAction,
     context::AppContext,
     error::{CliError, CliResult},
+    guard::Confirm,
     types::ShortId,
 };
 use domain::{
@@ -20,9 +21,10 @@ use domain::{
 ///
 /// # Errors
 /// Returns [`CliError`] on domain, config, or resolve errors.
-pub async fn handle<R>(action: Option<TaskAction>, context: &AppContext<R>) -> CliResult<()>
+pub async fn handle<R, C>(action: Option<TaskAction>, context: &AppContext<R, C>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
+    C: Confirm,
 {
     let action = action.unwrap_or(TaskAction::List {
         from: None,
@@ -77,8 +79,8 @@ where
 }
 
 /// Adds a new task.
-async fn add<R>(
-    context: &AppContext<R>,
+async fn add<R, C>(
+    context: &AppContext<R, C>,
     project_id: Uuid,
     title: &str,
     parent: Option<ShortId>,
@@ -118,8 +120,8 @@ where
 }
 
 /// Lists tasks as a tree.
-async fn list<R>(
-    context: &AppContext<R>,
+async fn list<R, C>(
+    context: &AppContext<R, C>,
     project_id: Uuid,
     show_all: bool,
     from: Option<NaiveDate>,
@@ -186,8 +188,8 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool) {
 }
 
 /// Changes task status.
-async fn change_status<R>(
-    context: &AppContext<R>,
+async fn change_status<R, C>(
+    context: &AppContext<R, C>,
     project_id: Uuid,
     id: ShortId,
     status: Status,
@@ -225,8 +227,8 @@ where
 }
 
 /// Moves a task to a new parent or changes its display order.
-async fn move_task<R>(
-    context: &AppContext<R>,
+async fn move_task<R, C>(
+    context: &AppContext<R, C>,
     project_id: Uuid,
     id: ShortId,
     parent: Option<ShortId>,
@@ -302,8 +304,8 @@ where
 }
 
 /// Renames a task.
-async fn rename<R>(
-    context: &AppContext<R>,
+async fn rename<R, C>(
+    context: &AppContext<R, C>,
     project_id: Uuid,
     id: ShortId,
     title: &str,
@@ -323,17 +325,24 @@ where
 }
 
 /// Deletes a task.
-async fn remove<R>(context: &AppContext<R>, project_id: Uuid, id: ShortId) -> CliResult<()>
+async fn remove<R, C>(context: &AppContext<R, C>, project_id: Uuid, id: ShortId) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
+    C: Confirm,
 {
     let task_id = context
         .task_service
         .find_by_prefix(&project_id, id.as_str())
         .await?;
-    context.task_service.delete(&task_id).await?;
 
     let short_id = ShortId::from(task_id);
-    println!("[{short_id}] removed");
+    context
+        .confirmer
+        .borrow_mut()
+        .confirm(&format!(r#"task "{short_id}""#))?;
+
+    context.task_service.delete(&task_id).await?;
+
+    println!(r#"Task "{short_id}" removed"#);
     Ok(())
 }

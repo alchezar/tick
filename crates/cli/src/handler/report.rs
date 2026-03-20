@@ -16,12 +16,12 @@ use domain::{
 ///
 /// # Errors
 /// Returns [`CliError`] on domain or config errors.
-pub async fn handle<R>(
+pub async fn handle<R, C>(
     project: Option<&str>,
     all: bool,
     copy: bool,
     date: Option<NaiveDate>,
-    context: &AppContext<R>,
+    context: &AppContext<R, C>,
 ) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,

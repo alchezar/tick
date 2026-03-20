@@ -1,5 +1,6 @@
 //! `tt` - CLI entry point.
 
+use core::cell::RefCell;
 use std::process;
 
 use clap::Parser;
@@ -9,6 +10,7 @@ use cli::{
     config::Config,
     context::AppContext,
     error::{CliError, CliResult},
+    guard::RemoveGuard,
     handler::{project, report, task},
 };
 use db::SqliteRepo;
@@ -16,8 +18,10 @@ use domain::service::{ProjectService, ReportService, TaskService};
 
 #[tokio::main]
 async fn main() {
-    if let Err(e) = run().await {
-        eprintln!("error: {e}");
+    if let Err(err) = run().await
+        && !matches!(err, CliError::Aborted)
+    {
+        eprintln!("error: {err}");
         process::exit(1);
     }
 }
@@ -34,6 +38,7 @@ async fn run() -> CliResult<()> {
         project_service: ProjectService::new(repo.clone()),
         task_service: TaskService::new(repo.clone()),
         report_service: ReportService::new(repo),
+        confirmer: RefCell::new(RemoveGuard::default()),
     };
 
     match cli.command {

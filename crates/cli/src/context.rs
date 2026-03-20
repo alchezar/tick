@@ -1,15 +1,16 @@
 //! Application context - shared state for all command handlers.
 
+use core::cell::RefCell;
+
+use crate::config::Config;
 use domain::{
     repository::{ProjectRepository, TaskRepository, Transactional},
     service::{ProjectService, ReportService, TaskService},
 };
 
-use crate::config::Config;
-
 /// Shared state passed to all command handlers.
 #[derive(Debug)]
-pub struct AppContext<R>
+pub struct AppContext<R, C>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
@@ -21,4 +22,6 @@ where
     pub task_service: TaskService<R>,
     /// Standup report service.
     pub report_service: ReportService<R>,
+    /// Confirmation guard for destructive operations.
+    pub confirmer: RefCell<C>,
 }

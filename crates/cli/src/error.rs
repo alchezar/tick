@@ -47,6 +47,8 @@ pub enum CliError {
         /// The date that could not be converted.
         date: String,
     },
+    /// User declined a destructive operation.
+    Aborted,
     /// Domain-level error (task/project not found, invalid transition, etc.).
     Domain(CoreError),
 }
@@ -80,6 +82,9 @@ impl Display for CliError {
                     f,
                     "invalid date: '{date}' cannot be converted to a timestamp"
                 )
+            }
+            Self::Aborted => {
+                write!(f, "aborted")
             }
             Self::NoActiveProject => {
                 write!(f, "no active project set, use `tt project switch <slug>`")
