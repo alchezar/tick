@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                            SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at\n                            FROM tasks\n                            WHERE parent_id = $1\n                            ORDER BY display_order\n                        ",
+  "query": "\n                SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at\n                FROM tasks\n                WHERE id LIKE $1\n                LIMIT 1\n            ",
   "describe": {
     "columns": [
       {
@@ -58,5 +58,5 @@
       false
     ]
   },
-  "hash": "699d6fa5933a965d23ecbe9f505139ed7aeb53c4b25d9168752efbcacb9107ad"
+  "hash": "e8f076d82d5c9f43a6677efc6e40d480172f3f2186007094de70c369105baf48"
 }

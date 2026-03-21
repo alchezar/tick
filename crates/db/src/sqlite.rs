@@ -407,12 +407,7 @@ impl TaskRepository for SqliteRepo {
         .transpose()
     }
 
-    async fn find_task_by_id_prefix(
-        &self,
-        project_id: &Uuid,
-        id_prefix: &str,
-    ) -> CoreResult<Option<Uuid>> {
-        let project_id = project_id.to_string();
+    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<Uuid>> {
         let pattern = format!("{id_prefix}%");
 
         sqlx::query_as!(
@@ -420,10 +415,9 @@ impl TaskRepository for SqliteRepo {
             r"
                 SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
                 FROM tasks
-                WHERE project_id = $1 AND id LIKE $2
+                WHERE id LIKE $1
                 LIMIT 1
             ",
-            project_id,
             pattern,
         )
           .fetch_optional(&self.pool)
@@ -474,33 +468,9 @@ impl TaskRepository for SqliteRepo {
                 .map(Task::try_from)
                 .collect()
             }
-            #[allow(clippy::single_match_else)]
-            TaskFilter::ChildrenOf {
-                parent_id,
-                project_id,
-            } => match parent_id {
-                Some(parent_id) => {
-                    let parent_id = parent_id.to_string();
-                    sqlx::query_as!(
-                        TaskRow,
-                        r"
-                            SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
-                            FROM tasks
-                            WHERE parent_id = $1
-                            ORDER BY display_order
-                        ",
-                        parent_id,
-                    )
-                    .fetch_all(&self.pool)
-                    .await
-                    .map_err(db_err)?
-                    .into_iter()
-                    .map(Task::try_from)
-                    .collect()
-                }
-                None => {
-                    let project_id = project_id.to_string();
-                    sqlx::query_as!(
+            TaskFilter::RootByProject(project_id) => {
+                let project_id = project_id.to_string();
+                sqlx::query_as!(
                         TaskRow,
                         r"
                             SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
@@ -510,16 +480,35 @@ impl TaskRepository for SqliteRepo {
                         ",
                         project_id,
                     )
-                    .fetch_all(&self.pool)
-                    .await
-                    .map_err(db_err)?
-                    .into_iter()
-                    .map(Task::try_from)
-                    .collect()
-                }
-            },
-            TaskFilter::ActiveByProject(id, date) => {
-                let id = id.to_string();
+                  .fetch_all(&self.pool)
+                  .await
+                  .map_err(db_err)?
+                  .into_iter()
+                  .map(Task::try_from)
+                  .collect()
+            }
+            #[allow(clippy::single_match_else)]
+            TaskFilter::ChildrenOf(parent_id) => {
+                let parent_id = parent_id.to_string();
+                sqlx::query_as!(
+                    TaskRow,
+                    r"
+                        SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
+                        FROM tasks
+                        WHERE parent_id = $1
+                        ORDER BY display_order
+                    ",
+                    parent_id,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?
+                .into_iter()
+                .map(Task::try_from)
+                .collect()
+            }
+            TaskFilter::ActiveByProject(task_id, date) => {
+                let task_id = task_id.to_string();
                 let date = date.to_string();
                 sqlx::query_as!(
                     TaskRow,
@@ -533,7 +522,7 @@ impl TaskRepository for SqliteRepo {
                           )
                         ORDER BY t.display_order
                     ",
-                    id,
+                    task_id,
                     date,
                 )
                 .fetch_all(&self.pool)
@@ -543,8 +532,8 @@ impl TaskRepository for SqliteRepo {
                 .map(Task::try_from)
                 .collect()
             }
-            TaskFilter::CreatedBefore(id, date) => {
-                let id = id.to_string();
+            TaskFilter::CreatedBefore(task_id, date) => {
+                let task_id = task_id.to_string();
                 let date = date.to_string();
                 sqlx::query_as!(
                     TaskRow,
@@ -554,7 +543,7 @@ impl TaskRepository for SqliteRepo {
                         WHERE project_id = $1 AND substr(created_at, 1, 10) <= $2
                         ORDER BY display_order
                     ",
-                    id,
+                    task_id,
                     date,
                 )
                 .fetch_all(&self.pool)

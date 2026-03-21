@@ -42,25 +42,22 @@ where
     pub async fn create(
         &self,
         title: &str,
-        parent_id: Option<&Uuid>,
+        parent_id: Option<Uuid>,
         project_id: Uuid,
         created_at: Option<DateTime<Utc>>,
     ) -> CoreResult<Task> {
         self.check_depth(parent_id, 0).await?;
 
         let tx = self.repo.begin_transaction().await?;
-        let siblings = self
-            .repo
-            .list_tasks(&TaskFilter::ChildrenOf {
-                parent_id: parent_id.copied(),
-                project_id,
-            })
-            .await?;
 
         let mut task = match created_at {
-            Some(at) => Task::new_at(title, parent_id.copied(), project_id, at),
-            None => Task::new(title, parent_id.copied(), project_id),
+            Some(at) => Task::new_at(title, parent_id, project_id, at),
+            None => Task::new(title, parent_id, project_id),
         };
+        let siblings = self
+            .repo
+            .list_tasks(&task.siblings_filter(project_id))
+            .await?;
         let next_order = siblings
             .iter()
             .filter_map(|s| s.order)
@@ -145,21 +142,18 @@ where
     pub async fn move_to_parent(
         &self,
         task_id: &Uuid,
-        parent_id: Option<&Uuid>,
+        parent_id: Option<Uuid>,
         project_id: Uuid,
     ) -> CoreResult<()> {
         self.check_depth(parent_id, self.subtree_depth(task_id).await?)
             .await?;
 
         let mut task = self.find_task(task_id).await?;
-        task.parent = parent_id.copied();
+        task.parent = parent_id;
 
         let siblings = self
             .repo
-            .list_tasks(&TaskFilter::ChildrenOf {
-                parent_id: parent_id.copied(),
-                project_id,
-            })
+            .list_tasks(&task.siblings_filter(project_id))
             .await?;
         let next_order = siblings
             .iter()
@@ -246,9 +240,9 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task matches the prefix.
     /// - Returns an error if the persistence operation fails.
-    pub async fn find_by_prefix(&self, project_id: &Uuid, id_prefix: &str) -> CoreResult<Uuid> {
+    pub async fn find_by_prefix(&self, id_prefix: &str) -> CoreResult<Uuid> {
         self.repo
-            .find_task_by_id_prefix(project_id, id_prefix)
+            .find_task_by_id_prefix(id_prefix)
             .await?
             .ok_or_else(|| CoreError::TaskPrefixNotFound {
                 prefix: id_prefix.to_owned(),
@@ -359,9 +353,9 @@ where
     }
 
     /// Returns the depth of a task (1 for root, 2 for child of root, etc.).
-    async fn depth_of(&self, task_id: &Uuid) -> CoreResult<usize> {
+    async fn depth_of(&self, task_id: Uuid) -> CoreResult<usize> {
         let mut depth = 1_usize;
-        let mut current = *task_id;
+        let mut current = task_id;
         while let Some(task) = self.repo.find_task_by_id(&current).await? {
             match task.parent {
                 Some(id) => {
@@ -379,7 +373,7 @@ where
     ///
     /// - `create` passes `extra_depth = 0` (new leaf).
     /// - `move_to_parent` passes `extra_depth = subtree_depth(task_id)`.
-    async fn check_depth(&self, parent: Option<&Uuid>, extra_depth: usize) -> CoreResult<()> {
+    async fn check_depth(&self, parent: Option<Uuid>, extra_depth: usize) -> CoreResult<()> {
         let base = match parent {
             Some(id) => self.depth_of(id).await?,
             None => 0,

@@ -92,19 +92,12 @@ impl TaskRepository for FakeRepo {
         Ok(self.tasks.borrow().get(id).cloned())
     }
 
-    async fn find_task_by_id_prefix(
-        &self,
-        project_id: &Uuid,
-        id_prefix: &str,
-    ) -> CoreResult<Option<Uuid>> {
+    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<Uuid>> {
         Ok(self
             .tasks
             .borrow()
             .values()
-            .find(|task| {
-                task.project_id == *project_id
-                    && task.id.simple().to_string().starts_with(id_prefix)
-            })
+            .find(|task| task.id.simple().to_string().starts_with(id_prefix))
             .map(|task| task.id))
     }
 
@@ -123,13 +116,11 @@ impl TaskRepository for FakeRepo {
         let iter = tasks.values();
         Ok(match filter {
             TaskFilter::ByProject(id) => iter.filter(|t| t.project_id == *id).cloned().collect(),
-            TaskFilter::ChildrenOf {
-                parent_id,
-                project_id,
-            } => iter
-                .filter(|t| t.project_id == *project_id && t.parent == *parent_id)
+            TaskFilter::RootByProject(id) => iter
+                .filter(|t| t.project_id == *id && t.parent.is_none())
                 .cloned()
                 .collect(),
+            TaskFilter::ChildrenOf(id) => iter.filter(|t| t.parent == Some(*id)).cloned().collect(),
             TaskFilter::ActiveByProject(id, date) => iter
                 .filter(|t| {
                     t.project_id == *id

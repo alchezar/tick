@@ -2,7 +2,7 @@
 
 mod common;
 
-use chrono::{NaiveDate, Local};
+use chrono::{Local, NaiveDate};
 
 use cli::{args::TaskAction, handler::task, types::ShortId};
 use domain::{model::Status, repository::TaskFilter};
@@ -655,11 +655,11 @@ async fn list_subtree_shows_only_descendants() {
         .unwrap();
     let child = ctx
         .task_service
-        .create("Child", Some(&root.id), project.id, None)
+        .create("Child", Some(root.id), project.id, None)
         .await
         .unwrap();
     ctx.task_service
-        .create("Grandchild", Some(&child.id), project.id, None)
+        .create("Grandchild", Some(child.id), project.id, None)
         .await
         .unwrap();
     ctx.task_service
@@ -709,7 +709,7 @@ async fn list_subtree_includes_done_tasks() {
         .unwrap();
     let child = ctx
         .task_service
-        .create("Done child", Some(&root.id), project.id, None)
+        .create("Done child", Some(root.id), project.id, None)
         .await
         .unwrap();
     let past = NaiveDate::from_ymd_opt(2025, 1, 10)

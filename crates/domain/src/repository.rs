@@ -13,13 +13,10 @@ use crate::{
 pub enum TaskFilter {
     /// All tasks in a project.
     ByProject(Uuid),
-    /// Direct children of a parent (`Some`) or root tasks (`None`) in a project.
-    ChildrenOf {
-        /// Parent task id, or `None` for root tasks.
-        parent_id: Option<Uuid>,
-        /// Project to scope the query to.
-        project_id: Uuid,
-    },
+    /// All root tasks in a project.
+    RootByProject(Uuid),
+    /// Direct children of a parent task.
+    ChildrenOf(Uuid),
     /// Active tasks + tasks whose status changed on the given date.
     ActiveByProject(Uuid, NaiveDate),
     /// Tasks created on or before the given date.
@@ -131,11 +128,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn find_task_by_id_prefix(
-        &self,
-        project_id: &Uuid,
-        id_prefix: &str,
-    ) -> CoreResult<Option<Uuid>>;
+    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<Uuid>>;
 
     /// Returns all direct children of the given parent task.
     ///

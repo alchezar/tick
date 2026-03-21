@@ -408,7 +408,7 @@ async fn generate_block_cascade_in_historical_report() {
         .await
         .unwrap();
     let child = task_svc
-        .create("Child", Some(&parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None)
         .await
         .unwrap();
     task_svc.start(&parent.id, None).await.unwrap();

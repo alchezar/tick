@@ -3,7 +3,6 @@
 use std::collections::HashSet;
 
 use chrono::{Local, NaiveDate};
-use uuid::Uuid;
 
 use crate::{
     args::TaskAction,
@@ -26,50 +25,30 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
     C: Confirm,
 {
-    let action = action.unwrap_or(TaskAction::List {
-        from: None,
-        until: None,
-        all: false,
-        subtree: None,
-        project: None,
-    });
-
-    let project_id = action
-        .project()
-        .or(context.config.active_project())
-        .ok_or(CliError::NoActiveProject)
-        .map(|slug| context.project_service.find_by(slug))?
-        .await?
-        .id;
-
-    match action {
+    match action.unwrap_or_default() {
         TaskAction::Add {
             title,
             parent,
             date,
-            ..
-        } => add(context, project_id, &title, parent, date).await,
+            project,
+        } => add(context, project, &title, parent, date).await,
         TaskAction::List {
             from,
             until,
             all,
             subtree,
-            ..
-        } => list(context, project_id, all, from, until, subtree).await,
+            project,
+        } => list(context, project, all, from, until, subtree).await,
         TaskAction::Start { id, date } => {
-            change_status(context, project_id, id, Status::InProgress, date).await
+            change_status(context, id, Status::InProgress, date).await
         }
-        TaskAction::Done { id, date } => {
-            change_status(context, project_id, id, Status::Done, date).await
-        }
-        TaskAction::Block { id, date } => {
-            change_status(context, project_id, id, Status::Blocked, date).await
-        }
+        TaskAction::Done { id, date } => change_status(context, id, Status::Done, date).await,
+        TaskAction::Block { id, date } => change_status(context, id, Status::Blocked, date).await,
         TaskAction::Abandon { id, date } => {
-            change_status(context, project_id, id, Status::Abandoned, date).await
+            change_status(context, id, Status::Abandoned, date).await
         }
         TaskAction::Reset { id, date } => {
-            change_status(context, project_id, id, Status::NotStarted, date).await
+            change_status(context, id, Status::NotStarted, date).await
         }
         TaskAction::Move {
             id,
@@ -77,16 +56,16 @@ where
             up,
             down,
             order,
-        } => move_task(context, project_id, id, parent, up, down, order).await,
-        TaskAction::Rename { id, title } => rename(context, project_id, id, &title).await,
-        TaskAction::Remove { id } => remove(context, project_id, id).await,
+        } => move_task(context, id, parent, up, down, order).await,
+        TaskAction::Rename { id, title } => rename(context, id, &title).await,
+        TaskAction::Remove { id } => remove(context, id).await,
     }
 }
 
 /// Adds a new task.
 async fn add<R, C>(
     context: &AppContext<R, C>,
-    project_id: Uuid,
+    project: Option<String>,
     title: &str,
     parent: Option<ShortId>,
     date: Option<NaiveDate>,
@@ -95,12 +74,7 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     let parent = match parent {
-        Some(id) => Some(
-            context
-                .task_service
-                .find_by_prefix(&project_id, id.as_str())
-                .await?,
-        ),
+        Some(id) => Some(context.task_service.find_by_prefix(id.as_str()).await?),
         None => None,
     };
 
@@ -114,9 +88,10 @@ where
         })
         .transpose()?;
 
+    let project_id = context.resolve_project(project.as_deref()).await?.id;
     let task = context
         .task_service
-        .create(title, parent.as_ref(), project_id, created_at)
+        .create(title, parent, project_id, created_at)
         .await?;
 
     let short_id = ShortId::from(task.id);
@@ -127,7 +102,7 @@ where
 /// Lists tasks as a tree.
 async fn list<R, C>(
     context: &AppContext<R, C>,
-    project_id: Uuid,
+    project: Option<String>,
     show_all: bool,
     from: Option<NaiveDate>,
     until: Option<NaiveDate>,
@@ -137,6 +112,7 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     let show_date = show_all || from.is_some() || until.is_some() || subtree.is_some();
+    let project_id = context.resolve_project(project.as_deref()).await?.id;
     let filter = if show_date {
         TaskFilter::ByProject(project_id)
     } else {
@@ -152,12 +128,7 @@ where
     }
 
     let subtree_root_id = match subtree {
-        Some(short) => Some(
-            context
-                .task_service
-                .find_by_prefix(&project_id, short.as_str())
-                .await?,
-        ),
+        Some(short) => Some(context.task_service.find_by_prefix(short.as_str()).await?),
         None => None,
     };
 
@@ -209,7 +180,6 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool) {
 /// Changes task status.
 async fn change_status<R, C>(
     context: &AppContext<R, C>,
-    project_id: Uuid,
     id: ShortId,
     status: Status,
     date: Option<NaiveDate>,
@@ -217,10 +187,7 @@ async fn change_status<R, C>(
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let task_id = context
-        .task_service
-        .find_by_prefix(&project_id, id.as_str())
-        .await?;
+    let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
 
     let at = date
         .map(|d| {
@@ -248,7 +215,6 @@ where
 /// Moves a task to a new parent or changes its display order.
 async fn move_task<R, C>(
     context: &AppContext<R, C>,
-    project_id: Uuid,
     id: ShortId,
     parent: Option<ShortId>,
     up: bool,
@@ -258,19 +224,17 @@ async fn move_task<R, C>(
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let task_id = context
-        .task_service
-        .find_by_prefix(&project_id, id.as_str())
-        .await?;
+    let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
+    let project_id = context.resolve_project(None).await?.id;
 
     if let Some(parent_short) = parent {
         let parent_uuid = context
             .task_service
-            .find_by_prefix(&project_id, parent_short.as_str())
+            .find_by_prefix(parent_short.as_str())
             .await?;
         context
             .task_service
-            .move_to_parent(&task_id, Some(&parent_uuid), project_id)
+            .move_to_parent(&task_id, Some(parent_uuid), project_id)
             .await?;
     }
 
@@ -280,10 +244,7 @@ where
 
         let mut siblings = context
             .task_service
-            .list(&TaskFilter::ChildrenOf {
-                parent_id: task.parent,
-                project_id,
-            })
+            .list(&task.siblings_filter(project_id))
             .await?
             .into_iter()
             .filter(|t| t.id != task_id)
@@ -306,10 +267,7 @@ where
     } else if let Some(ord) = order {
         let mut tasks = context
             .task_service
-            .list(&TaskFilter::ChildrenOf {
-                parent_id: None,
-                project_id,
-            })
+            .list(&TaskFilter::ByProject(project_id))
             .await?;
         context
             .task_service
@@ -323,19 +281,11 @@ where
 }
 
 /// Renames a task.
-async fn rename<R, C>(
-    context: &AppContext<R, C>,
-    project_id: Uuid,
-    id: ShortId,
-    title: &str,
-) -> CliResult<()>
+async fn rename<R, C>(context: &AppContext<R, C>, id: ShortId, title: &str) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let task_id = context
-        .task_service
-        .find_by_prefix(&project_id, id.as_str())
-        .await?;
+    let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
     context.task_service.rename(&task_id, title).await?;
 
     let short_id = ShortId::from(task_id);
@@ -344,15 +294,12 @@ where
 }
 
 /// Deletes a task.
-async fn remove<R, C>(context: &AppContext<R, C>, project_id: Uuid, id: ShortId) -> CliResult<()>
+async fn remove<R, C>(context: &AppContext<R, C>, id: ShortId) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
     C: Confirm,
 {
-    let task_id = context
-        .task_service
-        .find_by_prefix(&project_id, id.as_str())
-        .await?;
+    let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
 
     let short_id = ShortId::from(task_id);
     context

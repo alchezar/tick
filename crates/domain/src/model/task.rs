@@ -7,6 +7,7 @@ use uuid::Uuid;
 use crate::{
     error::{CoreError, CoreResult},
     model::status::Status,
+    repository::TaskFilter,
 };
 
 /// A task or subtask tracked in the system.
@@ -99,5 +100,13 @@ impl Task {
         self.status = new_status;
         self.updated = at.unwrap_or_else(Utc::now);
         Ok(())
+    }
+
+    /// Returns a [`TaskFilter`] for siblings (tasks sharing the same parent).
+    pub fn siblings_filter(&self, project_id: Uuid) -> TaskFilter {
+        self.parent.map_or_else(
+            || TaskFilter::RootByProject(project_id),
+            TaskFilter::ChildrenOf,
+        )
     }
 }

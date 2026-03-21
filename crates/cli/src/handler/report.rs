@@ -31,10 +31,7 @@ where
         let reports = context.report_service.generate_all(date).await?;
         service::render_all(&reports, !copy)
     } else {
-        let slug = project
-            .or(context.config.active_project())
-            .ok_or(CliError::NoActiveProject)?;
-        let project = context.project_service.find_by(slug).await?;
+        let project = context.resolve_project(project).await?;
         let report = context.report_service.generate(date, &project).await?;
         report.render(!copy)
     };

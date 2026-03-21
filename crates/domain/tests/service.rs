@@ -20,7 +20,7 @@ async fn done_fails_with_active_child() {
         .await
         .unwrap();
     service
-        .create("Child", Some(&parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None)
         .await
         .unwrap();
 
@@ -37,7 +37,7 @@ async fn block_cascades_to_children() {
         .await
         .unwrap();
     let child = service
-        .create("Child", Some(&parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None)
         .await
         .unwrap();
     service.start(&child.id, None).await.unwrap();
@@ -59,21 +59,21 @@ async fn create_exceeds_max_depth() {
         .await
         .unwrap();
     let l1 = service
-        .create("Level 1", Some(&l0.id), project.id, None)
+        .create("Level 1", Some(l0.id), project.id, None)
         .await
         .unwrap();
     let l2 = service
-        .create("Level 2", Some(&l1.id), project.id, None)
+        .create("Level 2", Some(l1.id), project.id, None)
         .await
         .unwrap();
     let l3 = service
-        .create("Level 3", Some(&l2.id), project.id, None)
+        .create("Level 3", Some(l2.id), project.id, None)
         .await
         .unwrap();
 
     // 5th level (l0 -> l1 -> l2 -> l3 -> l4) must be rejected
     let err = service
-        .create("Level 4", Some(&l3.id), project.id, None)
+        .create("Level 4", Some(l3.id), project.id, None)
         .await
         .unwrap_err();
     assert!(matches!(err, CoreError::MaxDepthExceeded));
@@ -182,7 +182,7 @@ async fn block_cascade_records_changes_for_children() {
         .await
         .unwrap();
     let child = service
-        .create("Child", Some(&parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None)
         .await
         .unwrap();
     service.start(&parent.id, None).await.unwrap();
@@ -214,21 +214,21 @@ async fn create_at_fourth_level_fails() {
         .await
         .unwrap();
     let l1 = service
-        .create("Subtask", Some(&l0.id), project.id, None)
+        .create("Subtask", Some(l0.id), project.id, None)
         .await
         .unwrap();
     let l2 = service
-        .create("Sub-subtask", Some(&l1.id), project.id, None)
+        .create("Sub-subtask", Some(l1.id), project.id, None)
         .await
         .unwrap();
     let l3 = service
-        .create("Sub-sub-subtask", Some(&l2.id), project.id, None)
+        .create("Sub-sub-subtask", Some(l2.id), project.id, None)
         .await
         .unwrap();
 
     // 5th level must be rejected
     let result = service
-        .create("Too deep", Some(&l3.id), project.id, None)
+        .create("Too deep", Some(l3.id), project.id, None)
         .await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }
@@ -241,23 +241,23 @@ async fn move_subtree_exceeds_depth() {
     // Tree 1: a -> b -> c (3 levels)
     let a = service.create("A", None, project.id, None).await.unwrap();
     let b = service
-        .create("B", Some(&a.id), project.id, None)
+        .create("B", Some(a.id), project.id, None)
         .await
         .unwrap();
     let _c = service
-        .create("C", Some(&b.id), project.id, None)
+        .create("C", Some(b.id), project.id, None)
         .await
         .unwrap();
 
     // Tree 2: x -> y (2 levels)
     let x = service.create("X", None, project.id, None).await.unwrap();
     let y = service
-        .create("Y", Some(&x.id), project.id, None)
+        .create("Y", Some(x.id), project.id, None)
         .await
         .unwrap();
 
     // Move A under Y: x -> y -> a -> b -> c = 5 levels, exceeds max 4
-    let result = service.move_to_parent(&a.id, Some(&y.id), project.id).await;
+    let result = service.move_to_parent(&a.id, Some(y.id), project.id).await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }
 
@@ -366,7 +366,7 @@ async fn reorder_shifts_siblings_and_skips_other_parents() {
 
     // Child of A - must not be affected by root reorder
     let child = service
-        .create("Child", Some(&a.id), project.id, None)
+        .create("Child", Some(a.id), project.id, None)
         .await
         .unwrap();
 

@@ -249,13 +249,14 @@ pub enum TaskAction {
     },
 }
 
-impl TaskAction {
-    /// Returns the explicit `--project` slug if the variant carries one.
-    #[must_use]
-    pub fn project(&self) -> Option<&str> {
-        match self {
-            Self::Add { project, .. } | Self::List { project, .. } => project.as_deref(),
-            _ => None,
+impl Default for TaskAction {
+    fn default() -> Self {
+        Self::List {
+            from: None,
+            until: None,
+            all: false,
+            subtree: None,
+            project: None,
         }
     }
 }
