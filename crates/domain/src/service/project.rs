@@ -115,15 +115,14 @@ where
     pub async fn delete(&self, slug: &str) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 
-        let project_id = &self
-            .repo
-            .find_project_by_slug(slug)
-            .await?
-            .ok_or(CoreError::ProjectNotFound {
-                slug: slug.to_owned(),
-            })?
-            .id;
-        self.repo.delete_project(project_id).await?;
+        let project =
+            self.repo
+                .find_project_by_slug(slug)
+                .await?
+                .ok_or(CoreError::ProjectNotFound {
+                    slug: slug.to_owned(),
+                })?;
+        self.repo.delete_project(&project.id).await?;
 
         tx.commit_transaction().await
     }

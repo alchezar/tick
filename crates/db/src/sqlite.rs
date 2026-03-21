@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::schema;
 use domain::{
     error::{CoreError, CoreResult, DbError, DbResult},
-    model::{Project, Status, StatusChange, Task},
+    model::{Project, ProjectId, Status, StatusChange, StatusChangeId, Task, TaskId},
     repository::{ProjectRepository, TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
@@ -189,7 +189,7 @@ impl TryFrom<ProjectRow> for Project {
 
     fn try_from(r: ProjectRow) -> CoreResult<Self> {
         Ok(Self {
-            id: Uuid::parse_str(&r.id).map_err(core_err)?,
+            id: ProjectId::from(Uuid::parse_str(&r.id).map_err(core_err)?),
             slug: r.slug,
             title: r.title,
             created: r.created_at.parse::<DateTime<Utc>>().map_err(core_err)?,
@@ -213,12 +213,12 @@ impl TryFrom<TaskRow> for Task {
     type Error = CoreError;
 
     fn try_from(r: TaskRow) -> CoreResult<Self> {
-        let id = Uuid::parse_str(&r.id).map_err(core_err)?;
-        let project_id = Uuid::parse_str(&r.project_id).map_err(core_err)?;
+        let id = TaskId::from(Uuid::parse_str(&r.id).map_err(core_err)?);
+        let project_id = ProjectId::from(Uuid::parse_str(&r.project_id).map_err(core_err)?);
         let parent = r
             .parent_id
             .as_deref()
-            .map(Uuid::parse_str)
+            .map(|s| Uuid::parse_str(s).map(TaskId::from))
             .transpose()
             .map_err(core_err)?;
         let status = r.status.parse::<Status>().map_err(core_err)?;
@@ -251,8 +251,8 @@ impl TryFrom<StatusChangeRow> for StatusChange {
 
     fn try_from(r: StatusChangeRow) -> CoreResult<Self> {
         Ok(Self {
-            id: Uuid::parse_str(&r.id).map_err(core_err)?,
-            task_id: Uuid::parse_str(&r.task_id).map_err(core_err)?,
+            id: StatusChangeId::from(Uuid::parse_str(&r.id).map_err(core_err)?),
+            task_id: TaskId::from(Uuid::parse_str(&r.task_id).map_err(core_err)?),
             old_status: r.old_status.parse::<Status>().map_err(core_err)?,
             new_status: r.new_status.parse::<Status>().map_err(core_err)?,
             changed_at: r.changed_at.parse::<DateTime<Utc>>().map_err(core_err)?,
@@ -284,7 +284,7 @@ impl ProjectRepository for SqliteRepo {
         Ok(())
     }
 
-    async fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
+    async fn find_project_by_id(&self, id: &ProjectId) -> CoreResult<Option<Project>> {
         let id = id.to_string();
         sqlx::query_as!(
             ProjectRow,
@@ -336,7 +336,7 @@ impl ProjectRepository for SqliteRepo {
         .collect()
     }
 
-    async fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
+    async fn delete_project(&self, project_id: &ProjectId) -> CoreResult<()> {
         let id = project_id.to_string();
         sqlx::query!(
             r"
@@ -389,7 +389,7 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    async fn find_task_by_id(&self, id: &Uuid) -> CoreResult<Option<Task>> {
+    async fn find_task_by_id(&self, id: &TaskId) -> CoreResult<Option<Task>> {
         let id = id.to_string();
         sqlx::query_as!(
             TaskRow,
@@ -407,7 +407,7 @@ impl TaskRepository for SqliteRepo {
         .transpose()
     }
 
-    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<Uuid>> {
+    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<TaskId>> {
         let pattern = format!("{id_prefix}%");
 
         sqlx::query_as!(
@@ -423,11 +423,11 @@ impl TaskRepository for SqliteRepo {
           .fetch_optional(&self.pool)
           .await
           .map_err(db_err)?
-          .map(|r| Uuid::parse_str(&r.id).map_err(core_err))
+          .map(|r| Uuid::parse_str(&r.id).map(TaskId::from).map_err(core_err))
           .transpose()
     }
 
-    async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
+    async fn child_tasks_of(&self, parent: &TaskId) -> CoreResult<Vec<Task>> {
         let parent = parent.to_string();
         sqlx::query_as!(
             TaskRow,
@@ -487,7 +487,6 @@ impl TaskRepository for SqliteRepo {
                   .map(Task::try_from)
                   .collect()
             }
-            #[allow(clippy::single_match_else)]
             TaskFilter::ChildrenOf(parent_id) => {
                 let parent_id = parent_id.to_string();
                 sqlx::query_as!(
@@ -507,8 +506,8 @@ impl TaskRepository for SqliteRepo {
                 .map(Task::try_from)
                 .collect()
             }
-            TaskFilter::ActiveByProject(task_id, date) => {
-                let task_id = task_id.to_string();
+            TaskFilter::ActiveByProject(project_id, date) => {
+                let project_id = project_id.to_string();
                 let date = date.to_string();
                 sqlx::query_as!(
                     TaskRow,
@@ -522,7 +521,7 @@ impl TaskRepository for SqliteRepo {
                           )
                         ORDER BY t.display_order
                     ",
-                    task_id,
+                    project_id,
                     date,
                 )
                 .fetch_all(&self.pool)
@@ -532,8 +531,8 @@ impl TaskRepository for SqliteRepo {
                 .map(Task::try_from)
                 .collect()
             }
-            TaskFilter::CreatedBefore(task_id, date) => {
-                let task_id = task_id.to_string();
+            TaskFilter::CreatedBefore(project_id, date) => {
+                let project_id = project_id.to_string();
                 let date = date.to_string();
                 sqlx::query_as!(
                     TaskRow,
@@ -543,7 +542,7 @@ impl TaskRepository for SqliteRepo {
                         WHERE project_id = $1 AND substr(created_at, 1, 10) <= $2
                         ORDER BY display_order
                     ",
-                    task_id,
+                    project_id,
                     date,
                 )
                 .fetch_all(&self.pool)
@@ -556,7 +555,7 @@ impl TaskRepository for SqliteRepo {
         }
     }
 
-    async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
+    async fn delete_task(&self, id: &TaskId) -> CoreResult<()> {
         let id = id.to_string();
         sqlx::query!(
             r"
@@ -571,7 +570,7 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    async fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
+    async fn delete_all_tasks_by(&self, project_id: &ProjectId) -> CoreResult<()> {
         let project_id = project_id.to_string();
         sqlx::query!(
             r"
@@ -609,7 +608,7 @@ impl TaskRepository for SqliteRepo {
         Ok(())
     }
 
-    async fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+    async fn list_task_changes(&self, task_id: &TaskId) -> CoreResult<Vec<StatusChange>> {
         let task_id = task_id.to_string();
         sqlx::query_as!(
             StatusChangeRow,
@@ -663,7 +662,7 @@ impl TaskRepository for SqliteRepo {
 
     async fn delete_task_changes_after(
         &self,
-        task_id: &Uuid,
+        task_id: &TaskId,
         after: DateTime<Utc>,
     ) -> CoreResult<()> {
         let task_id = task_id.to_string();

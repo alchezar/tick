@@ -3,7 +3,7 @@
 mod common;
 
 use domain::{
-    model::Project,
+    model::{Project, ProjectId},
     repository::{ProjectRepository, TransactionGuard, Transactional},
 };
 
@@ -23,10 +23,7 @@ async fn save_and_find_by_id() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn find_by_id_returns_none() {
     let repo = common::repo().await;
-    let result = repo
-        .find_project_by_id(&uuid::Uuid::new_v4())
-        .await
-        .unwrap();
+    let result = repo.find_project_by_id(&ProjectId::new()).await.unwrap();
 
     assert!(result.is_none());
 }
@@ -111,7 +108,7 @@ async fn delete_project_removes_it() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_nonexistent_is_ok() {
     let repo = common::repo().await;
-    repo.delete_project(&uuid::Uuid::new_v4()).await.unwrap();
+    repo.delete_project(&ProjectId::new()).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

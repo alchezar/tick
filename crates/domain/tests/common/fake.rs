@@ -5,11 +5,10 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use chrono::{DateTime, NaiveDate, Utc};
-use uuid::Uuid;
 
 use domain::{
     error::CoreResult,
-    model::{Project, StatusChange, Task},
+    model::{Project, ProjectId, StatusChange, Task, TaskId},
     repository::{ProjectRepository, TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
@@ -18,8 +17,8 @@ use domain::{
 /// Clone is cheap - all clones share the same underlying data via `Rc`.
 #[derive(Debug, Default, Clone)]
 pub struct FakeRepo {
-    projects: Rc<RefCell<HashMap<Uuid, Project>>>,
-    tasks: Rc<RefCell<HashMap<Uuid, Task>>>,
+    projects: Rc<RefCell<HashMap<ProjectId, Project>>>,
+    tasks: Rc<RefCell<HashMap<TaskId, Task>>>,
     status_changes: Rc<RefCell<Vec<StatusChange>>>,
 }
 
@@ -46,7 +45,7 @@ impl ProjectRepository for FakeRepo {
         Ok(())
     }
 
-    async fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>> {
+    async fn find_project_by_id(&self, id: &ProjectId) -> CoreResult<Option<Project>> {
         Ok(self.projects.borrow().get(id).cloned())
     }
 
@@ -63,7 +62,7 @@ impl ProjectRepository for FakeRepo {
         Ok(self.projects.borrow().values().cloned().collect())
     }
 
-    async fn delete_project(&self, project_id: &Uuid) -> CoreResult<()> {
+    async fn delete_project(&self, project_id: &ProjectId) -> CoreResult<()> {
         let task_ids = self
             .tasks
             .borrow()
@@ -88,20 +87,26 @@ impl TaskRepository for FakeRepo {
         Ok(())
     }
 
-    async fn find_task_by_id(&self, id: &Uuid) -> CoreResult<Option<Task>> {
+    async fn find_task_by_id(&self, id: &TaskId) -> CoreResult<Option<Task>> {
         Ok(self.tasks.borrow().get(id).cloned())
     }
 
-    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<Uuid>> {
+    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<TaskId>> {
         Ok(self
             .tasks
             .borrow()
             .values()
-            .find(|task| task.id.simple().to_string().starts_with(id_prefix))
+            .find(|task| {
+                task.id
+                    .as_uuid()
+                    .simple()
+                    .to_string()
+                    .starts_with(id_prefix)
+            })
             .map(|task| task.id))
     }
 
-    async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>> {
+    async fn child_tasks_of(&self, parent: &TaskId) -> CoreResult<Vec<Task>> {
         Ok(self
             .tasks
             .borrow()
@@ -135,7 +140,7 @@ impl TaskRepository for FakeRepo {
                 .collect(),
         })
     }
-    async fn delete_task(&self, id: &Uuid) -> CoreResult<()> {
+    async fn delete_task(&self, id: &TaskId) -> CoreResult<()> {
         let children = self
             .tasks
             .borrow()
@@ -153,7 +158,7 @@ impl TaskRepository for FakeRepo {
         Ok(())
     }
 
-    async fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()> {
+    async fn delete_all_tasks_by(&self, project_id: &ProjectId) -> CoreResult<()> {
         self.tasks
             .borrow_mut()
             .retain(|_, task| task.project_id != *project_id);
@@ -165,7 +170,7 @@ impl TaskRepository for FakeRepo {
         Ok(())
     }
 
-    async fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+    async fn list_task_changes(&self, task_id: &TaskId) -> CoreResult<Vec<StatusChange>> {
         Ok(self
             .status_changes
             .borrow()
@@ -187,7 +192,7 @@ impl TaskRepository for FakeRepo {
 
     async fn delete_task_changes_after(
         &self,
-        task_id: &Uuid,
+        task_id: &TaskId,
         after: DateTime<Utc>,
     ) -> CoreResult<()> {
         self.status_changes

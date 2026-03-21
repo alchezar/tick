@@ -5,7 +5,7 @@ mod common;
 use chrono::NaiveDate;
 
 use domain::{
-    model::{Project, Status, StatusChange, Task},
+    model::{Project, Status, StatusChange, Task, TaskId},
     repository::{ProjectRepository, TaskFilter, TaskRepository},
 };
 
@@ -26,7 +26,7 @@ async fn save_and_find_task() {
 async fn find_task_returns_none() {
     let (repo, _) = common::repo_with_project().await;
     assert!(
-        repo.find_task_by_id(&uuid::Uuid::new_v4())
+        repo.find_task_by_id(&TaskId::new())
             .await
             .unwrap()
             .is_none()
@@ -124,7 +124,7 @@ async fn delete_task_cascades_children() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn delete_nonexistent_task_is_ok() {
     let (repo, _) = common::repo_with_project().await;
-    repo.delete_task(&uuid::Uuid::new_v4()).await.unwrap();
+    repo.delete_task(&TaskId::new()).await.unwrap();
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

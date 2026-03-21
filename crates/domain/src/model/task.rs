@@ -1,12 +1,11 @@
-//! Task — the core  entity.
+//! Task - the core entity.
 
 use chrono::{DateTime, Utc};
 use getset::{CopyGetters, Getters};
-use uuid::Uuid;
 
 use crate::{
     error::{CoreError, CoreResult},
-    model::status::Status,
+    model::{ProjectId, TaskId, status::Status},
     repository::TaskFilter,
 };
 
@@ -14,16 +13,16 @@ use crate::{
 #[derive(Debug, Default, Clone, Getters, CopyGetters)]
 pub struct Task {
     /// Unique identifier.
-    pub id: Uuid,
+    pub id: TaskId,
     /// Project unique identifier.
-    pub project_id: Uuid,
+    pub project_id: ProjectId,
     /// Display title.
     pub title: String,
     /// Current lifecycle status.
     #[getset(get_copy = "pub")]
     status: Status,
     /// `Id` of the parent task, `None` for root tasks.
-    pub parent: Option<Uuid>,
+    pub parent: Option<TaskId>,
     /// Display order among siblings.
     pub order: Option<usize>,
     /// Creation timestamp.
@@ -36,9 +35,9 @@ pub struct Task {
 impl Task {
     /// Creates a new task with `NotStarted` status and current timestamp.
     #[must_use]
-    pub fn new(title: impl Into<String>, parent: Option<Uuid>, project_id: Uuid) -> Self {
+    pub fn new(title: impl Into<String>, parent: Option<TaskId>, project_id: ProjectId) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: TaskId::new(),
             project_id,
             title: title.into(),
             parent,
@@ -52,12 +51,12 @@ impl Task {
     #[must_use]
     pub fn new_at(
         title: impl Into<String>,
-        parent: Option<Uuid>,
-        project_id: Uuid,
+        parent: Option<TaskId>,
+        project_id: ProjectId,
         created_at: DateTime<Utc>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: TaskId::new(),
             project_id,
             title: title.into(),
             parent,
@@ -103,7 +102,7 @@ impl Task {
     }
 
     /// Returns a [`TaskFilter`] for siblings (tasks sharing the same parent).
-    pub fn siblings_filter(&self, project_id: Uuid) -> TaskFilter {
+    pub fn siblings_filter(&self, project_id: ProjectId) -> TaskFilter {
         self.parent.map_or_else(
             || TaskFilter::RootByProject(project_id),
             TaskFilter::ChildrenOf,

@@ -1,26 +1,25 @@
 //! Repository traits - persistence contracts for projects and tasks.
 
 use chrono::{DateTime, NaiveDate, Utc};
-use uuid::Uuid;
 
 use crate::{
     error::CoreResult,
-    model::{Project, StatusChange, Task},
+    model::{Project, ProjectId, StatusChange, Task, TaskId},
 };
 
 /// Filter for querying tasks at the repository level.
 #[derive(Debug, Clone)]
 pub enum TaskFilter {
     /// All tasks in a project.
-    ByProject(Uuid),
+    ByProject(ProjectId),
     /// All root tasks in a project.
-    RootByProject(Uuid),
+    RootByProject(ProjectId),
     /// Direct children of a parent task.
-    ChildrenOf(Uuid),
+    ChildrenOf(TaskId),
     /// Active tasks + tasks whose status changed on the given date.
-    ActiveByProject(Uuid, NaiveDate),
+    ActiveByProject(ProjectId, NaiveDate),
     /// Tasks created on or before the given date.
-    CreatedBefore(Uuid, NaiveDate),
+    CreatedBefore(ProjectId, NaiveDate),
 }
 
 /// Provides `RAII`-based transaction demarcation.
@@ -77,7 +76,7 @@ pub trait ProjectRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn find_project_by_id(&self, id: &Uuid) -> CoreResult<Option<Project>>;
+    async fn find_project_by_id(&self, id: &ProjectId) -> CoreResult<Option<Project>>;
 
     /// Returns a project by slug.
     ///
@@ -102,7 +101,7 @@ pub trait ProjectRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn delete_project(&self, project_id: &Uuid) -> CoreResult<()>;
+    async fn delete_project(&self, project_id: &ProjectId) -> CoreResult<()>;
 }
 
 /// Defines the persistence contract for tasks.
@@ -120,7 +119,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn find_task_by_id(&self, id: &Uuid) -> CoreResult<Option<Task>>;
+    async fn find_task_by_id(&self, id: &TaskId) -> CoreResult<Option<Task>>;
 
     /// Finds a task id by hex prefix within a project.
     ///
@@ -128,7 +127,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<Uuid>>;
+    async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<TaskId>>;
 
     /// Returns all direct children of the given parent task.
     ///
@@ -136,7 +135,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn child_tasks_of(&self, parent: &Uuid) -> CoreResult<Vec<Task>>;
+    async fn child_tasks_of(&self, parent: &TaskId) -> CoreResult<Vec<Task>>;
 
     /// Returns tasks matching the given filter.
     ///
@@ -152,7 +151,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn delete_task(&self, id: &Uuid) -> CoreResult<()>;
+    async fn delete_task(&self, id: &TaskId) -> CoreResult<()>;
 
     /// Deletes all tasks and all its children by id that related to project.
     ///
@@ -160,7 +159,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn delete_all_tasks_by(&self, project_id: &Uuid) -> CoreResult<()>;
+    async fn delete_all_tasks_by(&self, project_id: &ProjectId) -> CoreResult<()>;
 
     /// Saves a status change record.
     ///
@@ -172,7 +171,7 @@ pub trait TaskRepository {
     ///
     /// # Errors
     /// Returns an error if the underlying storage operation fails.
-    async fn list_task_changes(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>>;
+    async fn list_task_changes(&self, task_id: &TaskId) -> CoreResult<Vec<StatusChange>>;
 
     /// Returns all status changes that occurred on the given date.
     ///
@@ -188,7 +187,7 @@ pub trait TaskRepository {
     /// Returns an error if the underlying storage operation fails.
     async fn delete_task_changes_after(
         &self,
-        task_id: &Uuid,
+        task_id: &TaskId,
         after: DateTime<Utc>,
     ) -> CoreResult<()>;
 }

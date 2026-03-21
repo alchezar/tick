@@ -1,9 +1,8 @@
 //! Defines custom error type for the `core` module.
 
 use thiserror::Error;
-use uuid::Uuid;
 
-use crate::model::Status;
+use crate::model::{Status, TaskId};
 
 /// Maximum allowed task nesting depth.
 pub const MAX_DEPTH: usize = 4;
@@ -15,7 +14,7 @@ pub enum CoreError {
     #[error("task not found: {id}")]
     TaskNotFound {
         /// `Id` of the missing task.
-        id: Uuid,
+        id: TaskId,
     },
     /// No task matches the given id prefix.
     #[error("no task found matching prefix: {prefix}")]

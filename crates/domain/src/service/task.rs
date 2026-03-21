@@ -1,11 +1,10 @@
 //! Business logic for task management.
 
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 
 use crate::{
     error::{CoreError, CoreResult, MAX_DEPTH},
-    model::{Status, StatusChange, Task},
+    model::{ProjectId, Status, StatusChange, Task, TaskId},
     repository::{TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
@@ -42,8 +41,8 @@ where
     pub async fn create(
         &self,
         title: &str,
-        parent_id: Option<Uuid>,
-        project_id: Uuid,
+        parent_id: Option<TaskId>,
+        project_id: ProjectId,
         created_at: Option<DateTime<Utc>>,
     ) -> CoreResult<Task> {
         self.check_depth(parent_id, 0).await?;
@@ -76,7 +75,7 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    pub async fn start(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+    pub async fn start(&self, task_id: &TaskId, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         self.update_status(task_id, Status::InProgress, at).await
     }
 
@@ -85,7 +84,7 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    pub async fn reset(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+    pub async fn reset(&self, task_id: &TaskId, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         self.update_status(task_id, Status::NotStarted, at).await
     }
 
@@ -95,7 +94,7 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::TaskHasUnfinishedChildren`] if any child task is still active.
     /// - Returns an error if the persistence operation fails.
-    pub async fn done(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+    pub async fn done(&self, task_id: &TaskId, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         if self
             .repo
             .child_tasks_of(task_id)
@@ -114,7 +113,7 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    pub async fn abandon(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+    pub async fn abandon(&self, task_id: &TaskId, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         self.update_status(task_id, Status::Abandoned, at).await
     }
 
@@ -124,7 +123,7 @@ where
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
-    pub async fn block(&self, task_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+    pub async fn block(&self, task_id: &TaskId, at: Option<DateTime<Utc>>) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 
         self.update_status(task_id, Status::Blocked, at).await?;
@@ -141,9 +140,9 @@ where
     /// - Returns an error if the persistence operation fails.
     pub async fn move_to_parent(
         &self,
-        task_id: &Uuid,
-        parent_id: Option<Uuid>,
-        project_id: Uuid,
+        task_id: &TaskId,
+        parent_id: Option<TaskId>,
+        project_id: ProjectId,
     ) -> CoreResult<()> {
         self.check_depth(parent_id, self.subtree_depth(task_id).await?)
             .await?;
@@ -171,7 +170,7 @@ where
     /// # Errors
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
-    pub async fn rename(&self, task_id: &Uuid, title: &str) -> CoreResult<()> {
+    pub async fn rename(&self, task_id: &TaskId, title: &str) -> CoreResult<()> {
         let mut task = self.find_task(task_id).await?;
 
         title.clone_into(&mut task.title);
@@ -185,7 +184,7 @@ where
     /// - Returns an error if the persistence operation fails.
     pub async fn reorder(
         &self,
-        task_id: &Uuid,
+        task_id: &TaskId,
         new_order: usize,
         siblings: &mut [Task],
     ) -> CoreResult<()> {
@@ -218,9 +217,9 @@ where
     /// - Returns an error if the persistence operation fails.
     pub async fn swap_order(
         &self,
-        id_a: &Uuid,
+        id_a: &TaskId,
         order_a: usize,
-        id_b: &Uuid,
+        id_b: &TaskId,
         order_b: usize,
     ) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
@@ -235,12 +234,12 @@ where
         tx.commit_transaction().await
     }
 
-    /// Resolves a hex id prefix to a full [`Uuid`] within a project.
+    /// Resolves a hex id prefix to a full [`TaskId`].
     ///
     /// # Errors
-    /// - [`CoreError::TaskNotFound`] if no task matches the prefix.
+    /// - [`CoreError::TaskPrefixNotFound`] if no task matches the prefix.
     /// - Returns an error if the persistence operation fails.
-    pub async fn find_by_prefix(&self, id_prefix: &str) -> CoreResult<Uuid> {
+    pub async fn find_by_prefix(&self, id_prefix: &str) -> CoreResult<TaskId> {
         self.repo
             .find_task_by_id_prefix(id_prefix)
             .await?
@@ -261,7 +260,7 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    pub async fn status_history(&self, task_id: &Uuid) -> CoreResult<Vec<StatusChange>> {
+    pub async fn status_history(&self, task_id: &TaskId) -> CoreResult<Vec<StatusChange>> {
         self.repo.list_task_changes(task_id).await
     }
 
@@ -271,7 +270,7 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    pub async fn delete(&self, task_id: &Uuid) -> CoreResult<()> {
+    pub async fn delete(&self, task_id: &TaskId) -> CoreResult<()> {
         self.repo.delete_task(task_id).await
     }
 
@@ -279,7 +278,7 @@ where
     ///
     /// # Errors
     /// Returns an error if the persistence operation fails.
-    pub async fn find_task(&self, id: &Uuid) -> CoreResult<Task> {
+    pub async fn find_task(&self, id: &TaskId) -> CoreResult<Task> {
         self.repo
             .find_task_by_id(id)
             .await?
@@ -296,7 +295,7 @@ where
     /// - Returns an error if the persistence operation fails.
     async fn update_status(
         &self,
-        task_id: &Uuid,
+        task_id: &TaskId,
         new_status: Status,
         at: Option<DateTime<Utc>>,
     ) -> CoreResult<()> {
@@ -328,7 +327,11 @@ where
     }
 
     /// Recursively blocks all active descendants of the given task.
-    async fn block_children(&self, parent_id: &Uuid, at: Option<DateTime<Utc>>) -> CoreResult<()> {
+    async fn block_children(
+        &self,
+        parent_id: &TaskId,
+        at: Option<DateTime<Utc>>,
+    ) -> CoreResult<()> {
         for mut child in self.repo.child_tasks_of(parent_id).await? {
             if child.status().is_active() {
                 self.update_status_inner(&mut child, Status::Blocked, at)
@@ -340,7 +343,7 @@ where
     }
 
     /// Returns the maximum depth among all descendants of a task (0 if no children).
-    async fn subtree_depth(&self, task_id: &Uuid) -> CoreResult<usize> {
+    async fn subtree_depth(&self, task_id: &TaskId) -> CoreResult<usize> {
         let children = self.repo.child_tasks_of(task_id).await?;
         if children.is_empty() {
             return Ok(0);
@@ -353,7 +356,7 @@ where
     }
 
     /// Returns the depth of a task (1 for root, 2 for child of root, etc.).
-    async fn depth_of(&self, task_id: Uuid) -> CoreResult<usize> {
+    async fn depth_of(&self, task_id: TaskId) -> CoreResult<usize> {
         let mut depth = 1_usize;
         let mut current = task_id;
         while let Some(task) = self.repo.find_task_by_id(&current).await? {
@@ -373,7 +376,7 @@ where
     ///
     /// - `create` passes `extra_depth = 0` (new leaf).
     /// - `move_to_parent` passes `extra_depth = subtree_depth(task_id)`.
-    async fn check_depth(&self, parent: Option<Uuid>, extra_depth: usize) -> CoreResult<()> {
+    async fn check_depth(&self, parent: Option<TaskId>, extra_depth: usize) -> CoreResult<()> {
         let base = match parent {
             Some(id) => self.depth_of(id).await?,
             None => 0,

@@ -3,11 +3,10 @@
 use std::collections::HashSet;
 
 use chrono::{Datelike, Duration, NaiveDate, Weekday};
-use uuid::Uuid;
 
 use crate::{
     error::CoreResult,
-    model::{Project, Status, Task},
+    model::{Project, ProjectId, Status, Task, TaskId},
     repository::{ProjectRepository, TaskFilter, TaskRepository, TransactionGuard, Transactional},
 };
 
@@ -161,7 +160,7 @@ where
     ///
     /// All tasks that had a status change on the previous workday,
     /// shown with their status as of that day.
-    async fn tasks_prev(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+    async fn tasks_prev(&self, date: NaiveDate, project_id: &ProjectId) -> CoreResult<Vec<Task>> {
         let prev_day = prev_workday(date);
         self.tasks_on(prev_day, project_id).await
     }
@@ -173,7 +172,7 @@ where
     async fn tasks_today(
         &self,
         date: NaiveDate,
-        project_id: &Uuid,
+        project_id: &ProjectId,
     ) -> CoreResult<(Vec<Task>, Vec<Task>)> {
         let current = self.tasks_on(date, project_id).await?;
         let yesterday = date - Duration::days(1);
@@ -190,7 +189,7 @@ where
     /// Builds a snapshot of tasks relevant to `date`:
     /// those that were active or had a status change on `date`,
     /// each with their end-of-day status.
-    async fn tasks_on(&self, date: NaiveDate, project_id: &Uuid) -> CoreResult<Vec<Task>> {
+    async fn tasks_on(&self, date: NaiveDate, project_id: &ProjectId) -> CoreResult<Vec<Task>> {
         let changed_ids = self
             .repo
             .list_task_changes_on(date)
@@ -221,7 +220,7 @@ where
     ///
     /// Replays all status changes up to (and including) `date`.
     /// Returns `NotStarted` if the task had no changes by that date.
-    async fn status_at(&self, task_id: &Uuid, date: NaiveDate) -> CoreResult<Status> {
+    async fn status_at(&self, task_id: &TaskId, date: NaiveDate) -> CoreResult<Status> {
         let next_day = date + Duration::days(1);
         let cutoff = next_day
             .and_hms_opt(0, 0, 0)

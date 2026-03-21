@@ -3,13 +3,13 @@
 use core::fmt::{Display, Formatter, Result as FmtResult};
 use core::str::FromStr;
 
-use uuid::Uuid;
+use domain::model::TaskId;
 
 use crate::error::{CliError, CliResult};
 
 /// Task id - accepts full UUID or a short prefix (min 8 hex chars).
 ///
-/// Resolved to a full [`Uuid`] via [`TaskService::find_by_prefix`](domain::service::TaskService::find_by_prefix).
+/// Resolved to a full [`TaskId`] via [`TaskService::find_by_prefix`](domain::service::TaskService::find_by_prefix).
 #[derive(Debug, Clone)]
 pub struct ShortId(String);
 
@@ -24,9 +24,9 @@ impl ShortId {
     }
 }
 
-impl From<Uuid> for ShortId {
-    fn from(uuid: Uuid) -> Self {
-        Self(uuid.simple().to_string()[..Self::MIN_LEN].to_owned())
+impl From<TaskId> for ShortId {
+    fn from(id: TaskId) -> Self {
+        Self(id.as_uuid().simple().to_string()[..Self::MIN_LEN].to_owned())
     }
 }
 

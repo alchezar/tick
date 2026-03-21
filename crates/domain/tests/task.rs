@@ -1,8 +1,6 @@
 //! Integration tests for the `Task` domain entity.
 
-use uuid::Uuid;
-
-use domain::model::{Project, Status, Task};
+use domain::model::{Project, Status, Task, TaskId};
 
 #[test]
 fn new_task_has_correct_defaults() {
@@ -22,7 +20,7 @@ fn is_root_without_parent() {
 
 #[test]
 fn is_not_root_with_parent() {
-    let parent_id = Uuid::new_v4();
+    let parent_id = TaskId::new();
     let task = Task::new("Child task", Some(parent_id), Project::default().id);
     assert!(!task.is_root());
 }

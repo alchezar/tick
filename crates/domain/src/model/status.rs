@@ -6,7 +6,8 @@ use core::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use fmt::{Display, Formatter, Result as FmtResult};
-use uuid::Uuid;
+
+use crate::model::{StatusChangeId, TaskId};
 
 /// Represents the lifecycle state of a task.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -120,9 +121,9 @@ impl Display for Status {
 #[derive(Debug, Clone)]
 pub struct StatusChange {
     /// Unique identifier.
-    pub id: Uuid,
+    pub id: StatusChangeId,
     /// The task this change belongs to.
-    pub task_id: Uuid,
+    pub task_id: TaskId,
     /// Status before the transition.
     pub old_status: Status,
     /// Status after the transition.
@@ -135,13 +136,13 @@ impl StatusChange {
     /// Creates a new status change record with a generated id.
     #[must_use]
     pub fn new(
-        task_id: Uuid,
+        task_id: TaskId,
         old_status: Status,
         new_status: Status,
         changed_at: Option<DateTime<Utc>>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: StatusChangeId::new(),
             task_id,
             old_status,
             new_status,
