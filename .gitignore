@@ -40,3 +40,4 @@ CLAUDE.md
 *.db
 *.db-shm
 *.db-wal
+identifier.sqlite

@@ -140,10 +140,11 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 | `tt task add <title>`                      | `tt ts ad <title>`                 | Add a root task                              |
 | `tt task add <title> --parent <id>`        | `tt ts ad <title> -p <id>`         | Add a child task                             |
 | `tt task add <title> --date <YYYY-MM-DD>`  | `tt ts ad <title> -d <YYYY-MM-DD>` | Add a task with a specific creation date     |
-| `tt task list`                             | `tt ts`                            | List active tasks (tree view)                |
+| `tt task`                                  | `tt ts`                            | Fallback to task list                        |
+| `tt task list`                             | `tt ts ls`                         | List active tasks (tree view)                |
 | `tt task list --from <YYYY-MM-DD>`         | `tt ts -f <YYYY-MM-DD>`            | List active + closed since date (inclusive)  |
 | `tt task list --until <YYYY-MM-DD>`        | `tt ts -u <YYYY-MM-DD>`            | List active + closed before date (exclusive) |
-| `tt task list --all`                       | `tt ts -a`                         | List all tasks including done/abandoned      |
+| `tt task list --all`                       | `tt ts ls -a`                      | List all tasks including done/abandoned      |
 | `tt task list --subtree <id>`              | `tt ts ls -s <id>`                 | Show full subtree of a task (all statuses)   |
 | `tt task start <id>`                       | `tt ts st <id>`                    | Set status to in_progress                    |
 | `tt task start <id> --date <YYYY-MM-DD>`   | `tt ts st <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
