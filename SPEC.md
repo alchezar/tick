@@ -209,6 +209,44 @@ crates/
 
 Single binary, no server. Database stored at `~/.local/share/tt/tt.db` (XDG). Active project stored at `~/.local/share/tt/config.toml`.
 
+```mermaid
+graph TD
+    subgraph "cli crate"
+        MAIN[main.rs]
+        ARGS[args.rs<br>Cli, Command<br>TaskAction, ProjectAction]
+        CTX[context.rs<br>AppContext]
+        HANDLERS[handler/<br>task, project, report]
+        CONFIG[config.rs<br>Config]
+        TYPES[types.rs<br>ShortId]
+        GUARD[guard.rs<br>Confirm]
+    end
+
+    subgraph "domain crate"
+        MODEL[model/<br>Task, Project, Status<br>TaskId, ProjectId]
+        REPO[repository.rs<br>TaskRepository trait<br>ProjectRepository trait<br>TaskFilter]
+        SVC[service/<br>TaskService, ProjectService<br>ReportService]
+    end
+
+    subgraph "db crate"
+        SQLITE[sqlite.rs<br>SqliteRepo]
+        SCHEMA[schema.rs<br>migrations]
+    end
+
+    MAIN --> ARGS
+    MAIN --> CONFIG
+    MAIN --> SQLITE
+    MAIN --> CTX
+    CTX --> SVC
+    HANDLERS --> SVC
+    HANDLERS --> MODEL
+    HANDLERS --> TYPES
+    HANDLERS --> GUARD
+    SVC --> REPO
+    SVC --> MODEL
+    SQLITE --> SCHEMA
+    SQLITE -.->|implements| REPO
+```
+
 ### v0.3 - TUI
 
 Add `crates/tui/` using `ratatui`. Core logic stays unchanged. Project switcher panel included from the start.
