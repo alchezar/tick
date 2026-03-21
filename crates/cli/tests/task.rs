@@ -2,7 +2,7 @@
 
 mod common;
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Local};
 
 use cli::{args::TaskAction, handler::task, types::ShortId};
 use domain::{model::Status, repository::TaskFilter};
@@ -40,7 +40,7 @@ async fn add_subtask() {
         .await
         .unwrap();
 
-    let parent_short: ShortId = parent.id.into();
+    let parent_short = ShortId::from(parent.id);
     let action = TaskAction::Add {
         title: "Child".to_owned(),
         parent: Some(parent_short),
@@ -66,6 +66,7 @@ async fn list_empty() {
         from: None,
         until: None,
         all: false,
+        subtree: None,
         project: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -530,6 +531,7 @@ async fn list_from_includes_closed_since_date() {
         from: Some(from_date),
         until: None,
         all: false,
+        subtree: None,
         project: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -540,10 +542,10 @@ async fn list_from_includes_closed_since_date() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let visible: Vec<_> = all
+    let visible = all
         .iter()
         .filter(|t| t.status().is_active() || t.updated.date_naive() >= from_date)
-        .collect();
+        .collect::<Vec<_>>();
 
     // Active + "New done" should be visible; "Old done" filtered out.
     assert_eq!(visible.len(), 2);
@@ -619,6 +621,7 @@ async fn list_until_excludes_closed_on_date() {
         from: None,
         until: Some(until_date),
         all: false,
+        subtree: None,
         project: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -629,12 +632,122 @@ async fn list_until_excludes_closed_on_date() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let visible: Vec<_> = all
+    let visible = all
         .iter()
         .filter(|t| t.status().is_active() || t.updated.date_naive() < until_date)
-        .collect();
+        .collect::<Vec<_>>();
 
     assert_eq!(visible.len(), 2);
     assert!(visible.iter().any(|t| t.title == "Active"));
     assert!(visible.iter().any(|t| t.title == "Old done"));
+}
+
+#[tokio::test]
+async fn list_subtree_shows_only_descendants() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+
+    // Create tree: Root -> Child -> Grandchild, and a Sibling at root level.
+    let root = ctx
+        .task_service
+        .create("Root", None, project.id, None)
+        .await
+        .unwrap();
+    let child = ctx
+        .task_service
+        .create("Child", Some(&root.id), project.id, None)
+        .await
+        .unwrap();
+    ctx.task_service
+        .create("Grandchild", Some(&child.id), project.id, None)
+        .await
+        .unwrap();
+    ctx.task_service
+        .create("Sibling", None, project.id, None)
+        .await
+        .unwrap();
+
+    let root_short = ShortId::from(root.id);
+    let action = TaskAction::List {
+        from: None,
+        until: None,
+        all: false,
+        subtree: Some(root_short),
+        project: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    // Verify: subtree filter loads all tasks via ByProject, root is the
+    // only entry point and print_task recurses into children.
+    let all = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    assert_eq!(all.len(), 4);
+
+    // The subtree rooted at `root` contains Root, Child, Grandchild (3 tasks).
+    let descendants = all
+        .iter()
+        .filter(|t| t.id == root.id || t.parent == Some(root.id) || t.parent == Some(child.id))
+        .collect::<Vec<_>>();
+    assert_eq!(descendants.len(), 3);
+    assert!(descendants.iter().any(|t| t.title == "Root"));
+    assert!(descendants.iter().any(|t| t.title == "Child"));
+    assert!(descendants.iter().any(|t| t.title == "Grandchild"));
+}
+
+#[tokio::test]
+async fn list_subtree_includes_done_tasks() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+
+    let root = ctx
+        .task_service
+        .create("Root", None, project.id, None)
+        .await
+        .unwrap();
+    let child = ctx
+        .task_service
+        .create("Done child", Some(&root.id), project.id, None)
+        .await
+        .unwrap();
+    let past = NaiveDate::from_ymd_opt(2025, 1, 10)
+        .unwrap()
+        .and_hms_opt(9, 0, 0)
+        .unwrap()
+        .and_utc();
+    ctx.task_service.start(&child.id, Some(past)).await.unwrap();
+    ctx.task_service.done(&child.id, Some(past)).await.unwrap();
+
+    // Without --subtree, done tasks closed in the past are hidden.
+    let all_active = ctx
+        .task_service
+        .list(&TaskFilter::ActiveByProject(
+            project.id,
+            Local::now().date_naive(),
+        ))
+        .await
+        .unwrap();
+    assert!(all_active.iter().all(|t| t.title != "Done child"));
+
+    // With --subtree, all tasks (including done) are shown.
+    let root_short = ShortId::from(root.id);
+    let action = TaskAction::List {
+        from: None,
+        until: None,
+        all: false,
+        subtree: Some(root_short),
+        project: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let all = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    let done_child = all.iter().find(|t| t.title == "Done child").unwrap();
+    assert_eq!(done_child.status(), Status::Done);
+    assert_eq!(done_child.parent, Some(root.id));
 }

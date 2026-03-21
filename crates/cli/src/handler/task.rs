@@ -30,6 +30,7 @@ where
         from: None,
         until: None,
         all: false,
+        subtree: None,
         project: None,
     });
 
@@ -49,8 +50,12 @@ where
             ..
         } => add(context, project_id, &title, parent, date).await,
         TaskAction::List {
-            from, until, all, ..
-        } => list(context, project_id, all, from, until).await,
+            from,
+            until,
+            all,
+            subtree,
+            ..
+        } => list(context, project_id, all, from, until, subtree).await,
         TaskAction::Start { id, date } => {
             change_status(context, project_id, id, Status::InProgress, date).await
         }
@@ -126,12 +131,13 @@ async fn list<R, C>(
     show_all: bool,
     from: Option<NaiveDate>,
     until: Option<NaiveDate>,
+    subtree: Option<ShortId>,
 ) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let show_date = show_all || from.is_some() || until.is_some();
-    let filter = if show_all || from.is_some() || until.is_some() {
+    let show_date = show_all || from.is_some() || until.is_some() || subtree.is_some();
+    let filter = if show_date {
         TaskFilter::ByProject(project_id)
     } else {
         TaskFilter::ActiveByProject(project_id, Local::now().date_naive())
@@ -145,6 +151,16 @@ where
         visible.retain(|t| t.status().is_active() || t.updated.date_naive() < until);
     }
 
+    let subtree_root_id = match subtree {
+        Some(short) => Some(
+            context
+                .task_service
+                .find_by_prefix(&project_id, short.as_str())
+                .await?,
+        ),
+        None => None,
+    };
+
     if visible.is_empty() {
         println!("no tasks");
         return Ok(());
@@ -153,7 +169,10 @@ where
     let ids = visible.iter().map(|t| t.id).collect::<HashSet<_>>();
     let mut roots = visible
         .iter()
-        .filter(|t| t.parent.is_none_or(|p| !ids.contains(&p)))
+        .filter(|t| match subtree_root_id {
+            Some(id) => t.id == id,
+            None => t.parent.is_none_or(|p| !ids.contains(&p)),
+        })
         .collect::<Vec<_>>();
     roots.sort_by_key(|t| t.order);
 

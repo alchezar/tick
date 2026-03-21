@@ -511,7 +511,7 @@ async fn generate_all_returns_reports_for_all_projects() {
 
     assert_eq!(reports.len(), 2);
 
-    let titles: Vec<&str> = reports.iter().map(|r| r.title.as_str()).collect();
+    let titles = reports.iter().map(|r| r.title.as_str()).collect::<Vec<_>>();
     assert!(titles.contains(&"Work Projects"));
     assert!(titles.contains(&"personal"));
 }

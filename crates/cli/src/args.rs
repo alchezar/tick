@@ -144,8 +144,12 @@ pub enum TaskAction {
         #[arg(short, long, group = "period")]
         all: bool,
 
+        /// Show subtree of a specific task.
+        #[arg(short, long, group = "scope")]
+        subtree: Option<ShortId>,
+
         /// Project slug (defaults to active project).
-        #[arg(short, long)]
+        #[arg(short, long, group = "scope")]
         project: Option<String>,
     },
 
