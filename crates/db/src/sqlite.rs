@@ -529,7 +529,7 @@ impl TaskRepository for SqliteRepo {
                         WHERE t.project_id = $1
                           AND (
                             t.status IN ('not_started', 'in_progress', 'blocked')
-                            OR (t.status IN ('done', 'abandoned') AND DATE(t.updated_at) = $2)
+                            OR (t.status IN ('done', 'abandoned') AND substr(t.updated_at, 1, 10) = $2)
                           )
                         ORDER BY t.display_order
                     ",
@@ -551,7 +551,7 @@ impl TaskRepository for SqliteRepo {
                     r"
                         SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at
                         FROM tasks
-                        WHERE project_id = $1 AND DATE(created_at) <= $2
+                        WHERE project_id = $1 AND substr(created_at, 1, 10) <= $2
                         ORDER BY display_order
                     ",
                     id,

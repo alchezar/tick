@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                        SELECT t.id, t.project_id, t.title, t.status, t.parent_id, t.display_order, t.created_at, t.updated_at\n                        FROM tasks t\n                        WHERE t.project_id = $1\n                          AND (\n                            t.status IN ('not_started', 'in_progress', 'blocked')\n                            OR (t.status IN ('done', 'abandoned') AND DATE(t.updated_at) = $2)\n                          )\n                        ORDER BY t.display_order\n                    ",
+  "query": "\n                        SELECT t.id, t.project_id, t.title, t.status, t.parent_id, t.display_order, t.created_at, t.updated_at\n                        FROM tasks t\n                        WHERE t.project_id = $1\n                          AND (\n                            t.status IN ('not_started', 'in_progress', 'blocked')\n                            OR (t.status IN ('done', 'abandoned') AND substr(t.updated_at, 1, 10) = $2)\n                          )\n                        ORDER BY t.display_order\n                    ",
   "describe": {
     "columns": [
       {
@@ -58,5 +58,5 @@
       false
     ]
   },
-  "hash": "d2e6cbe330fbf25444cc94d028a98c96452512979595526430034608af2035b6"
+  "hash": "f14ec24b9f276e30bb458a8f366693a735f10e2b30a2624005bd4e1963e01a0e"
 }

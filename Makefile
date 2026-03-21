@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+LOAD_ENV := set -eo pipefail; set -a; source ./.env; set +a;
 
 .PHONY: help
 # Environment
@@ -10,16 +11,14 @@ SHELL := /bin/bash
 # Development
 .PHONY: build release dev run clean
 
-#===============================================================================
-# Help
-#===============================================================================
+# Help -------------------------------------------------------------------------
 
 help: ## Show available targets
-	@grep -E '^[a-zA-Z0-9_.-]+:.*?## ' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-10s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_.-]+:.*?## ' Makefile                                \
+	| sort                                                                     \
+	| awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-10s %s\n", $$1, $$2}'
 
-#===============================================================================
-# Environment
-#===============================================================================
+# Environment ------------------------------------------------------------------
 
 env-up: ## Start environment
 	@echo "[*] Starting environment..."
@@ -31,14 +30,12 @@ env-down: ## Stop environment
 
 migrate: ## Reset database and run migrations
 	@echo "[*] Resetting database and applying migrations..."
-	. ./.env && cargo sqlx database reset -y --source crates/db/migrations
+	@$(LOAD_ENV) cargo sqlx database reset -y --source crates/db/migrations
 
 
 restart: env-down env-up migrate ## Restart environment and run migrations
 
-#===============================================================================
-# Code Quality
-#===============================================================================
+# Code Quality -----------------------------------------------------------------
 
 ci: fmt lint build ## CI pipeline (GitHub Actions)
 
@@ -57,39 +54,37 @@ lint: ## Run clippy in strict mode
 
 openapi: ## Check all ToSchema types are registered in openapi.rs
 	@echo "[*] Checking OpenAPI schema completeness..."
-	@missing=0; \
-	for f in $$(find crates/api/src -name 'models.rs' -type f | sort); do \
-		for name in $$(grep -A5 'derive.*ToSchema' "$$f" \
-			| grep -oE 'pub (struct|enum) [A-Za-z0-9_]+' \
-			| awk '{print $$3}'); do \
-			if ! grep -q "$$name" crates/api/src/openapi.rs; then \
-				echo "  $${f#crates/api/src/}: $$name"; \
-				missing=$$((missing + 1)); \
-			fi; \
-		done; \
-	done; \
-	if [ "$$missing" -gt 0 ]; then \
-		echo ""; \
-		echo "[!] $$missing type(s) with ToSchema not found in openapi.rs"; \
-		exit 1; \
+	@missing=0;                                                                \
+	if [ ! -d crates/api/src ]; then exit 0; fi;                               \
+	for f in $$(find crates/api/src -name 'models.rs' -type f | sort); do      \
+		for name in $$(grep -A5 'derive.*ToSchema' "$$f"                       \
+			| grep -oE 'pub (struct|enum) [A-Za-z0-9_]+'                       \
+			| awk '{print $$3}'); do                                           \
+			if ! grep -q "$$name" crates/api/src/openapi.rs; then              \
+				echo "  $${f#crates/api/src/}: $$name";                        \
+				missing=$$((missing + 1));                                     \
+			fi;                                                                \
+		done;                                                                  \
+	done;                                                                      \
+	if [ "$$missing" -gt 0 ]; then                                             \
+		echo "";                                                               \
+		echo "[!] $$missing type(s) with ToSchema not found in openapi.rs";    \
+		exit 1;                                                                \
 	fi
 
-prepare: ## Generate SQLx offline query metadata for CI builds (requires bash/zsh)
+prepare: ## Generate SQLx offline query metadata for CI builds (bash/zsh)
 	@echo "[*] Generating SQLx offline query metadata..."
 	@test -f .env || (echo "Error: .env file not found" && exit 1)
-	@set -eo pipefail; \
-		set -a; source ./.env; set +a; \
-		cargo sqlx prepare --workspace -- --all-features --tests 2>&1 \
-		| sed '/^[^ ]/s/^/    /'
+	@$(LOAD_ENV)                                                               \
+		CARGO_TERM_COLOR=always cargo                                          \
+		sqlx prepare --workspace -- --all-features --tests 2>&1                \
+		| grep -v 'query data written'
 
-#===============================================================================
-# Testing
-#===============================================================================
+# Testing ----------------------------------------------------------------------
 
 test: ## Run nextest (use ARGS="..." for extra arguments)
 	@echo "[*] Running tests..."
-	@DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5433/postgres \
-		cargo nextest run --all-features --no-fail-fast $(ARGS)
+	@$(LOAD_ENV) cargo nextest run --all-features --no-fail-fast $(ARGS)
 
 test_one: ## Run single test: `make test_one <test_name>`
 	@$(MAKE) test ARGS="$(filter-out $@,$(MAKECMDGOALS))"
@@ -98,13 +93,13 @@ test_in: ## Run tests in module: `make test_in <module_name>`
 	@$(MAKE) test ARGS="--test $(filter-out $@,$(MAKECMDGOALS))"
 
 test_not: ## Exclude tests: `make test_not <test1> <test2> ...`
-	@expr=$$(echo "$(filter-out $@,$(MAKECMDGOALS))" \
-		| awk '{for(i=1;i<=NF;i++){printf "not test(%s)%s", $$i, (i<NF?" and ":"")}}'); \
+	@args="$(filter-out $@,$(MAKECMDGOALS))";                                  \
+	expr=$$(printf '%s\n' $$args                                               \
+		| sed 's/.*/not test(&)/'                                              \
+		| paste -sd' and ' -);                                                 \
 	$(MAKE) test ARGS="-E '$$expr'"
 
-#===============================================================================
-# Development
-#===============================================================================
+# Development ------------------------------------------------------------------
 
 build: ## Build all workspace crates
 	@echo "[*] Building workspace..."
