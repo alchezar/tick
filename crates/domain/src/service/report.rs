@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use chrono::{Datelike, Duration, NaiveDate, Weekday};
+use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Weekday};
 
 use crate::{
     error::CoreResult,
@@ -222,10 +222,7 @@ where
     /// Returns `NotStarted` if the task had no changes by that date.
     async fn status_at(&self, task_id: &TaskId, date: NaiveDate) -> CoreResult<Status> {
         let next_day = date + Duration::days(1);
-        let cutoff = next_day
-            .and_hms_opt(0, 0, 0)
-            .expect("valid midnight")
-            .and_utc();
+        let cutoff = next_day.and_time(NaiveTime::MIN).and_utc();
 
         let status = self
             .repo

@@ -2,7 +2,7 @@
 
 use core::cell::RefCell;
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, NaiveTime, Utc};
 use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
 use tokio::{runtime::Handle, task};
 use uuid::Uuid;
@@ -629,16 +629,9 @@ impl TaskRepository for SqliteRepo {
     }
 
     async fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>> {
-        let start = date
-            .and_hms_opt(0, 0, 0)
-            .expect("valid midnight")
-            .and_utc()
-            .to_rfc3339();
-        let end = date
-            .succ_opt()
-            .expect("valid next day")
-            .and_hms_opt(0, 0, 0)
-            .expect("valid midnight")
+        let start = date.and_time(NaiveTime::MIN).and_utc().to_rfc3339();
+        let end = (date + Duration::days(1))
+            .and_time(NaiveTime::MIN)
             .and_utc()
             .to_rfc3339();
         sqlx::query_as!(
