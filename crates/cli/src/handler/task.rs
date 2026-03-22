@@ -226,6 +226,7 @@ where
 {
     let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
     let project_id = context.resolve_project(None).await?.id;
+    let move_to_root = !up && !down && order.is_none();
 
     if let Some(parent_short) = parent {
         let parent_uuid = context
@@ -235,6 +236,11 @@ where
         context
             .task_service
             .move_to_parent(&task_id, Some(parent_uuid), project_id)
+            .await?;
+    } else if move_to_root {
+        context
+            .task_service
+            .move_to_parent(&task_id, None, project_id)
             .await?;
     }
 

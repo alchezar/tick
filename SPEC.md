@@ -156,6 +156,7 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 | `tt task abandon <id> --date <YYYY-MM-DD>` | `tt ts ab <id> -d <YYYY-MM-DD>`    | Abandon with specific date                   |
 | `tt task reset <id>`                       | `tt ts rs <id>`                    | Set status to not_started                    |
 | `tt task reset <id> --date <YYYY-MM-DD>`   | `tt ts rs <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
+| `tt task move <id>`                        | `tt ts mv <id>`                    | Promote task to root (remove parent)         |
 | `tt task move <id> --parent <id>`          | `tt ts mv <id> -p <id>`            | Move task to a new parent                    |
 | `tt task move <id> --order <n>`            | `tt ts mv <id> -o <n>`             | Change display order                         |
 | `tt task move <id> --up`                   | `tt ts mv <id> -u`                 | Move one position up                         |

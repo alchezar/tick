@@ -751,3 +751,33 @@ async fn list_subtree_includes_done_tasks() {
     assert_eq!(done_child.status(), Status::Done);
     assert_eq!(done_child.parent, Some(root.id));
 }
+
+#[tokio::test]
+async fn move_without_flags_promotes_to_root() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+
+    let parent = ctx
+        .task_service
+        .create("Parent", None, project.id, None)
+        .await
+        .unwrap();
+    let child = ctx
+        .task_service
+        .create("Child", Some(parent.id), project.id, None)
+        .await
+        .unwrap();
+    assert!(child.parent.is_some());
+
+    let action = TaskAction::Move {
+        id: child.id.into(),
+        parent: None,
+        up: false,
+        down: false,
+        order: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let updated = ctx.task_service.find_task(&child.id).await.unwrap();
+    assert!(updated.parent.is_none(), "task should be promoted to root");
+}
