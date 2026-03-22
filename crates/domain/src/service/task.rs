@@ -372,6 +372,22 @@ where
         Ok(depth)
     }
 
+    /// Checks that placing a node (with `extra_depth` levels below it)
+    /// under `parent` would not exceed [`MAX_DEPTH`].
+    ///
+    /// - `create` passes `extra_depth = 0` (new leaf).
+    /// - `move_to_parent` passes `extra_depth = subtree_depth(task_id)`.
+    async fn check_depth(&self, parent: Option<TaskId>, extra_depth: usize) -> CoreResult<()> {
+        let base = match parent {
+            Some(id) => self.depth_of(id).await?,
+            None => 0,
+        };
+        if base + 1 + extra_depth > MAX_DEPTH {
+            return Err(CoreError::MaxDepthExceeded);
+        }
+        Ok(())
+    }
+
     /// Ensures that `parent` is not a descendant of `task_id`.
     async fn check_cycle(&self, task_id: &TaskId, parent: Option<TaskId>) -> CoreResult<()> {
         let Some(pid) = parent else {
@@ -389,22 +405,6 @@ where
             }
         }
 
-        Ok(())
-    }
-
-    /// Checks that placing a node (with `extra_depth` levels below it)
-    /// under `parent` would not exceed [`MAX_DEPTH`].
-    ///
-    /// - `create` passes `extra_depth = 0` (new leaf).
-    /// - `move_to_parent` passes `extra_depth = subtree_depth(task_id)`.
-    async fn check_depth(&self, parent: Option<TaskId>, extra_depth: usize) -> CoreResult<()> {
-        let base = match parent {
-            Some(id) => self.depth_of(id).await?,
-            None => 0,
-        };
-        if base + 1 + extra_depth > MAX_DEPTH {
-            return Err(CoreError::MaxDepthExceeded);
-        }
         Ok(())
     }
 }

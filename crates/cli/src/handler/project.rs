@@ -16,7 +16,7 @@ where
     C: Confirm,
 {
     match action {
-        None => show_active(ctx),
+        None => show_active(ctx).await,
         Some(ProjectAction::List) => list(ctx).await,
         Some(ProjectAction::Add { slug, title }) => add(ctx, &slug, title.as_deref()).await,
         Some(ProjectAction::Switch { slug }) => switch(ctx, &slug).await,
@@ -28,12 +28,21 @@ where
 
 /// Shows the active project slug and title.
 #[allow(clippy::unnecessary_wraps)]
-fn show_active<R, C>(context: &AppContext<R, C>) -> CliResult<()>
+async fn show_active<R, C>(context: &AppContext<R, C>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     match context.config.active_project() {
-        Some(slug) => println!("{slug}"),
+        Some(slug) => {
+            let title = context
+                .project_service
+                .find_by(slug)
+                .await?
+                .title
+                .map(|title| format!(" - {title}"))
+                .unwrap_or_default();
+            println!("{slug}{title}");
+        }
         None => println!("no active project"),
     }
     Ok(())
