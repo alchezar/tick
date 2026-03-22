@@ -224,3 +224,40 @@ async fn rename_not_found() {
     let err = service.rename("missing", "Title").await.unwrap_err();
     assert!(matches!(err, CoreError::ProjectNotFound { slug } if slug == "missing"));
 }
+
+#[tokio::test]
+async fn create_empty_slug_fails() {
+    let service = common::project_service();
+    let err = service.create("", None).await.unwrap_err();
+    assert!(matches!(err, CoreError::InvalidSlug));
+}
+
+#[tokio::test]
+async fn create_slug_with_spaces_fails() {
+    let service = common::project_service();
+    let err = service.create("my project", None).await.unwrap_err();
+    assert!(matches!(err, CoreError::InvalidSlug));
+}
+
+#[tokio::test]
+async fn create_slug_with_hyphens_fails() {
+    let service = common::project_service();
+    let err = service.create("my-project", None).await.unwrap_err();
+    assert!(matches!(err, CoreError::InvalidSlug));
+}
+
+#[tokio::test]
+async fn create_slug_with_underscores_fails() {
+    let service = common::project_service();
+    let err = service.create("my_project", None).await.unwrap_err();
+    assert!(matches!(err, CoreError::InvalidSlug));
+}
+
+#[tokio::test]
+async fn reslug_to_invalid_slug_fails() {
+    let service = common::project_service();
+    service.create("valid", None).await.unwrap();
+
+    let err = service.reslug("valid", "not valid!").await.unwrap_err();
+    assert!(matches!(err, CoreError::InvalidSlug));
+}

@@ -34,6 +34,9 @@ pub enum CoreError {
         /// The conflicting slug.
         slug: String,
     },
+    /// Slug is empty or contains non-alphanumeric characters.
+    #[error("invalid slug: must be non-empty and contain only alphanumeric chars")]
+    InvalidSlug,
     /// Status transition is not allowed by domain rules.
     #[error("invalid status transition: {from:?} -> {to:?}")]
     InvalidStatusTransition {

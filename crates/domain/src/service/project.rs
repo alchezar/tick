@@ -30,9 +30,11 @@ where
     /// Creates a new project and persists it.
     ///
     /// # Errors
+    /// - [`CoreError::InvalidSlug`] if the slug is empty or contains invalid characters.
     /// - [`CoreError::ProjectAlreadyExists`] if a project with this slug already exists.
     /// - Returns an error if the persistence operation fails.
     pub async fn create(&self, slug: &str, title: Option<&str>) -> CoreResult<Project> {
+        validate_slug(slug)?;
         let tx = self.repo.begin_transaction().await?;
 
         if self.repo.find_project_by_slug(slug).await?.is_some() {
@@ -93,6 +95,7 @@ where
     pub async fn reslug(&self, slug: &str, new_slug: &str) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
 
+        validate_slug(new_slug)?;
         if self.repo.find_project_by_slug(new_slug).await?.is_some() {
             return Err(CoreError::ProjectAlreadyExists {
                 slug: new_slug.to_owned(),
@@ -126,4 +129,12 @@ where
 
         tx.commit_transaction().await
     }
+}
+
+/// Validates that a slug is non-empty and contains only alphanumeric chars.
+fn validate_slug(slug: &str) -> CoreResult<()> {
+    if slug.is_empty() || !slug.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(CoreError::InvalidSlug);
+    }
+    Ok(())
 }
