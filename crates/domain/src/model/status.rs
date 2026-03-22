@@ -1,13 +1,15 @@
 //! Task status, allowed transitions, and status change history.
 
-use core::error::Error;
 use core::fmt;
 use core::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use fmt::{Display, Formatter, Result as FmtResult};
 
-use crate::model::{StatusChangeId, TaskId};
+use crate::{
+    error::{CoreError, CoreResult},
+    model::{StatusChangeId, TaskId},
+};
 
 /// Represents the lifecycle state of a task.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
@@ -84,29 +86,17 @@ impl Status {
     }
 }
 
-/// Error returned when parsing an unknown status string.
-#[derive(Debug, Clone)]
-pub struct ParseStatusError(String);
-
-impl Display for ParseStatusError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "unknown status: {}", self.0)
-    }
-}
-
-impl Error for ParseStatusError {}
-
 impl FromStr for Status {
-    type Err = ParseStatusError;
+    type Err = CoreError;
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> CoreResult<Self> {
         match s {
             "not_started" => Ok(Self::NotStarted),
             "in_progress" => Ok(Self::InProgress),
             "done" => Ok(Self::Done),
             "blocked" => Ok(Self::Blocked),
             "abandoned" => Ok(Self::Abandoned),
-            other => Err(ParseStatusError(other.to_owned())),
+            other => Err(CoreError::ParseStatusError(other.to_owned())),
         }
     }
 }

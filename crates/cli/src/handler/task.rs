@@ -148,7 +148,7 @@ where
     roots.sort_by_key(|t| t.order);
 
     for root in roots {
-        print_task(root, &visible, 0, show_date);
+        print_task(root, &visible, 1, show_date);
     }
     Ok(())
 }
@@ -161,7 +161,7 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool) {
     } else {
         String::new()
     };
-    let indent = " -".repeat(depth + 1);
+    let indent = " -".repeat(depth);
     let icon = super::terminal_emoji(task.status().icon());
     let task_title = &task.title;
     println!("[{short_id}{updated}]{indent} {icon} {task_title}");

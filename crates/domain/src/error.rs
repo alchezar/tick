@@ -51,6 +51,9 @@ pub enum CoreError {
     /// Storage layer error (database, file I/O, etc.).
     #[error(transparent)]
     Storage(#[from] DbError),
+    /// Error returned when parsing an unknown status string.
+    #[error("unknown status: {0}")]
+    ParseStatusError(String),
 }
 
 /// Shorthand `Result` type for all `core` operations.
