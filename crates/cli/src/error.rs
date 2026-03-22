@@ -42,6 +42,8 @@ pub enum CliError {
     NoActiveProject,
     /// Clipboard operation failed.
     Clipboard(String),
+    /// I/O error (stdin/stdout).
+    Io(String),
     /// Invalid date supplied to `--date`.
     InvalidDate {
         /// The date that could not be converted.
@@ -76,6 +78,9 @@ impl Display for CliError {
             }
             Self::Clipboard(source) => {
                 write!(f, "clipboard error: {source}")
+            }
+            Self::Io(source) => {
+                write!(f, "I/O error: {source}")
             }
             Self::InvalidDate { date } => {
                 write!(

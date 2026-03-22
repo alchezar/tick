@@ -50,15 +50,15 @@ where
 {
     fn confirm(&mut self, label: &str) -> CliResult<()> {
         write!(self.writer, "You really want to delete {label}? [y/N] ")
-            .map_err(|e| CliError::Clipboard(e.to_string()))?;
+            .map_err(|e| CliError::Io(e.to_string()))?;
         self.writer
             .flush()
-            .map_err(|e| CliError::Clipboard(e.to_string()))?;
+            .map_err(|e| CliError::Io(e.to_string()))?;
 
         let mut answer = String::new();
         self.reader
             .read_line(&mut answer)
-            .map_err(|e| CliError::Clipboard(e.to_string()))?;
+            .map_err(|e| CliError::Io(e.to_string()))?;
 
         answer
             .trim()
