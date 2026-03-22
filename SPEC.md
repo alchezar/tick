@@ -139,6 +139,7 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 |--------------------------------------------|------------------------------------|----------------------------------------------|
 | `tt task add <title>`                      | `tt ts ad <title>`                 | Add a root task                              |
 | `tt task add <title> --parent <id>`        | `tt ts ad <title> -p <id>`         | Add a child task                             |
+| `tt task add <title> --project <slug>`     | `tt ts ad <title> -P <slug>`       | Add a task to a specific project             |
 | `tt task add <title> --date <YYYY-MM-DD>`  | `tt ts ad <title> -d <YYYY-MM-DD>` | Add a task with a specific creation date     |
 | `tt task`                                  | `tt ts`                            | Fallback to task list                        |
 | `tt task list`                             | `tt ts ls`                         | List active tasks (tree view)                |

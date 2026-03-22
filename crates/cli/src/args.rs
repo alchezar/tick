@@ -121,7 +121,7 @@ pub enum TaskAction {
         parent: Option<ShortId>,
 
         /// Project slug (defaults to active project).
-        #[arg(short, long)]
+        #[arg(short = 'P', long)]
         project: Option<String>,
 
         /// Creation date (YYYY-MM-DD), defaults to today.
