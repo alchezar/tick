@@ -388,3 +388,26 @@ async fn reorder_shifts_siblings_and_skips_other_parents() {
     // Child of A has order 0 within its own parent - must stay unchanged
     assert_eq!(updated_child.order, Some(0));
 }
+
+#[tokio::test]
+async fn move_to_parent_rejects_cyclic_parentage() {
+    let service = common::task_service();
+    let project = Project::default();
+
+    let a = service.create("A", None, project.id, None).await.unwrap();
+    let b = service
+        .create("B", Some(a.id), project.id, None)
+        .await
+        .unwrap();
+    let c = service
+        .create("C", Some(b.id), project.id, None)
+        .await
+        .unwrap();
+
+    // Move A under C: A -> B -> C -> A = cycle
+    let err = service
+        .move_to_parent(&a.id, Some(c.id), project.id)
+        .await
+        .unwrap_err();
+    assert!(matches!(err, CoreError::CyclicParentage));
+}

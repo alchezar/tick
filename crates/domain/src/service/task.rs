@@ -141,14 +141,15 @@ where
     pub async fn move_to_parent(
         &self,
         task_id: &TaskId,
-        parent_id: Option<TaskId>,
+        new_parent_id: Option<TaskId>,
         project_id: ProjectId,
     ) -> CoreResult<()> {
-        self.check_depth(parent_id, self.subtree_depth(task_id).await?)
+        self.check_cycle(task_id, new_parent_id).await?;
+        self.check_depth(new_parent_id, self.subtree_depth(task_id).await?)
             .await?;
 
         let mut task = self.find_task(task_id).await?;
-        task.parent = parent_id;
+        task.parent = new_parent_id;
 
         let siblings = self
             .repo
@@ -369,6 +370,26 @@ where
             }
         }
         Ok(depth)
+    }
+
+    /// Ensures that `parent` is not a descendant of `task_id`.
+    async fn check_cycle(&self, task_id: &TaskId, parent: Option<TaskId>) -> CoreResult<()> {
+        let Some(pid) = parent else {
+            return Ok(());
+        };
+
+        let mut current = pid;
+        while let Some(ancestor) = self.repo.find_task_by_id(&current).await? {
+            if ancestor.id == *task_id {
+                return Err(CoreError::CyclicParentage);
+            }
+            match ancestor.parent {
+                Some(id) => current = id,
+                None => break,
+            }
+        }
+
+        Ok(())
     }
 
     /// Checks that placing a node (with `extra_depth` levels below it)

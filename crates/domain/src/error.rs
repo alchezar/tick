@@ -48,6 +48,9 @@ pub enum CoreError {
     /// Cannot mark a task as done while it has unfinished children.
     #[error("task has unfinished children")]
     TaskHasUnfinishedChildren,
+    /// Moving a task under one of its own descendants would create a cycle.
+    #[error("cannot move task under its own descendant")]
+    CyclicParentage,
     /// Storage layer error (database, file I/O, etc.).
     #[error(transparent)]
     Storage(#[from] DbError),
