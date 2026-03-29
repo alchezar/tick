@@ -47,8 +47,10 @@ impl Status {
             (self, to),
             (_, Status::NotStarted | Status::Abandoned)
                 | (Status::NotStarted | Status::Blocked, Status::InProgress)
-                | (Status::NotStarted | Status::InProgress, Status::Blocked)
-                | (Status::InProgress, Status::Done)
+                | (
+                    Status::NotStarted | Status::InProgress,
+                    Status::Blocked | Status::Done
+                )
         )
     }
 

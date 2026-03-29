@@ -5,6 +5,7 @@ use domain::model::Status;
 #[test]
 fn allowed_transitions() {
     assert!(Status::NotStarted.can_transit(&Status::InProgress));
+    assert!(Status::NotStarted.can_transit(&Status::Done));
     assert!(Status::NotStarted.can_transit(&Status::Blocked));
     assert!(Status::InProgress.can_transit(&Status::Done));
     assert!(Status::InProgress.can_transit(&Status::Blocked));
@@ -29,7 +30,6 @@ fn abandon_allowed_from_any_status() {
 
 #[test]
 fn forbidden_transitions() {
-    assert!(!Status::NotStarted.can_transit(&Status::Done));
     assert!(!Status::Blocked.can_transit(&Status::Done));
     assert!(!Status::Done.can_transit(&Status::InProgress));
     assert!(!Status::Done.can_transit(&Status::Blocked));

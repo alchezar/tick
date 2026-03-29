@@ -58,6 +58,7 @@ Every status transition is recorded automatically. Used to reconstruct historica
 
 ```
 not_started -> in_progress -> done
+not_started -> done
 not_started -> blocked
 in_progress -> blocked
 blocked     -> in_progress

@@ -49,7 +49,6 @@ fn render_formats_hierarchy() {
 
     let mut grandchild = Task::new("Subtask", Some(child.id), project.id);
     grandchild.order = Some(0);
-    grandchild.update_status(Status::InProgress, None).unwrap();
     grandchild.update_status(Status::Done, None).unwrap();
 
     // Morning plan: both created today -> NotStarted
@@ -110,7 +109,6 @@ fn render_real_world_report() {
     let make_done = |title, parent, order| {
         let mut t = Task::new(title, Some(parent), project.id);
         t.created = yesterday;
-        t.update_status(Status::InProgress, None).unwrap();
         t.update_status(Status::Done, None).unwrap();
         t.order = Some(order);
         t
@@ -134,7 +132,6 @@ fn render_real_world_report() {
     };
 
     let mut t1 = make_todo("replace error_tools with thiserror", ci.id, 3);
-    t1.update_status(Status::InProgress, None).unwrap();
     t1.update_status(Status::Done, None).unwrap();
     let t2 = make_todo("move build jobs limit to ci workflow", ci.id, 4);
     let t3 = make_todo("workspace feature flags rule", ci.id, 5);
