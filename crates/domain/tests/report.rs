@@ -63,7 +63,7 @@ fn render_formats_hierarchy() {
         vec![root, child],
     );
 
-    let rendered = report.render(true);
+    let rendered = report.render(true, true);
 
     assert!(rendered.contains("default\n\n"));
     assert!(rendered.contains("Previously:\n"));
@@ -193,7 +193,7 @@ fn render_real_world_report() {
     // Child tasks created today -> ❌ in Today
     let expected = concat!(
         "default\n\n",
-        "Previously:\n",
+        " Previously:\n",
         " - 🔄 Task 1: runtime token validation\n",
         " - - ✅ consolidate dependencies into workspace\n",
         " - - ✅ jti claim optional\n",
@@ -207,7 +207,7 @@ fn render_real_world_report() {
         " - - ✅ misleading agents schema\n",
         " - - ✅ tab indentation and gitignore local config\n",
         "\n",
-        "Today:\n",
+        " Today:\n",
         " - 🔄 Task 1: runtime token validation\n",
         " - 🔄 IP token encryption\n",
         " - 🔄 CI build fix\n",
@@ -219,7 +219,7 @@ fn render_real_world_report() {
         " - 🔄 Task 7\n",
         " - - ❌ apply fmt and clippy fix for related modules\n",
         "\n",
-        "Current:\n",
+        " Current:\n",
         " - 🔄 Task 1: runtime token validation\n",
         " - 🔄 IP token encryption\n",
         " - 🔄 CI build fix\n",
@@ -232,7 +232,7 @@ fn render_real_world_report() {
         " - - ❌ apply fmt and clippy fix for related modules\n",
     );
 
-    assert_eq!(report.render(true), expected);
+    assert_eq!(report.render(true, true), expected);
 }
 
 #[test]
@@ -274,18 +274,18 @@ fn today_section_shows_morning_status() {
 
     let expected = concat!(
         "default\n\n",
-        "Today:\n",
+        " Today:\n",
         " - 🔄 Finished task\n",
         " - 🔄 Active task\n",
         " - ❌ New task\n",
         "\n",
-        "Current:\n",
+        " Current:\n",
         " - ✅ Finished task\n",
         " - 🔄 Active task\n",
         " - ❌ New task\n",
     );
 
-    assert_eq!(report.render(true), expected);
+    assert_eq!(report.render(true, true), expected);
 }
 
 #[tokio::test]
@@ -531,7 +531,7 @@ async fn generate_all_empty_project_produces_empty_report() {
     assert!(reports[0].prev.is_empty());
     assert!(reports[0].today.is_empty());
     assert!(reports[0].current.is_empty());
-    assert!(reports[0].render(true).is_empty());
+    assert!(reports[0].render(true, true).is_empty());
 }
 
 #[tokio::test]

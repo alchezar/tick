@@ -49,11 +49,11 @@ impl Report {
     ///
     /// Returns an empty string when the project has no relevant tasks.
     #[must_use]
-    pub fn render(&self, include_current: bool) -> String {
+    pub fn render(&self, show_title: bool, include_current: bool) -> String {
         let mut body = String::new();
 
         if !self.prev.is_empty() {
-            body.push_str("Previously:\n");
+            body.push_str(" Previously:\n");
             body.push_str(&render_section(&self.prev));
         }
 
@@ -61,12 +61,12 @@ impl Report {
             if !body.is_empty() {
                 body.push('\n');
             }
-            body.push_str("Today:\n");
+            body.push_str(" Today:\n");
             body.push_str(&render_section(&self.today));
 
             if include_current {
                 body.push('\n');
-                body.push_str("Current:\n");
+                body.push_str(" Current:\n");
                 body.push_str(&render_section(&self.current));
             }
         }
@@ -75,7 +75,12 @@ impl Report {
             return body;
         }
 
-        format!("{}\n\n{}", self.title, body)
+        let title = if show_title {
+            format!("{}\n\n", &self.title)
+        } else {
+            String::new()
+        };
+        format!("{title}{body}")
     }
 }
 
@@ -86,7 +91,7 @@ impl Report {
 pub fn render_all(reports: &[Report], include_current: bool) -> String {
     reports
         .iter()
-        .map(|r| r.render(include_current))
+        .map(|r| r.render(true, include_current))
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")

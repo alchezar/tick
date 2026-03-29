@@ -33,7 +33,7 @@ where
     } else {
         let project = context.resolve_project(project).await?;
         let report = context.report_service.generate(date, &project).await?;
-        report.render(!copy)
+        report.render(!copy, !copy)
     };
 
     if output.is_empty() {
