@@ -57,6 +57,7 @@ fn render_formats_hierarchy() {
 
     let report = Report::new(
         "default",
+        None,
         vec![grandchild],
         vec![morning_root, morning_child],
         vec![root, child],
@@ -89,11 +90,13 @@ fn render_real_world_report() {
     task1.created = yesterday;
     task1.update_status(Status::InProgress, None).unwrap();
     task1.order = Some(0);
+    task1.pull_request_number = Some(42);
 
     let mut ip = Task::new("IP token encryption", None, project.id);
     ip.created = yesterday;
     ip.update_status(Status::InProgress, None).unwrap();
     ip.order = Some(1);
+    ip.pull_request_number = Some(15);
 
     let mut ci = Task::new("CI build fix", None, project.id);
     ci.created = yesterday;
@@ -157,6 +160,7 @@ fn render_real_world_report() {
 
     let report = Report::new(
         "default",
+        Some("https://github.com/owner/repo".to_owned()),
         vec![
             task1.clone(),
             c1,
@@ -190,6 +194,9 @@ fn render_real_world_report() {
     // Child tasks created today -> ❌ in Today
     let expected = concat!(
         "default\n\n",
+        "https://github.com/owner/repo/pull/15\n",
+        "https://github.com/owner/repo/pull/42\n",
+        "\n",
         " Previously:\n",
         " - 🔄 Task 1: runtime token validation\n",
         " - - ✅ consolidate dependencies into workspace\n",
@@ -264,6 +271,7 @@ fn today_section_shows_morning_status() {
 
     let report = Report::new(
         "default",
+        None,
         vec![],
         vec![morning_done, morning_active, morning_new],
         vec![done_today, still_active, new_task],
@@ -447,8 +455,8 @@ fn render_all_combines_multiple_projects() {
     let mut task_b = Task::new("Task B", None, Project::default().id);
     task_b.order = Some(0);
 
-    let r1 = Report::new("Work", vec![], vec![task_a.clone()], vec![task_a]);
-    let r2 = Report::new("Personal", vec![], vec![task_b.clone()], vec![task_b]);
+    let r1 = Report::new("Work", None, vec![], vec![task_a.clone()], vec![task_a]);
+    let r2 = Report::new("Personal", None, vec![], vec![task_b.clone()], vec![task_b]);
 
     let output = service::render_all(&[r1, r2], true);
 
@@ -463,8 +471,8 @@ fn render_all_skips_empty_reports() {
     let mut task = Task::new("Task", None, Project::default().id);
     task.order = Some(0);
 
-    let empty = Report::new("Empty", vec![], vec![], vec![]);
-    let filled = Report::new("Filled", vec![], vec![task.clone()], vec![task]);
+    let empty = Report::new("Empty", None, vec![], vec![], vec![]);
+    let filled = Report::new("Filled", None, vec![], vec![task.clone()], vec![task]);
 
     let output = service::render_all(&[empty, filled], true);
 
@@ -539,4 +547,134 @@ async fn generate_all_no_projects() {
 
     let reports = report_svc.generate_all(today).await.unwrap();
     assert!(reports.is_empty());
+}
+
+#[test]
+fn render_includes_pr_links_when_github_url_set() {
+    let project = Project::default();
+
+    let mut task = Task::new("Feature", None, project.id);
+    task.order = Some(0);
+    task.pull_request_number = Some(42);
+    let task = task.with_status(Status::InProgress);
+
+    let report = Report::new(
+        "Work",
+        Some("https://github.com/owner/repo".to_owned()),
+        vec![],
+        vec![task.clone()],
+        vec![task],
+    );
+
+    let output = report.render(true, true);
+    assert!(output.contains("https://github.com/owner/repo/pull/42"));
+}
+
+#[test]
+fn render_no_pr_links_without_github_url() {
+    let project = Project::default();
+
+    let mut task = Task::new("Feature", None, project.id);
+    task.order = Some(0);
+    task.pull_request_number = Some(42);
+    let task = task.with_status(Status::InProgress);
+
+    let report = Report::new("Work", None, vec![], vec![task.clone()], vec![task]);
+
+    let output = report.render(true, true);
+    assert!(!output.contains("pull/42"));
+}
+
+#[test]
+fn render_no_pr_links_for_closed_tasks() {
+    let project = Project::default();
+
+    let mut task = Task::new("Done task", None, project.id);
+    task.order = Some(0);
+    task.pull_request_number = Some(10);
+    let task = task.with_status(Status::Done);
+
+    let report = Report::new(
+        "Work",
+        Some("https://github.com/owner/repo".to_owned()),
+        vec![],
+        vec![task.clone()],
+        vec![task],
+    );
+
+    let output = report.render(true, true);
+    assert!(!output.contains("pull/10"));
+}
+
+#[test]
+fn render_pr_links_deduped_and_sorted() {
+    let project = Project::default();
+
+    let mut t1 = Task::new("Task A", None, project.id);
+    t1.order = Some(0);
+    t1.pull_request_number = Some(99);
+    let t1 = t1.with_status(Status::InProgress);
+
+    let mut t2 = Task::new("Task B", None, project.id);
+    t2.order = Some(1);
+    t2.pull_request_number = Some(10);
+    let t2 = t2.with_status(Status::InProgress);
+
+    let mut t3 = Task::new("Task C", None, project.id);
+    t3.order = Some(2);
+    t3.pull_request_number = Some(99);
+    let t3 = t3.with_status(Status::Blocked);
+
+    let report = Report::new(
+        "Work",
+        Some("https://github.com/owner/repo".to_owned()),
+        vec![],
+        vec![t1.clone(), t2.clone(), t3.clone()],
+        vec![t1, t2, t3],
+    );
+
+    let output = report.render(true, true);
+    let pr_section: String = output
+        .lines()
+        .take_while(|l| !l.starts_with(' '))
+        .filter(|l| l.contains("pull/"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    assert!(pr_section.contains("pull/10"));
+    assert!(pr_section.contains("pull/99"));
+    // pull/10 should come before pull/99 (sorted)
+    let pos_10 = pr_section.find("pull/10").unwrap();
+    let pos_99 = pr_section.find("pull/99").unwrap();
+    assert!(pos_10 < pos_99);
+}
+
+#[tokio::test]
+async fn generate_includes_github_url_in_report() {
+    let repo = FakeRepo::default();
+
+    let mut project = Project::new("work", Some("Work"));
+    project.github_url = Some("https://github.com/owner/repo".to_owned());
+    repo.save_project(&project).await.unwrap();
+
+    let today = Utc::now().date_naive();
+
+    let mut task = Task::new("Feature", None, project.id);
+    task.order = Some(0);
+    task.pull_request_number = Some(55);
+    repo.save_task(&task).await.unwrap();
+
+    let mut ch = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
+    ch.changed_at = common::datetime(today, 9);
+    repo.save_task_change(&ch).await.unwrap();
+
+    let report_svc = ReportService::new(repo);
+    let report = report_svc.generate(today, &project).await.unwrap();
+
+    assert_eq!(
+        report.github_url.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
+    let output = report.render(true, true);
+    assert!(output.contains("https://github.com/owner/repo/pull/55"));
 }

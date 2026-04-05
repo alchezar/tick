@@ -67,10 +67,10 @@ tt ts bl <id>                            # mark blocked
 tt ts rm <id>                            # delete task
 
 # Report
-tt rp                    # report for active project
-tt rp -a                 # report for all projects
-tt rp -c                 # copy to clipboard (without Current section)
-tt rp --date 2026-03-15  # report for specific date
+tt rp                # report for active project
+tt rp -a             # report for all projects
+tt rp -c             # copy to clipboard (without Current section)
+tt rp -d 2026-03-15  # report for specific date
 ```
 
 ## Setup

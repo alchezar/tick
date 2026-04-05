@@ -109,11 +109,12 @@ Implementation: `tasks_on(date)` - reconstructs task statuses from the status ch
 
 ### Pull Request Links
 
-In `task list` output, tasks with a `pull_request` number show it after the title:
+**In `task list`**: tasks with a `pull_request` number and `github_url` on the project show a colored URL after the title:
+`[8dd8be28] - 🔄 Feature (https://github.com/.../pull/66)` (URL in dark gray)
 
-- With `github_url` set on the project: `[8dd8be28] - 🔄 Feature (#66)` where `#66` is a clickable terminal hyperlink (OSC 8) pointing to `{github_url}/pull/{number}`
-- Without `github_url`: `[8dd8be28] - 🔄 Feature (#66)` (plain text, not clickable)
-- PR numbers are not shown in report output (clipboard-oriented)
+Without `github_url`: `[8dd8be28] - 🔄 Feature (#66)` (plain text)
+
+**In `report`**: if the project has `github_url`, active PR links are listed at the top of the report (before Previously), one URL per line. Only active (in_progress/not_started/blocked) tasks with a `pull_request` number are included. Links are sorted and deduplicated.
 
 ---
 

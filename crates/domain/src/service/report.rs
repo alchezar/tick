@@ -15,6 +15,8 @@ use crate::{
 pub struct Report {
     /// Project display title (falls back to slug when title is absent).
     pub title: String,
+    /// Optional GitHub repository URL for building PR links.
+    pub github_url: Option<String>,
     /// Tasks whose `updated_at` falls on the previous workday.
     pub prev: Vec<Task>,
     /// Morning plan: tasks with their status as of end-of-previous-day.
@@ -28,12 +30,14 @@ impl Report {
     #[must_use]
     pub fn new(
         title: impl Into<String>,
+        github_url: Option<String>,
         prev: Vec<Task>,
         today: Vec<Task>,
         current: Vec<Task>,
     ) -> Self {
         Self {
             title: title.into(),
+            github_url,
             prev,
             today,
             current,
@@ -51,6 +55,14 @@ impl Report {
     #[must_use]
     pub fn render(&self, show_title: bool, include_current: bool) -> String {
         let mut body = String::new();
+
+        if let Some(url) = &self.github_url {
+            let links = render_pr_links(&self.current, url);
+            if !links.is_empty() {
+                body.push_str(&links);
+                body.push_str("\n\n");
+            }
+        }
 
         if !self.prev.is_empty() {
             body.push_str(" Previously:\n");
@@ -134,6 +146,7 @@ where
         let (today, current) = self.tasks_today(date, &project.id).await?;
         let report = Report::new(
             title,
+            project.github_url.clone(),
             self.tasks_prev(date, &project.id).await?,
             today,
             current,
@@ -289,4 +302,19 @@ fn render_task(task: &Task, all: &[Task], depth: usize, out: &mut String) {
     for child in children {
         render_task(child, all, depth + 1, out);
     }
+}
+
+/// Renders PR links for active tasks that have a pull request number.
+fn render_pr_links(tasks: &[Task], github_url: &str) -> String {
+    let mut links = tasks
+        .iter()
+        .filter(|t| t.status().is_active() && t.pull_request_number.is_some())
+        .filter_map(|t| {
+            t.pull_request_number
+                .map(|n| format!("{github_url}/pull/{n}"))
+        })
+        .collect::<Vec<_>>();
+    links.sort();
+    links.dedup();
+    links.join("\n")
 }
