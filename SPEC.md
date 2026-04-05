@@ -10,27 +10,29 @@
 
 ### Project
 
-| Field        | Type     | Description                                       |
-|--------------|----------|---------------------------------------------------|
-| `id`         | UUID     | Primary key                                       |
-| `slug`       | TEXT     | Unique short identifier used in CLI (e.g. `work`) |
-| `title`      | TEXT     | Optional display title (e.g. `Work Projects`)     |
-| `created_at` | DATETIME | Creation timestamp                                |
+| Field        | Type     | Description                                                    |
+|--------------|----------|----------------------------------------------------------------|
+| `id`         | UUID     | Primary key                                                    |
+| `slug`       | TEXT     | Unique short identifier used in CLI (e.g. `work`)              |
+| `title`      | TEXT     | Optional display title (e.g. `Work Projects`)                  |
+| `github_url` | TEXT     | Optional GitHub repository URL (e.g. `https://github.com/o/r`) |
+| `created_at` | DATETIME | Creation timestamp                                             |
 
-`slug` is the primary identifier in all CLI commands. `title` is shown in listings but never typed. Projects must be created explicitly before adding tasks. All tasks belong to exactly one project.
+`slug` is the primary identifier in all CLI commands. `title` is shown in listings but never typed. `github_url` is used to build clickable PR links in terminal output. Projects must be created explicitly before adding tasks. All tasks belong to exactly one project.
 
 ### Task
 
-| Field        | Type     | Description                                                      |
-|--------------|----------|------------------------------------------------------------------|
-| `id`         | UUID     | Primary key                                                      |
-| `project_id` | UUID     | Foreign key to `Project`                                         |
-| `title`      | TEXT     | Task name                                                        |
-| `status`     | TEXT     | `not_started` / `in_progress` / `done` / `blocked` / `abandoned` |
-| `parent_id`  | UUID?    | Reference to parent task (nullable)                              |
-| `order`      | INTEGER  | Display order among siblings                                     |
-| `created_at` | DATETIME | Creation timestamp                                               |
-| `updated_at` | DATETIME | Last status change timestamp                                     |
+| Field          | Type     | Description                                                      |
+|----------------|----------|------------------------------------------------------------------|
+| `id`           | UUID     | Primary key                                                      |
+| `project_id`   | UUID     | Foreign key to `Project`                                         |
+| `title`        | TEXT     | Task name                                                        |
+| `status`       | TEXT     | `not_started` / `in_progress` / `done` / `blocked` / `abandoned` |
+| `parent_id`    | UUID?    | Reference to parent task (nullable)                              |
+| `order`        | INTEGER  | Display order among siblings                                     |
+| `pull_request` | INTEGER  | Optional pull request number                                     |
+| `created_at`   | DATETIME | Creation timestamp                                               |
+| `updated_at`   | DATETIME | Last status change timestamp                                     |
 
 ### StatusChange
 
@@ -105,6 +107,14 @@ Implementation: `tasks_on(date)` - reconstructs task statuses from the status ch
 - Tasks are sorted by `order` within their parent scope
 - Parent tasks are shown even if only some children match the filter
 
+### Pull Request Links
+
+In `task list` output, tasks with a `pull_request` number show it after the title:
+
+- With `github_url` set on the project: `[8dd8be28] - 🔄 Feature (#66)` where `#66` is a clickable terminal hyperlink (OSC 8) pointing to `{github_url}/pull/{number}`
+- Without `github_url`: `[8dd8be28] - 🔄 Feature (#66)` (plain text, not clickable)
+- PR numbers are not shown in report output (clipboard-oriented)
+
 ---
 
 ## CLI Interface
@@ -127,9 +137,12 @@ Top-level commands (`tt <command>`):
 | `tt project list`                       | `tt pr ls`                    | List all projects (slug + title)      |
 | `tt project add <slug>`                 | `tt pr ad <slug>`             | Create a new project                  |
 | `tt project add <slug> --title "Title"` | `tt pr ad <slug> -t "Title"`  | Create a project with a display title |
+| `tt project add <slug> --github <url>`  | `tt pr ad <slug> -g <url>`    | Create a project with GitHub URL      |
 | `tt project switch <slug>`              | `tt pr sw <slug>`             | Switch active project                 |
 | `tt project rename <slug> <new-title>`  | `tt pr rn <slug> <new-title>` | Change project display title          |
 | `tt project reslug <slug> <new-slug>`   | `tt pr rl <slug> <new-slug>`  | Change project slug                   |
+| `tt project github <slug> <url>`        | `tt pr gh <slug> <url>`       | Set GitHub repository URL             |
+| `tt project github <slug>`              | `tt pr gh <slug>`             | Clear GitHub repository URL           |
 | `tt project remove <slug>`              | `tt pr rm <slug>`             | Delete project and all its tasks      |
 
 The active project is stored in `~/.local/share/tt/config.toml`. Task and report commands operate on the active project unless `--project <slug>` is specified.
@@ -142,6 +155,7 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 | `tt task add <title> --parent <id>`        | `tt ts ad <title> -p <id>`         | Add a child task                             |
 | `tt task add <title> --project <slug>`     | `tt ts ad <title> -P <slug>`       | Add a task to a specific project             |
 | `tt task add <title> --date <YYYY-MM-DD>`  | `tt ts ad <title> -d <YYYY-MM-DD>` | Add a task with a specific creation date     |
+| `tt task add <title> --number <n>`         | `tt ts ad <title> -n <n>`          | Add a task with a pull request number        |
 | `tt task`                                  | `tt ts`                            | Fallback to task list                        |
 | `tt task list`                             | `tt ts ls`                         | List active tasks (tree view)                |
 | `tt task list --from <YYYY-MM-DD>`         | `tt ts -f <YYYY-MM-DD>`            | List active + closed since date (inclusive)  |
@@ -163,6 +177,8 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 | `tt task move <id> --order <n>`            | `tt ts mv <id> -o <n>`             | Change display order                         |
 | `tt task move <id> --up`                   | `tt ts mv <id> -u`                 | Move one position up                         |
 | `tt task move <id> --down`                 | `tt ts mv <id> -d`                 | Move one position down                       |
+| `tt task link <id> <number>`               | `tt ts ln <id> <number>`           | Set pull request number                      |
+| `tt task link <id>`                        | `tt ts ln <id>`                    | Clear pull request number                    |
 | `tt task rename <id> <title>`              | `tt ts rn <id> <title>`            | Rename a task                                |
 | `tt task remove <id>`                      | `tt ts rm <id>`                    | Delete task (and its children)               |
 | `tt task list --project <slug>`            | `tt ts -p <slug>`                  | List tasks in a specific project             |

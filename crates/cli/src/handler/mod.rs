@@ -15,10 +15,12 @@ fn terminal_emoji(text: &str) -> Cow<'_, str> {
     }
 }
 
-/// Formats an OSC 8 clickable terminal pull request link.
+/// Formats a colored terminal pull request link.
 #[must_use]
 pub fn pull_request_link(repo_link: &str, pr_number: u32) -> String {
+    // Formats an OSC 8 clickable terminal pull request link.
     // format!("\x1b]8;;{repo_link}/pull/{pr_number}\x1b\\(#{pr_number})\x1b]8;;\x1b\\")
+
     let blue_color = "\x1b[34m";
     let dark_color = "\x1b[90m";
     let default_color = "\x1b[0m";

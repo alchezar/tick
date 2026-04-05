@@ -49,24 +49,28 @@ Multi-project support with create, rename, switch, and scoped commands.
 
 ```bash
 # Projects
-tt pr ad work --title "Work"  # create project
-tt pr sw work                 # switch active project
-tt pr ls                      # list all projects
+tt pr ad work -t "Work"                  # create project
+tt pr ad work -g https://github.com/o/r  # create with GitHub URL
+tt pr gh work https://github.com/o/r     # set GitHub URL on existing project
+tt pr sw work                            # switch active project
+tt pr ls                                 # list all projects
 
 # Tasks
 tt ts ad "Fix login bug"                 # add root task
 tt ts ad "Fix login bug" -p <parent-id>  # add child task
 tt ts ad "Fix login bug" -d 2026-01-15   # add task with specific date
+tt ts ad "Fix login bug" -n 66           # add task with PR number
+tt ts ln <id> 66                         # set PR number on existing task
 tt ts                                    # list active tasks
 tt ts dn <id>                            # mark done
 tt ts bl <id>                            # mark blocked
 tt ts rm <id>                            # delete task
 
 # Report
-tt rp                        # report for active project
-tt rp -a                     # report for all projects
-tt rp -c                     # copy to clipboard (without Current section)
-tt rp --date 2026-03-15      # report for specific date
+tt rp                    # report for active project
+tt rp -a                 # report for all projects
+tt rp -c                 # copy to clipboard (without Current section)
+tt rp --date 2026-03-15  # report for specific date
 ```
 
 ## Setup
