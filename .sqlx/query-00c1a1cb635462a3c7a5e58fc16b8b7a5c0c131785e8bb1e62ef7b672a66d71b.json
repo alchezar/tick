@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n                INSERT INTO projects (id, slug, title, github_url, created_at)\n                VALUES ($1, $2, $3, $4, $5)\n                ON CONFLICT(id) DO UPDATE SET\n                    slug = excluded.slug,\n                    title = excluded.title,\n                    github_url = excluded.github_url\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "00c1a1cb635462a3c7a5e58fc16b8b7a5c0c131785e8bb1e62ef7b672a66d71b"
+}

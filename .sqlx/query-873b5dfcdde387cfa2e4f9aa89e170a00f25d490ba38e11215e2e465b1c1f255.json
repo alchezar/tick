@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                            SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at\n                            FROM tasks\n                            WHERE project_id = $1 AND parent_id IS NULL\n                            ORDER BY display_order\n                        ",
+  "query": "\n                SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at\n                FROM tasks\n                WHERE id = $1\n            ",
   "describe": {
     "columns": [
       {
@@ -34,13 +34,18 @@
         "type_info": "Integer"
       },
       {
-        "name": "created_at",
+        "name": "pull_request",
         "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 7,
         "type_info": "Text"
       },
       {
         "name": "updated_at",
-        "ordinal": 7,
+        "ordinal": 8,
         "type_info": "Text"
       }
     ],
@@ -54,9 +59,10 @@
       false,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "a0ae135f77b52bfd0bd3190efdebac1d648964fde4035015528a2d62ff6ed519"
+  "hash": "873b5dfcdde387cfa2e4f9aa89e170a00f25d490ba38e11215e2e465b1c1f255"
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                        SELECT id, project_id, title, status, parent_id, display_order, created_at, updated_at\n                        FROM tasks\n                        WHERE project_id = $1 AND substr(created_at, 1, 10) <= $2\n                        ORDER BY display_order\n                    ",
+  "query": "\n                            SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at\n                            FROM tasks\n                            WHERE project_id = $1 AND parent_id IS NULL\n                            ORDER BY display_order\n                        ",
   "describe": {
     "columns": [
       {
@@ -34,18 +34,23 @@
         "type_info": "Integer"
       },
       {
-        "name": "created_at",
+        "name": "pull_request",
         "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 7,
         "type_info": "Text"
       },
       {
         "name": "updated_at",
-        "ordinal": 7,
+        "ordinal": 8,
         "type_info": "Text"
       }
     ],
     "parameters": {
-      "Right": 2
+      "Right": 1
     },
     "nullable": [
       false,
@@ -54,9 +59,10 @@
       false,
       true,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "534e2d5d4df40f70150bee155efe0f21945fe57333fd27c834a1beb41c698b72"
+  "hash": "b4c82ed09c8e8b421be1dd6a7b08cc6a0cf7644ba51f6ce2b4c2aedcc24b6719"
 }

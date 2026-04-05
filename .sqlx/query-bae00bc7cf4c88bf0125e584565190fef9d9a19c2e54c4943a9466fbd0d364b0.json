@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                SELECT id, slug, title, created_at\n                FROM projects\n                ORDER BY created_at\n            ",
+  "query": "\n                SELECT id, slug, title, github_url, created_at\n                FROM projects\n                ORDER BY created_at\n            ",
   "describe": {
     "columns": [
       {
@@ -19,8 +19,13 @@
         "type_info": "Text"
       },
       {
-        "name": "created_at",
+        "name": "github_url",
         "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 4,
         "type_info": "Text"
       }
     ],
@@ -31,8 +36,9 @@
       false,
       false,
       true,
+      true,
       false
     ]
   },
-  "hash": "2a16324f3dbc7c5d0cb2c604ea9e163a6986238f07dd15322a3292f3ff4ebeec"
+  "hash": "bae00bc7cf4c88bf0125e584565190fef9d9a19c2e54c4943a9466fbd0d364b0"
 }
