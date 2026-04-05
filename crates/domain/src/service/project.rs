@@ -33,7 +33,12 @@ where
     /// - [`CoreError::InvalidSlug`] if the slug is empty or contains invalid characters.
     /// - [`CoreError::ProjectAlreadyExists`] if a project with this slug already exists.
     /// - Returns an error if the persistence operation fails.
-    pub async fn create(&self, slug: &str, title: Option<&str>) -> CoreResult<Project> {
+    pub async fn create(
+        &self,
+        slug: &str,
+        title: Option<&str>,
+        github_url: Option<&str>,
+    ) -> CoreResult<Project> {
         validate_slug(slug)?;
         let tx = self.repo.begin_transaction().await?;
 
@@ -43,7 +48,8 @@ where
             });
         }
 
-        let project = Project::new(slug, title);
+        let mut project = Project::new(slug, title);
+        project.github_url = github_url.map(ToOwned::to_owned);
         self.repo.save_project(&project).await?;
 
         tx.commit_transaction().await?;
@@ -70,6 +76,20 @@ where
     /// Returns an error if the persistence operation fails.
     pub async fn list(&self) -> CoreResult<Vec<Project>> {
         self.repo.list_projects().await
+    }
+
+    /// Sets or clears the GitHub URL for a project.
+    ///
+    /// # Errors
+    /// Returns an error if the persistence operation fails.
+    pub async fn set_github_url(&self, slug: &str, url: Option<&str>) -> CoreResult<()> {
+        let tx = self.repo.begin_transaction().await?;
+
+        let mut project = self.find_by(slug).await?;
+        project.github_url = url.map(ToOwned::to_owned);
+        self.repo.save_project(&project).await?;
+
+        tx.commit_transaction().await
     }
 
     /// Renames a project.

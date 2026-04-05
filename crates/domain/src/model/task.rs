@@ -21,10 +21,12 @@ pub struct Task {
     /// Current lifecycle status.
     #[getset(get_copy = "pub")]
     status: Status,
-    /// `Id` of the parent task, `None` for root tasks.
+    /// `ID` of the parent task, `None` for root tasks.
     pub parent: Option<TaskId>,
     /// Display order among siblings.
     pub order: Option<usize>,
+    /// Optional pull request number.
+    pub pull_request_number: Option<u32>,
     /// Creation timestamp.
     pub created: DateTime<Utc>,
     /// Timestamp of the last status change.

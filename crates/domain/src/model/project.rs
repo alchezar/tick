@@ -13,6 +13,8 @@ pub struct Project {
     pub slug: String,
     /// Optional human-readable display title.
     pub title: Option<String>,
+    /// Optional GitHub repository URL (e.g. `https://github.com/owner/repo`).
+    pub github_url: Option<String>,
     /// Creation timestamp.
     pub created: DateTime<Utc>,
 }
@@ -25,6 +27,7 @@ impl Project {
             id: ProjectId::new(),
             slug: slug.into(),
             title: title.map(Into::into),
+            github_url: None,
             created: Utc::now(),
         }
     }

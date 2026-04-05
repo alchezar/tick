@@ -44,6 +44,7 @@ where
         parent_id: Option<TaskId>,
         project_id: ProjectId,
         created_at: Option<DateTime<Utc>>,
+        pull_request_number: Option<u32>,
     ) -> CoreResult<Task> {
         self.check_depth(parent_id, 0).await?;
 
@@ -63,6 +64,7 @@ where
             .max()
             .map_or(0, |m| m + 1);
         task.order = Some(next_order);
+        task.pull_request_number = pull_request_number;
         self.repo.save_task(&task).await?;
 
         tx.commit_transaction().await?;
@@ -163,6 +165,17 @@ where
             .map_or(0, |m| m + 1);
         task.order = Some(next_order);
 
+        self.repo.save_task(&task).await
+    }
+
+    /// Sets or clears the pull request number for a task.
+    ///
+    /// # Errors
+    /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
+    /// - Returns an error if the persistence operation fails.
+    pub async fn set_pull_request(&self, task_id: &TaskId, pr: Option<u32>) -> CoreResult<()> {
+        let mut task = self.find_task(task_id).await?;
+        task.pull_request_number = pr;
         self.repo.save_task(&task).await
     }
 
