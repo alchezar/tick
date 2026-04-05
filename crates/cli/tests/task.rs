@@ -16,6 +16,7 @@ async fn add_creates_task() {
         parent: None,
         project: None,
         date: None,
+        number: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
 
@@ -36,7 +37,7 @@ async fn add_subtask() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let parent = ctx
         .task_service
-        .create("Parent", None, project.id, None)
+        .create("Parent", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -46,6 +47,7 @@ async fn add_subtask() {
         parent: Some(parent_short),
         project: None,
         date: None,
+        number: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
 
@@ -78,7 +80,7 @@ async fn start_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -102,7 +104,7 @@ async fn done_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
     ctx.task_service.start(&t.id, None).await.unwrap();
@@ -127,7 +129,7 @@ async fn block_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
     ctx.task_service.start(&t.id, None).await.unwrap();
@@ -152,7 +154,7 @@ async fn reset_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
     ctx.task_service.start(&t.id, None).await.unwrap();
@@ -177,7 +179,7 @@ async fn rename_changes_title() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Old", None, project.id, None)
+        .create("Old", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -201,7 +203,7 @@ async fn remove_deletes_task() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Temp", None, project.id, None)
+        .create("Temp", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -222,7 +224,7 @@ async fn move_reorder() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -249,12 +251,12 @@ async fn move_up() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let a = ctx
         .task_service
-        .create("A", None, project.id, None)
+        .create("A", None, project.id, None, None)
         .await
         .unwrap();
     let b = ctx
         .task_service
-        .create("B", None, project.id, None)
+        .create("B", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -285,12 +287,12 @@ async fn move_down() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let a = ctx
         .task_service
-        .create("A", None, project.id, None)
+        .create("A", None, project.id, None, None)
         .await
         .unwrap();
     let b = ctx
         .task_service
-        .create("B", None, project.id, None)
+        .create("B", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -321,7 +323,7 @@ async fn move_up_at_zero_stays() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let a = ctx
         .task_service
-        .create("A", None, project.id, None)
+        .create("A", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -349,12 +351,12 @@ async fn move_down_at_last_stays() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let _a = ctx
         .task_service
-        .create("A", None, project.id, None)
+        .create("A", None, project.id, None, None)
         .await
         .unwrap();
     let b = ctx
         .task_service
-        .create("B", None, project.id, None)
+        .create("B", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -380,7 +382,10 @@ async fn move_down_at_last_stays() {
 #[tokio::test]
 async fn no_active_project_fails() {
     let (ctx, _dir) = common::context().await;
-    ctx.project_service.create("work", None).await.unwrap();
+    ctx.project_service
+        .create("work", None, None)
+        .await
+        .unwrap();
     // no active project set
 
     let action = TaskAction::Add {
@@ -388,6 +393,7 @@ async fn no_active_project_fails() {
         parent: None,
         project: None,
         date: None,
+        number: None,
     };
     let result = task::handle(Some(action), &ctx).await;
 
@@ -397,7 +403,10 @@ async fn no_active_project_fails() {
 #[tokio::test]
 async fn explicit_project_flag() {
     let (ctx, _dir) = common::context().await;
-    ctx.project_service.create("other", None).await.unwrap();
+    ctx.project_service
+        .create("other", None, None)
+        .await
+        .unwrap();
     // no active project, but --project is specified
 
     let action = TaskAction::Add {
@@ -405,6 +414,7 @@ async fn explicit_project_flag() {
         parent: None,
         project: Some("other".to_owned()),
         date: None,
+        number: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
 
@@ -427,6 +437,7 @@ async fn add_with_date_sets_created_at() {
         parent: None,
         project: None,
         date: Some(date),
+        number: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
 
@@ -450,6 +461,7 @@ async fn add_without_date_uses_today() {
         parent: None,
         project: None,
         date: None,
+        number: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
 
@@ -482,6 +494,7 @@ async fn list_from_includes_closed_since_date() {
             None,
             project.id,
             Some(past.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+            None,
         )
         .await
         .unwrap();
@@ -502,6 +515,7 @@ async fn list_from_includes_closed_since_date() {
             None,
             project.id,
             Some(recent.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+            None,
         )
         .await
         .unwrap();
@@ -522,7 +536,7 @@ async fn list_from_includes_closed_since_date() {
 
     // Active task (always visible).
     ctx.task_service
-        .create("Active", None, project.id, None)
+        .create("Active", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -569,6 +583,7 @@ async fn list_until_excludes_closed_on_date() {
             None,
             project.id,
             Some(early.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+            None,
         )
         .await
         .unwrap();
@@ -592,6 +607,7 @@ async fn list_until_excludes_closed_on_date() {
             None,
             project.id,
             Some(late.and_hms_opt(8, 0, 0).unwrap().and_utc()),
+            None,
         )
         .await
         .unwrap();
@@ -612,7 +628,7 @@ async fn list_until_excludes_closed_on_date() {
 
     // Active task (always visible).
     ctx.task_service
-        .create("Active", None, project.id, None)
+        .create("Active", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -650,20 +666,20 @@ async fn list_subtree_shows_only_descendants() {
     // Create tree: Root -> Child -> Grandchild, and a Sibling at root level.
     let root = ctx
         .task_service
-        .create("Root", None, project.id, None)
+        .create("Root", None, project.id, None, None)
         .await
         .unwrap();
     let child = ctx
         .task_service
-        .create("Child", Some(root.id), project.id, None)
+        .create("Child", Some(root.id), project.id, None, None)
         .await
         .unwrap();
     ctx.task_service
-        .create("Grandchild", Some(child.id), project.id, None)
+        .create("Grandchild", Some(child.id), project.id, None, None)
         .await
         .unwrap();
     ctx.task_service
-        .create("Sibling", None, project.id, None)
+        .create("Sibling", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -704,12 +720,12 @@ async fn list_subtree_includes_done_tasks() {
 
     let root = ctx
         .task_service
-        .create("Root", None, project.id, None)
+        .create("Root", None, project.id, None, None)
         .await
         .unwrap();
     let child = ctx
         .task_service
-        .create("Done child", Some(root.id), project.id, None)
+        .create("Done child", Some(root.id), project.id, None, None)
         .await
         .unwrap();
     let past = NaiveDate::from_ymd_opt(2025, 1, 10)
@@ -759,12 +775,12 @@ async fn move_without_flags_promotes_to_root() {
 
     let parent = ctx
         .task_service
-        .create("Parent", None, project.id, None)
+        .create("Parent", None, project.id, None, None)
         .await
         .unwrap();
     let child = ctx
         .task_service
-        .create("Child", Some(parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None, None)
         .await
         .unwrap();
     assert!(child.parent.is_some());
@@ -780,4 +796,76 @@ async fn move_without_flags_promotes_to_root() {
 
     let updated = ctx.task_service.find_task(&child.id).await.unwrap();
     assert!(updated.parent.is_none(), "task should be promoted to root");
+}
+
+#[tokio::test]
+async fn add_with_pull_request() {
+    let (ctx, _dir) = common::setup().await;
+
+    let action = TaskAction::Add {
+        title: "Feature".to_owned(),
+        parent: None,
+        project: None,
+        date: None,
+        number: Some(42),
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    let tasks = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].pull_request_number, Some(42));
+}
+
+#[tokio::test]
+async fn set_pull_request_via_handler() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    let task = ctx
+        .task_service
+        .create("Task", None, project.id, None, None)
+        .await
+        .unwrap();
+
+    let action = TaskAction::Link {
+        id: task.id.into(),
+        number: Some(66),
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let updated = ctx.task_service.find_task(&task.id).await.unwrap();
+    assert_eq!(updated.pull_request_number, Some(66));
+}
+
+#[tokio::test]
+async fn clear_pull_request_via_handler() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    let task = ctx
+        .task_service
+        .create("Task", None, project.id, None, Some(99))
+        .await
+        .unwrap();
+
+    let action = TaskAction::Link {
+        id: task.id.into(),
+        number: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let updated = ctx.task_service.find_task(&task.id).await.unwrap();
+    assert!(updated.pull_request_number.is_none());
+}
+
+#[test]
+fn pull_request_link_formats_blue_url() {
+    let result = cli::handler::pull_request_link("https://github.com/owner/repo", 66);
+    assert_eq!(
+        result,
+        "(\x1b[34mhttps://github.com/owner/repo/pull/66\x1b[0m)"
+    );
 }

@@ -40,7 +40,10 @@ pub async fn context() -> (AppContext<SqliteRepo, AutoConfirm>, TempDir) {
 /// Panics if the context or project cannot be created.
 pub async fn setup() -> (AppContext<SqliteRepo, AutoConfirm>, TempDir) {
     let (mut ctx, dir) = context().await;
-    ctx.project_service.create("work", None).await.unwrap();
+    ctx.project_service
+        .create("work", None, None)
+        .await
+        .unwrap();
     ctx.config.active_project = Some("work".to_owned());
     (ctx, dir)
 }

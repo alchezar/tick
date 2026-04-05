@@ -13,7 +13,7 @@ use common::fake::FakeRepo;
 #[tokio::test]
 async fn create_project_succeeds() {
     let service = common::project_service();
-    let project = service.create("work", None).await.unwrap();
+    let project = service.create("work", None, None).await.unwrap();
 
     assert_eq!(project.slug, "work");
     assert!(project.title.is_none());
@@ -22,7 +22,10 @@ async fn create_project_succeeds() {
 #[tokio::test]
 async fn create_project_with_title() {
     let service = common::project_service();
-    let project = service.create("work", Some("Work Projects")).await.unwrap();
+    let project = service
+        .create("work", Some("Work Projects"), None)
+        .await
+        .unwrap();
 
     assert_eq!(project.slug, "work");
     assert_eq!(project.title.as_deref(), Some("Work Projects"));
@@ -31,16 +34,19 @@ async fn create_project_with_title() {
 #[tokio::test]
 async fn create_duplicate_slug_fails() {
     let service = common::project_service();
-    service.create("work", None).await.unwrap();
+    service.create("work", None, None).await.unwrap();
 
-    let err = service.create("work", Some("Another")).await.unwrap_err();
+    let err = service
+        .create("work", Some("Another"), None)
+        .await
+        .unwrap_err();
     assert!(matches!(err, CoreError::ProjectAlreadyExists { slug } if slug == "work"));
 }
 
 #[tokio::test]
 async fn find_by_slug_returns_project() {
     let service = common::project_service();
-    let created = service.create("work", None).await.unwrap();
+    let created = service.create("work", None, None).await.unwrap();
 
     let found = service.find_by("work").await.unwrap();
     assert_eq!(found.id, created.id);
@@ -58,9 +64,9 @@ async fn find_by_slug_not_found() {
 #[tokio::test]
 async fn list_returns_all_projects() {
     let service = common::project_service();
-    service.create("alpha", None).await.unwrap();
-    service.create("beta", None).await.unwrap();
-    service.create("gamma", None).await.unwrap();
+    service.create("alpha", None, None).await.unwrap();
+    service.create("beta", None, None).await.unwrap();
+    service.create("gamma", None, None).await.unwrap();
 
     let projects = service.list().await.unwrap();
     assert_eq!(projects.len(), 3);
@@ -69,7 +75,7 @@ async fn list_returns_all_projects() {
 #[tokio::test]
 async fn delete_removes_project() {
     let service = common::project_service();
-    service.create("work", None).await.unwrap();
+    service.create("work", None, None).await.unwrap();
 
     service.delete("work").await.unwrap();
 
@@ -91,13 +97,13 @@ async fn delete_cascades_tasks() {
     let project_svc = ProjectService::new(repo.clone());
     let task_svc = TaskService::new(repo.clone());
 
-    let project = project_svc.create("work", None).await.unwrap();
+    let project = project_svc.create("work", None, None).await.unwrap();
     task_svc
-        .create("Task A", None, project.id, None)
+        .create("Task A", None, project.id, None, None)
         .await
         .unwrap();
     task_svc
-        .create("Task B", None, project.id, None)
+        .create("Task B", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -117,15 +123,15 @@ async fn tasks_isolated_between_projects() {
     let project_svc = ProjectService::new(repo.clone());
     let task_svc = TaskService::new(repo.clone());
 
-    let work = project_svc.create("work", None).await.unwrap();
-    let personal = project_svc.create("personal", None).await.unwrap();
+    let work = project_svc.create("work", None, None).await.unwrap();
+    let personal = project_svc.create("personal", None, None).await.unwrap();
 
     task_svc
-        .create("Work task", None, work.id, None)
+        .create("Work task", None, work.id, None, None)
         .await
         .unwrap();
     task_svc
-        .create("Personal task", None, personal.id, None)
+        .create("Personal task", None, personal.id, None, None)
         .await
         .unwrap();
 
@@ -150,9 +156,9 @@ async fn delete_project_cleans_status_changes() {
     let project_svc = ProjectService::new(repo.clone());
     let task_svc = TaskService::new(repo.clone());
 
-    let project = project_svc.create("work", None).await.unwrap();
+    let project = project_svc.create("work", None, None).await.unwrap();
     let task = task_svc
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
     task_svc.start(&task.id, None).await.unwrap();
@@ -166,7 +172,10 @@ async fn delete_project_cleans_status_changes() {
 #[tokio::test]
 async fn rename_updates_title() {
     let service = common::project_service();
-    service.create("work", Some("Old Title")).await.unwrap();
+    service
+        .create("work", Some("Old Title"), None)
+        .await
+        .unwrap();
 
     service.rename("work", "New Title").await.unwrap();
 
@@ -177,7 +186,7 @@ async fn rename_updates_title() {
 #[tokio::test]
 async fn rename_sets_title_when_none() {
     let service = common::project_service();
-    service.create("work", None).await.unwrap();
+    service.create("work", None, None).await.unwrap();
 
     service.rename("work", "Added Title").await.unwrap();
 
@@ -188,7 +197,10 @@ async fn rename_sets_title_when_none() {
 #[tokio::test]
 async fn reslug_changes_slug() {
     let service = common::project_service();
-    service.create("old", Some("My Project")).await.unwrap();
+    service
+        .create("old", Some("My Project"), None)
+        .await
+        .unwrap();
 
     service.reslug("old", "new").await.unwrap();
 
@@ -202,8 +214,8 @@ async fn reslug_changes_slug() {
 #[tokio::test]
 async fn reslug_duplicate_fails() {
     let service = common::project_service();
-    service.create("alpha", None).await.unwrap();
-    service.create("beta", None).await.unwrap();
+    service.create("alpha", None, None).await.unwrap();
+    service.create("beta", None, None).await.unwrap();
 
     let err = service.reslug("alpha", "beta").await.unwrap_err();
     assert!(matches!(err, CoreError::ProjectAlreadyExists { slug } if slug == "beta"));
@@ -228,35 +240,80 @@ async fn rename_not_found() {
 #[tokio::test]
 async fn create_empty_slug_fails() {
     let service = common::project_service();
-    let err = service.create("", None).await.unwrap_err();
+    let err = service.create("", None, None).await.unwrap_err();
     assert!(matches!(err, CoreError::InvalidSlug));
 }
 
 #[tokio::test]
 async fn create_slug_with_spaces_fails() {
     let service = common::project_service();
-    let err = service.create("my project", None).await.unwrap_err();
+    let err = service.create("my project", None, None).await.unwrap_err();
     assert!(matches!(err, CoreError::InvalidSlug));
 }
 
 #[tokio::test]
 async fn create_slug_with_hyphens_fails() {
     let service = common::project_service();
-    let err = service.create("my-project", None).await.unwrap_err();
+    let err = service.create("my-project", None, None).await.unwrap_err();
     assert!(matches!(err, CoreError::InvalidSlug));
 }
 
 #[tokio::test]
 async fn create_slug_with_underscores_fails() {
     let service = common::project_service();
-    let err = service.create("my_project", None).await.unwrap_err();
+    let err = service.create("my_project", None, None).await.unwrap_err();
     assert!(matches!(err, CoreError::InvalidSlug));
+}
+
+#[tokio::test]
+async fn create_project_with_github_url() {
+    let service = common::project_service();
+    let project = service
+        .create("work", None, Some("https://github.com/owner/repo"))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        project.github_url.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
+}
+
+#[tokio::test]
+async fn set_github_url_on_existing_project() {
+    let service = common::project_service();
+    service.create("work", None, None).await.unwrap();
+
+    service
+        .set_github_url("work", Some("https://github.com/owner/repo"))
+        .await
+        .unwrap();
+
+    let project = service.find_by("work").await.unwrap();
+    assert_eq!(
+        project.github_url.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
+}
+
+#[tokio::test]
+async fn clear_github_url() {
+    let service = common::project_service();
+    service
+        .create("work", None, Some("https://github.com/owner/repo"))
+        .await
+        .unwrap();
+
+    service.set_github_url("work", None).await.unwrap();
+
+    let project = service.find_by("work").await.unwrap();
+    assert!(project.github_url.is_none());
 }
 
 #[tokio::test]
 async fn reslug_to_invalid_slug_fails() {
     let service = common::project_service();
-    service.create("valid", None).await.unwrap();
+    service.create("valid", None, None).await.unwrap();
 
     let err = service.reslug("valid", "not valid!").await.unwrap_err();
     assert!(matches!(err, CoreError::InvalidSlug));

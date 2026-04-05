@@ -16,11 +16,11 @@ async fn done_fails_with_active_child() {
     let service = common::task_service();
     let project = Project::default();
     let parent = service
-        .create("Parent", None, project.id, None)
+        .create("Parent", None, project.id, None, None)
         .await
         .unwrap();
     service
-        .create("Child", Some(parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None, None)
         .await
         .unwrap();
 
@@ -33,11 +33,11 @@ async fn block_cascades_to_children() {
     let service = common::task_service();
     let project = Project::default();
     let parent = service
-        .create("Parent", None, project.id, None)
+        .create("Parent", None, project.id, None, None)
         .await
         .unwrap();
     let child = service
-        .create("Child", Some(parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None, None)
         .await
         .unwrap();
     service.start(&child.id, None).await.unwrap();
@@ -55,25 +55,25 @@ async fn create_exceeds_max_depth() {
     let service = common::task_service();
     let project = Project::default();
     let l0 = service
-        .create("Root", None, project.id, None)
+        .create("Root", None, project.id, None, None)
         .await
         .unwrap();
     let l1 = service
-        .create("Level 1", Some(l0.id), project.id, None)
+        .create("Level 1", Some(l0.id), project.id, None, None)
         .await
         .unwrap();
     let l2 = service
-        .create("Level 2", Some(l1.id), project.id, None)
+        .create("Level 2", Some(l1.id), project.id, None, None)
         .await
         .unwrap();
     let l3 = service
-        .create("Level 3", Some(l2.id), project.id, None)
+        .create("Level 3", Some(l2.id), project.id, None, None)
         .await
         .unwrap();
 
     // 5th level (l0 -> l1 -> l2 -> l3 -> l4) must be rejected
     let err = service
-        .create("Level 4", Some(l3.id), project.id, None)
+        .create("Level 4", Some(l3.id), project.id, None, None)
         .await
         .unwrap_err();
     assert!(matches!(err, CoreError::MaxDepthExceeded));
@@ -83,9 +83,18 @@ async fn create_exceeds_max_depth() {
 async fn create_assigns_order_sequentially() {
     let project = Project::default();
     let service = common::task_service();
-    let a = service.create("A", None, project.id, None).await.unwrap();
-    let b = service.create("B", None, project.id, None).await.unwrap();
-    let c = service.create("C", None, project.id, None).await.unwrap();
+    let a = service
+        .create("A", None, project.id, None, None)
+        .await
+        .unwrap();
+    let b = service
+        .create("B", None, project.id, None, None)
+        .await
+        .unwrap();
+    let c = service
+        .create("C", None, project.id, None, None)
+        .await
+        .unwrap();
 
     assert_eq!(a.order, Some(0));
     assert_eq!(b.order, Some(1));
@@ -96,7 +105,7 @@ async fn create_assigns_order_sequentially() {
 async fn done_succeeds_without_children() {
     let service = common::task_service();
     let task = service
-        .create("Task", None, Project::default().id, None)
+        .create("Task", None, Project::default().id, None, None)
         .await
         .unwrap();
     service.start(&task.id, None).await.unwrap();
@@ -108,7 +117,7 @@ async fn done_succeeds_without_children() {
 async fn start_fails_if_already_in_progress() {
     let service = common::task_service();
     let task = service
-        .create("Task", None, Project::default().id, None)
+        .create("Task", None, Project::default().id, None, None)
         .await
         .unwrap();
     service.start(&task.id, None).await.unwrap();
@@ -121,7 +130,7 @@ async fn start_fails_if_already_in_progress() {
 async fn reset_from_done() {
     let service = common::task_service();
     let task = service
-        .create("Task", None, Project::default().id, None)
+        .create("Task", None, Project::default().id, None, None)
         .await
         .unwrap();
     service.start(&task.id, None).await.unwrap();
@@ -135,7 +144,7 @@ async fn reset_from_done() {
 async fn status_change_recorded_on_transition() {
     let service = common::task_service();
     let task = service
-        .create("Task", None, Project::default().id, None)
+        .create("Task", None, Project::default().id, None, None)
         .await
         .unwrap();
 
@@ -152,7 +161,7 @@ async fn status_change_recorded_on_transition() {
 async fn status_change_full_lifecycle() {
     let service = common::task_service();
     let task = service
-        .create("Task", None, Project::default().id, None)
+        .create("Task", None, Project::default().id, None, None)
         .await
         .unwrap();
 
@@ -178,11 +187,11 @@ async fn block_cascade_records_changes_for_children() {
     let service = common::task_service();
     let project = Project::default();
     let parent = service
-        .create("Parent", None, project.id, None)
+        .create("Parent", None, project.id, None, None)
         .await
         .unwrap();
     let child = service
-        .create("Child", Some(parent.id), project.id, None)
+        .create("Child", Some(parent.id), project.id, None, None)
         .await
         .unwrap();
     service.start(&parent.id, None).await.unwrap();
@@ -210,25 +219,25 @@ async fn create_at_fourth_level_fails() {
     let service = common::task_service();
     let project = Project::default();
     let l0 = service
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
     let l1 = service
-        .create("Subtask", Some(l0.id), project.id, None)
+        .create("Subtask", Some(l0.id), project.id, None, None)
         .await
         .unwrap();
     let l2 = service
-        .create("Sub-subtask", Some(l1.id), project.id, None)
+        .create("Sub-subtask", Some(l1.id), project.id, None, None)
         .await
         .unwrap();
     let l3 = service
-        .create("Sub-sub-subtask", Some(l2.id), project.id, None)
+        .create("Sub-sub-subtask", Some(l2.id), project.id, None, None)
         .await
         .unwrap();
 
     // 5th level must be rejected
     let result = service
-        .create("Too deep", Some(l3.id), project.id, None)
+        .create("Too deep", Some(l3.id), project.id, None, None)
         .await;
     assert!(matches!(result, Err(CoreError::MaxDepthExceeded)));
 }
@@ -239,20 +248,26 @@ async fn move_subtree_exceeds_depth() {
     let project = Project::default();
 
     // Tree 1: a -> b -> c (3 levels)
-    let a = service.create("A", None, project.id, None).await.unwrap();
+    let a = service
+        .create("A", None, project.id, None, None)
+        .await
+        .unwrap();
     let b = service
-        .create("B", Some(a.id), project.id, None)
+        .create("B", Some(a.id), project.id, None, None)
         .await
         .unwrap();
     let _c = service
-        .create("C", Some(b.id), project.id, None)
+        .create("C", Some(b.id), project.id, None, None)
         .await
         .unwrap();
 
     // Tree 2: x -> y (2 levels)
-    let x = service.create("X", None, project.id, None).await.unwrap();
+    let x = service
+        .create("X", None, project.id, None, None)
+        .await
+        .unwrap();
     let y = service
-        .create("Y", Some(x.id), project.id, None)
+        .create("Y", Some(x.id), project.id, None, None)
         .await
         .unwrap();
 
@@ -267,13 +282,25 @@ async fn create_order_no_duplicates_after_delete() {
     let task_svc = TaskService::new(repo);
     let project = Project::default();
 
-    let _a = task_svc.create("A", None, project.id, None).await.unwrap(); // order 0
-    let b = task_svc.create("B", None, project.id, None).await.unwrap(); // order 1
-    let c = task_svc.create("C", None, project.id, None).await.unwrap(); // order 2
+    let _a = task_svc
+        .create("A", None, project.id, None, None)
+        .await
+        .unwrap(); // order 0
+    let b = task_svc
+        .create("B", None, project.id, None, None)
+        .await
+        .unwrap(); // order 1
+    let c = task_svc
+        .create("C", None, project.id, None, None)
+        .await
+        .unwrap(); // order 2
 
     task_svc.delete(&b.id).await.unwrap();
 
-    let d = task_svc.create("D", None, project.id, None).await.unwrap();
+    let d = task_svc
+        .create("D", None, project.id, None, None)
+        .await
+        .unwrap();
     // d.order must not collide with c.order
     assert_ne!(d.order, c.order);
 }
@@ -285,7 +312,7 @@ async fn delete_task_cleans_status_changes() {
     let project = Project::default();
 
     let task = task_svc
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
     task_svc.start(&task.id, None).await.unwrap();
@@ -302,16 +329,25 @@ async fn abandon_from_any_status() {
     let project = Project::default();
 
     // abandon from not_started
-    let t1 = service.create("T1", None, project.id, None).await.unwrap();
+    let t1 = service
+        .create("T1", None, project.id, None, None)
+        .await
+        .unwrap();
     service.abandon(&t1.id, None).await.unwrap();
 
     // abandon from in_progress
-    let t2 = service.create("T2", None, project.id, None).await.unwrap();
+    let t2 = service
+        .create("T2", None, project.id, None, None)
+        .await
+        .unwrap();
     service.start(&t2.id, None).await.unwrap();
     service.abandon(&t2.id, None).await.unwrap();
 
     // abandon from done
-    let t3 = service.create("T3", None, project.id, None).await.unwrap();
+    let t3 = service
+        .create("T3", None, project.id, None, None)
+        .await
+        .unwrap();
     service.start(&t3.id, None).await.unwrap();
     service.done(&t3.id, None).await.unwrap();
     service.abandon(&t3.id, None).await.unwrap();
@@ -324,7 +360,7 @@ async fn backdated_status_change_removes_future_changes() {
     let project = Project::default();
 
     let task = service
-        .create("Task", None, project.id, None)
+        .create("Task", None, project.id, None, None)
         .await
         .unwrap();
 
@@ -360,13 +396,22 @@ async fn reorder_shifts_siblings_and_skips_other_parents() {
     let project = Project::default();
 
     // Root tasks: A(0), B(1), C(2)
-    let a = service.create("A", None, project.id, None).await.unwrap();
-    let b = service.create("B", None, project.id, None).await.unwrap();
-    let c = service.create("C", None, project.id, None).await.unwrap();
+    let a = service
+        .create("A", None, project.id, None, None)
+        .await
+        .unwrap();
+    let b = service
+        .create("B", None, project.id, None, None)
+        .await
+        .unwrap();
+    let c = service
+        .create("C", None, project.id, None, None)
+        .await
+        .unwrap();
 
     // Child of A - must not be affected by root reorder
     let child = service
-        .create("Child", Some(a.id), project.id, None)
+        .create("Child", Some(a.id), project.id, None, None)
         .await
         .unwrap();
 
@@ -394,13 +439,16 @@ async fn move_to_parent_rejects_cyclic_parentage() {
     let service = common::task_service();
     let project = Project::default();
 
-    let a = service.create("A", None, project.id, None).await.unwrap();
+    let a = service
+        .create("A", None, project.id, None, None)
+        .await
+        .unwrap();
     let b = service
-        .create("B", Some(a.id), project.id, None)
+        .create("B", Some(a.id), project.id, None, None)
         .await
         .unwrap();
     let c = service
-        .create("C", Some(b.id), project.id, None)
+        .create("C", Some(b.id), project.id, None, None)
         .await
         .unwrap();
 
@@ -410,4 +458,65 @@ async fn move_to_parent_rejects_cyclic_parentage() {
         .await
         .unwrap_err();
     assert!(matches!(err, CoreError::CyclicParentage));
+}
+
+#[tokio::test]
+async fn create_task_with_pull_request() {
+    let service = common::task_service();
+    let project = Project::default();
+
+    let task = service
+        .create("Feature", None, project.id, None, Some(42))
+        .await
+        .unwrap();
+
+    assert_eq!(task.pull_request_number, Some(42));
+
+    let found = service.find_task(&task.id).await.unwrap();
+    assert_eq!(found.pull_request_number, Some(42));
+}
+
+#[tokio::test]
+async fn create_task_without_pull_request() {
+    let service = common::task_service();
+    let project = Project::default();
+
+    let task = service
+        .create("Task", None, project.id, None, None)
+        .await
+        .unwrap();
+
+    assert!(task.pull_request_number.is_none());
+}
+
+#[tokio::test]
+async fn set_pull_request_on_existing_task() {
+    let service = common::task_service();
+    let project = Project::default();
+
+    let task = service
+        .create("Task", None, project.id, None, None)
+        .await
+        .unwrap();
+
+    service.set_pull_request(&task.id, Some(99)).await.unwrap();
+
+    let found = service.find_task(&task.id).await.unwrap();
+    assert_eq!(found.pull_request_number, Some(99));
+}
+
+#[tokio::test]
+async fn clear_pull_request() {
+    let service = common::task_service();
+    let project = Project::default();
+
+    let task = service
+        .create("Task", None, project.id, None, Some(55))
+        .await
+        .unwrap();
+
+    service.set_pull_request(&task.id, None).await.unwrap();
+
+    let found = service.find_task(&task.id).await.unwrap();
+    assert!(found.pull_request_number.is_none());
 }

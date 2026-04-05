@@ -10,6 +10,7 @@ async fn add_creates_project() {
     let action = ProjectAction::Add {
         slug: "work".to_owned(),
         title: Some("Work".to_owned()),
+        github: None,
     };
 
     project::handle(Some(action), &mut ctx).await.unwrap();
@@ -25,6 +26,7 @@ async fn add_without_title() {
     let action = ProjectAction::Add {
         slug: "side".to_owned(),
         title: None,
+        github: None,
     };
 
     project::handle(Some(action), &mut ctx).await.unwrap();
@@ -46,8 +48,11 @@ async fn list_empty() {
 #[tokio::test]
 async fn list_after_add() {
     let (mut ctx, _dir) = common::context().await;
-    ctx.project_service.create("a", None).await.unwrap();
-    ctx.project_service.create("b", Some("B")).await.unwrap();
+    ctx.project_service.create("a", None, None).await.unwrap();
+    ctx.project_service
+        .create("b", Some("B"), None)
+        .await
+        .unwrap();
 
     project::handle(Some(ProjectAction::List), &mut ctx)
         .await
@@ -57,7 +62,10 @@ async fn list_after_add() {
 #[tokio::test]
 async fn switch_sets_active() {
     let (mut ctx, _dir) = common::context().await;
-    ctx.project_service.create("work", None).await.unwrap();
+    ctx.project_service
+        .create("work", None, None)
+        .await
+        .unwrap();
 
     let action = ProjectAction::Switch {
         slug: "work".to_owned(),
@@ -83,7 +91,7 @@ async fn switch_nonexistent_fails() {
 async fn rename_changes_title() {
     let (mut ctx, _dir) = common::context().await;
     ctx.project_service
-        .create("work", Some("Old"))
+        .create("work", Some("Old"), None)
         .await
         .unwrap();
 
@@ -100,7 +108,7 @@ async fn rename_changes_title() {
 #[tokio::test]
 async fn reslug_changes_slug() {
     let (mut ctx, _dir) = common::context().await;
-    ctx.project_service.create("old", None).await.unwrap();
+    ctx.project_service.create("old", None, None).await.unwrap();
 
     let action = ProjectAction::Reslug {
         slug: "old".to_owned(),
@@ -115,7 +123,10 @@ async fn reslug_changes_slug() {
 #[tokio::test]
 async fn reslug_updates_active_project() {
     let (mut ctx, _dir) = common::context().await;
-    ctx.project_service.create("work", None).await.unwrap();
+    ctx.project_service
+        .create("work", None, None)
+        .await
+        .unwrap();
     ctx.config.active_project = Some("work".to_owned());
 
     let action = ProjectAction::Reslug {
@@ -130,7 +141,7 @@ async fn reslug_updates_active_project() {
 #[tokio::test]
 async fn remove_deletes_project() {
     let (mut ctx, _dir) = common::context().await;
-    ctx.project_service.create("tmp", None).await.unwrap();
+    ctx.project_service.create("tmp", None, None).await.unwrap();
 
     let action = ProjectAction::Remove {
         slug: "tmp".to_owned(),
@@ -144,7 +155,10 @@ async fn remove_deletes_project() {
 #[tokio::test]
 async fn remove_clears_active_if_deleted() {
     let (mut ctx, _dir) = common::context().await;
-    ctx.project_service.create("work", None).await.unwrap();
+    ctx.project_service
+        .create("work", None, None)
+        .await
+        .unwrap();
     ctx.config.active_project = Some("work".to_owned());
 
     let action = ProjectAction::Remove {
@@ -160,4 +174,61 @@ async fn show_active_no_project() {
     let (mut ctx, _dir) = common::context().await;
 
     project::handle(None, &mut ctx).await.unwrap();
+}
+
+#[tokio::test]
+async fn add_with_github_url() {
+    let (mut ctx, _dir) = common::context().await;
+    let action = ProjectAction::Add {
+        slug: "work".to_owned(),
+        title: None,
+        github: Some("https://github.com/owner/repo".to_owned()),
+    };
+
+    project::handle(Some(action), &mut ctx).await.unwrap();
+
+    let p = ctx.project_service.find_by("work").await.unwrap();
+    assert_eq!(
+        p.github_url.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
+}
+
+#[tokio::test]
+async fn github_sets_url() {
+    let (mut ctx, _dir) = common::context().await;
+    ctx.project_service
+        .create("work", None, None)
+        .await
+        .unwrap();
+
+    let action = ProjectAction::Github {
+        slug: "work".to_owned(),
+        url: Some("https://github.com/owner/repo".to_owned()),
+    };
+    project::handle(Some(action), &mut ctx).await.unwrap();
+
+    let p = ctx.project_service.find_by("work").await.unwrap();
+    assert_eq!(
+        p.github_url.as_deref(),
+        Some("https://github.com/owner/repo")
+    );
+}
+
+#[tokio::test]
+async fn github_clears_url() {
+    let (mut ctx, _dir) = common::context().await;
+    ctx.project_service
+        .create("work", None, Some("https://github.com/owner/repo"))
+        .await
+        .unwrap();
+
+    let action = ProjectAction::Github {
+        slug: "work".to_owned(),
+        url: None,
+    };
+    project::handle(Some(action), &mut ctx).await.unwrap();
+
+    let p = ctx.project_service.find_by("work").await.unwrap();
+    assert!(p.github_url.is_none());
 }
