@@ -70,6 +70,10 @@ pub enum ProjectAction {
         /// Optional display title.
         #[arg(short, long)]
         title: Option<String>,
+
+        /// Optional GitHub repository URL.
+        #[arg(short, long)]
+        github: Option<String>,
     },
 
     /// Switch active project.
@@ -97,6 +101,16 @@ pub enum ProjectAction {
 
         /// New slug.
         new_slug: String,
+    },
+
+    /// Set GitHub repository URL.
+    #[command(visible_alias = "gh")]
+    Github {
+        /// Project slug.
+        slug: String,
+
+        /// GitHub repository URL (omit to clear).
+        url: Option<String>,
     },
 
     /// Delete project and all its tasks.
@@ -127,6 +141,10 @@ pub enum TaskAction {
         /// Creation date (YYYY-MM-DD), defaults to today.
         #[arg(short, long)]
         date: Option<NaiveDate>,
+
+        /// Pull request number.
+        #[arg(short, long)]
+        number: Option<u32>,
     },
 
     /// List tasks (tree view).
@@ -239,6 +257,16 @@ pub enum TaskAction {
 
         /// New title.
         title: String,
+    },
+
+    /// Set pull request number for a task.
+    #[command(visible_alias = "ln")]
+    Link {
+        /// Task id.
+        id: ShortId,
+
+        /// Pull request number (omit to clear).
+        number: Option<u32>,
     },
 
     /// Delete task and its children.

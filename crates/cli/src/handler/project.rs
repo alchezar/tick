@@ -18,10 +18,15 @@ where
     match action {
         None => show_active(ctx).await,
         Some(ProjectAction::List) => list(ctx).await,
-        Some(ProjectAction::Add { slug, title }) => add(ctx, &slug, title.as_deref()).await,
+        Some(ProjectAction::Add {
+            slug,
+            title,
+            github,
+        }) => add(ctx, &slug, title.as_deref(), github.as_deref()).await,
         Some(ProjectAction::Switch { slug }) => switch(ctx, &slug).await,
         Some(ProjectAction::Rename { slug, new_title }) => rename(ctx, &slug, &new_title).await,
         Some(ProjectAction::Reslug { slug, new_slug }) => reslug(ctx, &slug, &new_slug).await,
+        Some(ProjectAction::Github { slug, url }) => set_github(ctx, &slug, url.as_deref()).await,
         Some(ProjectAction::Remove { slug }) => remove(ctx, &slug).await,
     }
 }
@@ -70,11 +75,16 @@ where
 }
 
 /// Creates a new project.
-async fn add<R, C>(context: &AppContext<R, C>, slug: &str, title: Option<&str>) -> CliResult<()>
+async fn add<R, C>(
+    context: &AppContext<R, C>,
+    slug: &str,
+    title: Option<&str>,
+    github: Option<&str>,
+) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let project = context.project_service.create(slug, title).await?;
+    let project = context.project_service.create(slug, title, github).await?;
     match &project.title {
         Some(title) => println!("created: {} - {title}", project.slug),
         None => println!("created: {}", project.slug),
@@ -115,6 +125,23 @@ where
     }
 
     println!("reslugged: {slug} -> {new_slug}");
+    Ok(())
+}
+
+/// Sets or clears the GitHub URL for a project.
+async fn set_github<R, C>(
+    context: &AppContext<R, C>,
+    slug: &str,
+    url: Option<&str>,
+) -> CliResult<()>
+where
+    R: ProjectRepository + TaskRepository + Transactional,
+{
+    context.project_service.set_github_url(slug, url).await?;
+    match url {
+        Some(url) => println!("github: {slug} -> {url}"),
+        None => println!("github: {slug} cleared"),
+    }
     Ok(())
 }
 

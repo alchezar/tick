@@ -31,7 +31,8 @@ where
             parent,
             date,
             project,
-        } => add(context, project, &title, parent, date).await,
+            number,
+        } => add(context, project, &title, parent, date, number).await,
         TaskAction::List {
             from,
             until,
@@ -57,6 +58,7 @@ where
             down,
             order,
         } => move_task(context, id, parent, up, down, order).await,
+        TaskAction::Link { id, number } => link(context, id, number).await,
         TaskAction::Rename { id, title } => rename(context, id, &title).await,
         TaskAction::Remove { id } => remove(context, id).await,
     }
@@ -69,6 +71,7 @@ async fn add<R, C>(
     title: &str,
     parent: Option<ShortId>,
     date: Option<NaiveDate>,
+    pull_request_number: Option<u32>,
 ) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
@@ -91,7 +94,7 @@ where
     let project_id = context.resolve_project(project.as_deref()).await?.id;
     let task = context
         .task_service
-        .create(title, parent, project_id, created_at)
+        .create(title, parent, project_id, created_at, pull_request_number)
         .await?;
 
     let short_id = ShortId::from(task.id);
@@ -112,7 +115,9 @@ where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     let show_date = show_all || from.is_some() || until.is_some() || subtree.is_some();
-    let project_id = context.resolve_project(project.as_deref()).await?.id;
+    let resolved_project = context.resolve_project(project.as_deref()).await?;
+    let project_id = resolved_project.id;
+    let github_url = resolved_project.github_url.as_deref();
     let filter = if show_date {
         TaskFilter::ByProject(project_id)
     } else {
@@ -148,13 +153,13 @@ where
     roots.sort_by_key(|t| t.order);
 
     for root in roots {
-        print_task(root, &visible, 1, show_date);
+        print_task(root, &visible, 1, show_date, github_url);
     }
     Ok(())
 }
 
 /// Prints a task and its children recursively.
-fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool) {
+fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool, github_url: Option<&str>) {
     let short_id = ShortId::from(task.id);
     let updated = if show_date {
         format!("|{}", task.updated.format("%Y-%m-%d"))
@@ -164,7 +169,12 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool) {
     let indent = " -".repeat(depth);
     let icon = super::terminal_emoji(task.status().icon());
     let task_title = &task.title;
-    println!("[{short_id}{updated}]{indent} {icon} {task_title}");
+    let pr = match (task.pull_request_number, github_url) {
+        (Some(n), Some(url)) => super::pull_request_link(url, n),
+        (Some(n), None) => format!("(#{n})"),
+        _ => String::new(),
+    };
+    println!("[{short_id}{updated}]{indent} {icon} {task_title} {pr}");
 
     let mut children = all
         .iter()
@@ -173,7 +183,7 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool) {
     children.sort_by_key(|t| t.order);
 
     for child in children {
-        print_task(child, all, depth + 1, show_date);
+        print_task(child, all, depth + 1, show_date, github_url);
     }
 }
 
@@ -283,6 +293,25 @@ where
 
     let short_id = ShortId::from(task_id);
     println!("[{short_id}] moved");
+    Ok(())
+}
+
+/// Sets or clears the pull request number for a task.
+async fn link<R, C>(context: &AppContext<R, C>, id: ShortId, number: Option<u32>) -> CliResult<()>
+where
+    R: ProjectRepository + TaskRepository + Transactional,
+{
+    let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
+    context
+        .task_service
+        .set_pull_request(&task_id, number)
+        .await?;
+
+    let short_id = ShortId::from(task_id);
+    match number {
+        Some(n) => println!("[{short_id}] pull request: #{n}"),
+        None => println!("[{short_id}] pull request: cleared"),
+    }
     Ok(())
 }
 
