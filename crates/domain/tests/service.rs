@@ -466,14 +466,23 @@ async fn create_task_with_pull_request() {
     let project = Project::default();
 
     let task = service
-        .create("Feature", None, project.id, None, Some(42), None)
+        .create(
+            "Feature",
+            None,
+            project.id,
+            None,
+            Some(42),
+            Some("feat/login".to_owned()),
+        )
         .await
         .unwrap();
 
     assert_eq!(task.pull_request_number, Some(42));
+    assert_eq!(task.branch_name.as_deref(), Some("feat/login"));
 
     let found = service.find_task(&task.id).await.unwrap();
     assert_eq!(found.pull_request_number, Some(42));
+    assert_eq!(found.branch_name.as_deref(), Some("feat/login"));
 }
 
 #[tokio::test]
@@ -500,12 +509,13 @@ async fn set_pull_request_on_existing_task() {
         .unwrap();
 
     service
-        .set_pull_request(&task.id, Some(99), None)
+        .set_pull_request(&task.id, Some(99), Some("feat/branch".to_owned()))
         .await
         .unwrap();
 
     let found = service.find_task(&task.id).await.unwrap();
     assert_eq!(found.pull_request_number, Some(99));
+    assert_eq!(found.branch_name.as_deref(), Some("feat/branch"));
 }
 
 #[tokio::test]
@@ -514,7 +524,14 @@ async fn clear_pull_request() {
     let project = Project::default();
 
     let task = service
-        .create("Task", None, project.id, None, Some(55), None)
+        .create(
+            "Task",
+            None,
+            project.id,
+            None,
+            Some(55),
+            Some("feat/legacy".to_owned()),
+        )
         .await
         .unwrap();
 
@@ -525,4 +542,5 @@ async fn clear_pull_request() {
 
     let found = service.find_task(&task.id).await.unwrap();
     assert!(found.pull_request_number.is_none());
+    assert!(found.branch_name.is_none());
 }

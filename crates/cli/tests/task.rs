@@ -873,3 +873,13 @@ fn pull_request_link_formats_blue_url() {
         "\x1b[90mhttps://github.com/owner/repo/pull/\x1b[34m66\x1b[0m"
     );
 }
+
+#[test]
+fn pull_request_link_appends_branch_in_green() {
+    let result =
+        cli::handler::pull_request_link("https://github.com/owner/repo", 66, Some("feat/login"));
+    assert_eq!(
+        result,
+        "\x1b[90mhttps://github.com/owner/repo/pull/\x1b[34m66 \x1b[32mfeat/login\x1b[0m"
+    );
+}
