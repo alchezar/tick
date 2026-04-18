@@ -27,6 +27,8 @@ pub struct Task {
     pub order: Option<usize>,
     /// Optional pull request number.
     pub pull_request_number: Option<u32>,
+    /// Optional source branch name resolved from the pull request.
+    pub branch_name: Option<String>,
     /// Creation timestamp.
     pub created: DateTime<Utc>,
     /// Timestamp of the last status change.

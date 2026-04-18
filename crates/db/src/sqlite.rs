@@ -208,6 +208,7 @@ struct TaskRow {
     parent_id: Option<String>,
     display_order: Option<i64>,
     pull_request: Option<i64>,
+    branch_name: Option<String>,
     created_at: String,
     updated_at: String,
 }
@@ -238,6 +239,7 @@ impl TryFrom<TaskRow> for Task {
             .map(u32::try_from)
             .transpose()
             .map_err(core_err)?;
+        task.branch_name = r.branch_name;
         task.created = r.created_at.parse::<DateTime<Utc>>().map_err(core_err)?;
         task.updated = r.updated_at.parse::<DateTime<Utc>>().map_err(core_err)?;
 
@@ -371,18 +373,20 @@ impl TaskRepository for SqliteRepo {
         let parent_id = task.parent.map(|p| p.to_string());
         let order = task.order.map(i64::try_from).transpose().map_err(db_err)?;
         let pull_request = task.pull_request_number.map(i64::from);
+        let branch_name = task.branch_name.clone();
         let created = task.created.to_rfc3339();
         let updated = task.updated.to_rfc3339();
         sqlx::query!(
             r"
-                INSERT INTO tasks (id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                INSERT INTO tasks (id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 ON CONFLICT(id) DO UPDATE SET
                     title = excluded.title,
                     status = excluded.status,
                     parent_id = excluded.parent_id,
                     display_order = excluded.display_order,
                     pull_request = excluded.pull_request,
+                    branch_name = excluded.branch_name,
                     updated_at = excluded.updated_at
             ",
             id,
@@ -392,6 +396,7 @@ impl TaskRepository for SqliteRepo {
             parent_id,
             order,
             pull_request,
+            branch_name,
             created,
             updated,
         )
@@ -407,7 +412,7 @@ impl TaskRepository for SqliteRepo {
         sqlx::query_as!(
             TaskRow,
             r"
-                SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at
+                SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
                 FROM tasks
                 WHERE id = $1
             ",
@@ -426,7 +431,7 @@ impl TaskRepository for SqliteRepo {
         sqlx::query_as!(
             TaskRow,
             r"
-                SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at
+                SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
                 FROM tasks
                 WHERE id LIKE $1
                 LIMIT 1
@@ -445,7 +450,7 @@ impl TaskRepository for SqliteRepo {
         sqlx::query_as!(
             TaskRow,
             r"
-                SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at
+                SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
                 FROM tasks
                 WHERE parent_id = $1
                 ORDER BY display_order
@@ -467,7 +472,7 @@ impl TaskRepository for SqliteRepo {
                 sqlx::query_as!(
                     TaskRow,
                     r"
-                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at
+                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
                         FROM tasks
                         WHERE project_id = $1
                         ORDER BY display_order
@@ -486,7 +491,7 @@ impl TaskRepository for SqliteRepo {
                 sqlx::query_as!(
                         TaskRow,
                         r"
-                            SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at
+                            SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
                             FROM tasks
                             WHERE project_id = $1 AND parent_id IS NULL
                             ORDER BY display_order
@@ -505,7 +510,7 @@ impl TaskRepository for SqliteRepo {
                 sqlx::query_as!(
                     TaskRow,
                     r"
-                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at
+                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
                         FROM tasks
                         WHERE parent_id = $1
                         ORDER BY display_order
@@ -525,7 +530,7 @@ impl TaskRepository for SqliteRepo {
                 sqlx::query_as!(
                     TaskRow,
                     r"
-                        SELECT t.id, t.project_id, t.title, t.status, t.parent_id, t.display_order, t.pull_request, t.created_at, t.updated_at
+                        SELECT t.id, t.project_id, t.title, t.status, t.parent_id, t.display_order, t.pull_request, t.branch_name, t.created_at, t.updated_at
                         FROM tasks t
                         WHERE t.project_id = $1
                           AND (
@@ -550,7 +555,7 @@ impl TaskRepository for SqliteRepo {
                 sqlx::query_as!(
                     TaskRow,
                     r"
-                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, created_at, updated_at
+                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
                         FROM tasks
                         WHERE project_id = $1 AND substr(created_at, 1, 10) <= $2
                         ORDER BY display_order
