@@ -867,7 +867,7 @@ async fn clear_pull_request_via_handler() {
 
 #[test]
 fn pull_request_link_formats_blue_url() {
-    let result = cli::handler::pull_request_link("https://github.com/owner/repo", 66);
+    let result = cli::handler::pull_request_link("https://github.com/owner/repo", 66, None);
     assert_eq!(
         result,
         "\x1b[90mhttps://github.com/owner/repo/pull/\x1b[34m66\x1b[0m"

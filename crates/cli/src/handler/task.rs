@@ -178,7 +178,7 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool, github_u
     let icon = super::terminal_emoji(task.status().icon());
     let task_title = &task.title;
     let pr = match (task.pull_request_number, github_url) {
-        (Some(n), Some(url)) => super::pull_request_link(url, n),
+        (Some(n), Some(url)) => super::pull_request_link(url, n, task.branch_name.as_deref()),
         (Some(n), None) => format!("(#{n})"),
         _ => String::new(),
     };
