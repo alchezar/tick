@@ -60,7 +60,7 @@ tt ts ad "Fix login bug"                 # add root task
 tt ts ad "Fix login bug" -p <parent-id>  # add child task
 tt ts ad "Fix login bug" -d 2026-01-15   # add task with specific date
 tt ts ad "Fix login bug" -n 66           # add task with PR number
-tt ts ln <id> 66                         # set PR number on existing task
+tt ts ln <id> 66                         # set PR number, fetch branch via gh
 tt ts                                    # list active tasks
 tt ts dn <id>                            # mark done
 tt ts bl <id>                            # mark blocked
@@ -79,3 +79,7 @@ tt rp -d 2026-03-15  # report for specific date
 cp .env.example .env
 make run
 ```
+
+Optional: install [`gh`](https://cli.github.com/) and run `gh auth login` to enable automatic PR
+branch resolution during `tt ts ln`. Without it, task listings fall back to showing only the PR
+number.

@@ -31,6 +31,7 @@
 | `parent_id`    | UUID?    | Reference to parent task (nullable)                              |
 | `order`        | INTEGER  | Display order among siblings                                     |
 | `pull_request` | INTEGER  | Optional pull request number                                     |
+| `branch_name`  | TEXT     | Optional cached PR source branch, resolved via `gh` on link      |
 | `created_at`   | DATETIME | Creation timestamp                                               |
 | `updated_at`   | DATETIME | Last status change timestamp                                     |
 
@@ -110,9 +111,17 @@ Implementation: `tasks_on(date)` - reconstructs task statuses from the status ch
 ### Pull Request Links
 
 **In `task list`**: tasks with a `pull_request` number and `github_url` on the project show a colored URL after the title:
-`[8dd8be28] - 🔄 Feature (https://github.com/.../pull/66)` (URL in dark gray)
+`[8dd8be28] - 🔄 Feature https://github.com/.../pull/66` (URL in dark gray, number in blue).
 
-Without `github_url`: `[8dd8be28] - 🔄 Feature (#66)` (plain text)
+If `branch_name` is cached on the task, it is appended in green after the number:
+`[8dd8be28] - 🔄 Feature https://github.com/.../pull/66 feat/login`.
+
+Without `github_url`: `[8dd8be28] - 🔄 Feature (#66)` (plain text, no branch).
+
+**Branch resolution**: `tt task link <id> <number>` shells out to `gh pr view` to fetch `headRefName`
+and caches it on the task. If `gh` is missing, unauthenticated, or the PR is unreachable, the link
+still succeeds and `branch_name` stays `NULL` - the list just shows the PR without a branch. Tasks
+created with `tt task add --number` do not fetch the branch; re-run `tt task link` to populate it.
 
 **In `report`**: if the project has `github_url`, active PR links are listed at the top of the report (before Previously), one URL per line. Only active (in_progress/not_started/blocked) tasks with a `pull_request` number are included. Links are sorted and deduplicated.
 
@@ -178,8 +187,8 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 | `tt task move <id> --order <n>`            | `tt ts mv <id> -o <n>`             | Change display order                         |
 | `tt task move <id> --up`                   | `tt ts mv <id> -u`                 | Move one position up                         |
 | `tt task move <id> --down`                 | `tt ts mv <id> -d`                 | Move one position down                       |
-| `tt task link <id> <number>`               | `tt ts ln <id> <number>`           | Set pull request number                      |
-| `tt task link <id>`                        | `tt ts ln <id>`                    | Clear pull request number                    |
+| `tt task link <id> <number>`               | `tt ts ln <id> <number>`           | Set PR number, fetch branch via `gh`         |
+| `tt task link <id>`                        | `tt ts ln <id>`                    | Clear PR number and cached branch            |
 | `tt task rename <id> <title>`              | `tt ts rn <id> <title>`            | Rename a task                                |
 | `tt task remove <id>`                      | `tt ts rm <id>`                    | Delete task (and its children)               |
 | `tt task list --project <slug>`            | `tt ts -p <slug>`                  | List tasks in a specific project             |
