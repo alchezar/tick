@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-use crate::model::{Status, TaskId};
+use crate::model::{ProjectId, Status, TaskId};
 
 /// Maximum allowed task nesting depth.
 pub const MAX_DEPTH: usize = 4;
@@ -27,6 +27,12 @@ pub enum CoreError {
     ProjectNotFound {
         /// Slug of the missing project.
         slug: String,
+    },
+    /// No project found with the given id.
+    #[error("project not found: {id}")]
+    ProjectNotFoundById {
+        /// `Id` of the missing project.
+        id: ProjectId,
     },
     /// A project with this slug already exists.
     #[error("project already exists: {slug}")]

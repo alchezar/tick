@@ -8,6 +8,7 @@ use crate::{
     args::TaskAction,
     context::AppContext,
     error::{CliError, CliResult},
+    github,
     guard::Confirm,
     types::ShortId,
 };
@@ -304,20 +305,38 @@ where
 }
 
 /// Sets or clears the pull request number for a task.
+///
+/// When a number is provided and the project has a `github_url`, the source
+/// branch is resolved via `gh` and cached on the task. Failures to reach `gh`
+/// are silent - the link still succeeds without a branch.
 async fn link<R, C>(context: &AppContext<R, C>, id: ShortId, number: Option<u32>) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
     let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
+
+    let branch = match number {
+        Some(num) => {
+            let task = context.task_service.find_task(&task_id).await?;
+            let project = context.project_service.find_by_id(&task.project_id).await?;
+            project
+                .github_url
+                .as_deref()
+                .and_then(|url| github::fetch_branch_name(url, num))
+        }
+        None => None,
+    };
+
     context
         .task_service
-        .set_pull_request(&task_id, number, None)
+        .set_pull_request(&task_id, number, branch.clone())
         .await?;
 
     let short_id = ShortId::from(task_id);
-    match number {
-        Some(n) => println!("[{short_id}] pull request: #{n}"),
-        None => println!("[{short_id}] pull request: cleared"),
+    match (number, branch) {
+        (Some(n), Some(branch)) => println!("[{short_id}] pull request: #{n} ({branch})"),
+        (Some(n), None) => println!("[{short_id}] pull request: #{n}"),
+        (None, _) => println!("[{short_id}] pull request: cleared"),
     }
     Ok(())
 }

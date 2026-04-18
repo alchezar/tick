@@ -2,7 +2,7 @@
 
 use crate::{
     error::{CoreError, CoreResult},
-    model::Project,
+    model::{Project, ProjectId},
     repository::{ProjectRepository, TransactionGuard, Transactional},
 };
 
@@ -68,6 +68,18 @@ where
             .ok_or(CoreError::ProjectNotFound {
                 slug: slug.to_owned(),
             })
+    }
+
+    /// Returns the project with the given id.
+    ///
+    /// # Errors
+    /// - [`CoreError::ProjectNotFoundById`] if no project exists with this id.
+    /// - Returns an error if the persistence operation fails.
+    pub async fn find_by_id(&self, id: &ProjectId) -> CoreResult<Project> {
+        self.repo
+            .find_project_by_id(id)
+            .await?
+            .ok_or(CoreError::ProjectNotFoundById { id: *id })
     }
 
     /// Returns all projects.
