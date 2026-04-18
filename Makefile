@@ -3,7 +3,7 @@ LOAD_ENV := set -eo pipefail; set -a; source ./.env; set +a;
 
 .PHONY: help
 # Environment
-.PHONY: env-up env-down migrate restart
+.PHONY: env-up env-down migrate migrate-reset restart
 # Code quality
 .PHONY: check ci validate fmt lint openapi prepare
 # Testing
@@ -28,8 +28,12 @@ env-down: ## Stop environment
 	@echo "[*] Stopping environment..."
 	@docker compose down -v
 
-migrate: ## Reset database and run migrations
-	@echo "[*] Resetting database and applying migrations..."
+migrate: ## Apply pending migrations (non-destructive)
+	@echo "[*] Applying pending migrations..."
+	@$(LOAD_ENV) cargo sqlx migrate run --source crates/db/migrations
+
+migrate-reset: ## Drop and recreate database, then run all migrations (DESTRUCTIVE)
+	@echo "[!] Resetting database - all data will be lost."
 	@$(LOAD_ENV) cargo sqlx database reset -y --source crates/db/migrations
 
 
