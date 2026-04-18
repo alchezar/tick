@@ -94,7 +94,14 @@ where
     let project_id = context.resolve_project(project.as_deref()).await?.id;
     let task = context
         .task_service
-        .create(title, parent, project_id, created_at, pull_request_number)
+        .create(
+            title,
+            parent,
+            project_id,
+            created_at,
+            pull_request_number,
+            None,
+        )
         .await?;
 
     let short_id = ShortId::from(task.id);
@@ -304,7 +311,7 @@ where
     let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
     context
         .task_service
-        .set_pull_request(&task_id, number)
+        .set_pull_request(&task_id, number, None)
         .await?;
 
     let short_id = ShortId::from(task_id);

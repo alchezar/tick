@@ -37,7 +37,7 @@ async fn add_subtask() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let parent = ctx
         .task_service
-        .create("Parent", None, project.id, None, None)
+        .create("Parent", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -80,7 +80,7 @@ async fn start_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None, None)
+        .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -104,7 +104,7 @@ async fn done_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None, None)
+        .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
     ctx.task_service.start(&t.id, None).await.unwrap();
@@ -129,7 +129,7 @@ async fn block_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None, None)
+        .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
     ctx.task_service.start(&t.id, None).await.unwrap();
@@ -154,7 +154,7 @@ async fn reset_changes_status() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None, None)
+        .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
     ctx.task_service.start(&t.id, None).await.unwrap();
@@ -179,7 +179,7 @@ async fn rename_changes_title() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Old", None, project.id, None, None)
+        .create("Old", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -203,7 +203,7 @@ async fn remove_deletes_task() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Temp", None, project.id, None, None)
+        .create("Temp", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -224,7 +224,7 @@ async fn move_reorder() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let t = ctx
         .task_service
-        .create("Task", None, project.id, None, None)
+        .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -251,12 +251,12 @@ async fn move_up() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let a = ctx
         .task_service
-        .create("A", None, project.id, None, None)
+        .create("A", None, project.id, None, None, None)
         .await
         .unwrap();
     let b = ctx
         .task_service
-        .create("B", None, project.id, None, None)
+        .create("B", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -287,12 +287,12 @@ async fn move_down() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let a = ctx
         .task_service
-        .create("A", None, project.id, None, None)
+        .create("A", None, project.id, None, None, None)
         .await
         .unwrap();
     let b = ctx
         .task_service
-        .create("B", None, project.id, None, None)
+        .create("B", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -323,7 +323,7 @@ async fn move_up_at_zero_stays() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let a = ctx
         .task_service
-        .create("A", None, project.id, None, None)
+        .create("A", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -351,12 +351,12 @@ async fn move_down_at_last_stays() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let _a = ctx
         .task_service
-        .create("A", None, project.id, None, None)
+        .create("A", None, project.id, None, None, None)
         .await
         .unwrap();
     let b = ctx
         .task_service
-        .create("B", None, project.id, None, None)
+        .create("B", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -495,6 +495,7 @@ async fn list_from_includes_closed_since_date() {
             project.id,
             Some(past.and_hms_opt(8, 0, 0).unwrap().and_utc()),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -516,6 +517,7 @@ async fn list_from_includes_closed_since_date() {
             project.id,
             Some(recent.and_hms_opt(8, 0, 0).unwrap().and_utc()),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -536,7 +538,7 @@ async fn list_from_includes_closed_since_date() {
 
     // Active task (always visible).
     ctx.task_service
-        .create("Active", None, project.id, None, None)
+        .create("Active", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -584,6 +586,7 @@ async fn list_until_excludes_closed_on_date() {
             project.id,
             Some(early.and_hms_opt(8, 0, 0).unwrap().and_utc()),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -608,6 +611,7 @@ async fn list_until_excludes_closed_on_date() {
             project.id,
             Some(late.and_hms_opt(8, 0, 0).unwrap().and_utc()),
             None,
+            None,
         )
         .await
         .unwrap();
@@ -628,7 +632,7 @@ async fn list_until_excludes_closed_on_date() {
 
     // Active task (always visible).
     ctx.task_service
-        .create("Active", None, project.id, None, None)
+        .create("Active", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -666,20 +670,20 @@ async fn list_subtree_shows_only_descendants() {
     // Create tree: Root -> Child -> Grandchild, and a Sibling at root level.
     let root = ctx
         .task_service
-        .create("Root", None, project.id, None, None)
+        .create("Root", None, project.id, None, None, None)
         .await
         .unwrap();
     let child = ctx
         .task_service
-        .create("Child", Some(root.id), project.id, None, None)
+        .create("Child", Some(root.id), project.id, None, None, None)
         .await
         .unwrap();
     ctx.task_service
-        .create("Grandchild", Some(child.id), project.id, None, None)
+        .create("Grandchild", Some(child.id), project.id, None, None, None)
         .await
         .unwrap();
     ctx.task_service
-        .create("Sibling", None, project.id, None, None)
+        .create("Sibling", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -720,12 +724,12 @@ async fn list_subtree_includes_done_tasks() {
 
     let root = ctx
         .task_service
-        .create("Root", None, project.id, None, None)
+        .create("Root", None, project.id, None, None, None)
         .await
         .unwrap();
     let child = ctx
         .task_service
-        .create("Done child", Some(root.id), project.id, None, None)
+        .create("Done child", Some(root.id), project.id, None, None, None)
         .await
         .unwrap();
     let past = NaiveDate::from_ymd_opt(2025, 1, 10)
@@ -775,12 +779,12 @@ async fn move_without_flags_promotes_to_root() {
 
     let parent = ctx
         .task_service
-        .create("Parent", None, project.id, None, None)
+        .create("Parent", None, project.id, None, None, None)
         .await
         .unwrap();
     let child = ctx
         .task_service
-        .create("Child", Some(parent.id), project.id, None, None)
+        .create("Child", Some(parent.id), project.id, None, None, None)
         .await
         .unwrap();
     assert!(child.parent.is_some());
@@ -827,7 +831,7 @@ async fn set_pull_request_via_handler() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let task = ctx
         .task_service
-        .create("Task", None, project.id, None, None)
+        .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -847,7 +851,7 @@ async fn clear_pull_request_via_handler() {
     let project = ctx.project_service.find_by("work").await.unwrap();
     let task = ctx
         .task_service
-        .create("Task", None, project.id, None, Some(99))
+        .create("Task", None, project.id, None, Some(99), None)
         .await
         .unwrap();
 

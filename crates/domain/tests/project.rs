@@ -99,11 +99,11 @@ async fn delete_cascades_tasks() {
 
     let project = project_svc.create("work", None, None).await.unwrap();
     task_svc
-        .create("Task A", None, project.id, None, None)
+        .create("Task A", None, project.id, None, None, None)
         .await
         .unwrap();
     task_svc
-        .create("Task B", None, project.id, None, None)
+        .create("Task B", None, project.id, None, None, None)
         .await
         .unwrap();
 
@@ -127,11 +127,11 @@ async fn tasks_isolated_between_projects() {
     let personal = project_svc.create("personal", None, None).await.unwrap();
 
     task_svc
-        .create("Work task", None, work.id, None, None)
+        .create("Work task", None, work.id, None, None, None)
         .await
         .unwrap();
     task_svc
-        .create("Personal task", None, personal.id, None, None)
+        .create("Personal task", None, personal.id, None, None, None)
         .await
         .unwrap();
 
@@ -158,7 +158,7 @@ async fn delete_project_cleans_status_changes() {
 
     let project = project_svc.create("work", None, None).await.unwrap();
     let task = task_svc
-        .create("Task", None, project.id, None, None)
+        .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
     task_svc.start(&task.id, None).await.unwrap();
