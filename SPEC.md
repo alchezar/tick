@@ -75,16 +75,29 @@ any         -> abandoned
 
 ### Previously
 
-Tasks active at end-of-yesterday or with a status change on any day since the
-previous **workday**, with statuses reconstructed from the change log as of
-end-of-yesterday.
+Tasks that were active on the previous **workday** or had a status change on that day, with statuses reconstructed from the change log.
 
-Weekend logic (range is `[prev_workday, yesterday]` inclusive):
+Weekend logic:
 
-- Monday: aggregates Friday, Saturday and Sunday
-- Sunday: aggregates Friday and Saturday
-- Saturday: Friday only
-- Tuesday-Friday: the previous day only
+- Monday/Saturday/Sunday: previous workday is Friday
+- Tuesday-Friday: previous day
+
+### Weekend
+
+Optional section shown only when the report date has weekend days between it
+and the previous workday, and at least one task changed status on those days.
+
+Weekend-day ranges (strictly between `prev_workday` and `date`):
+
+- Monday: Saturday and Sunday
+- Sunday: Saturday only
+- Other days: no weekend span - section is omitted
+
+Task selection mirrors Previously: a task appears if it was active at
+end-of-yesterday or had a status change on any weekend day in the range.
+Statuses are reconstructed as of end-of-yesterday so nesting reflects
+cumulative weekend progress. If no status changes happened on the weekend
+days, the section is suppressed entirely.
 
 ### Today
 

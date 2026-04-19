@@ -1,6 +1,6 @@
 //! Business logic for standup report generation.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Weekday};
 
@@ -202,13 +202,12 @@ where
 
     /// Returns tasks for the Weekend section.
     ///
-    /// Includes tasks with status changes on weekend days (Sat/Sun) that fall
-    /// strictly between the previous workday and `date`. For Sunday reports
-    /// this covers Saturday; for Monday - Saturday and Sunday. Returns an
-    /// empty vector on other weekdays or when no weekend changes occurred.
-    ///
-    /// Statuses are reconstructed as of end-of-yesterday so that task state
-    /// reflects cumulative weekend progress.
+    /// Mirrors [`Self::tasks_on`] semantics (active at end-of-yesterday or
+    /// changed in the range), but the "changed" predicate is limited to
+    /// weekend days (Sat/Sun) strictly between the previous workday and
+    /// `date`. For Sunday reports this covers Saturday; for Monday - Saturday
+    /// and Sunday. Returns an empty vector on other weekdays or when no
+    /// weekend changes occurred - in that case the section is suppressed.
     async fn tasks_weekend(
         &self,
         date: NaiveDate,
@@ -232,32 +231,19 @@ where
             return Ok(Vec::new());
         }
 
-        let all = self
-            .repo
-            .list_tasks(&TaskFilter::CreatedBefore(*project_id, yesterday))
-            .await?;
-        let by_id = all.iter().map(|t| (t.id, t)).collect::<HashMap<_, _>>();
-
-        let mut needed = HashSet::new();
-        for id in &changed_ids {
-            let mut cursor = Some(*id);
-            while let Some(task_id) = cursor {
-                if !needed.insert(task_id) {
-                    break;
-                }
-                cursor = by_id.get(&task_id).and_then(|t| t.parent);
-            }
-        }
-
         let mut seen = HashSet::new();
         let mut tasks = Vec::new();
-        for task in &all {
-            if !needed.contains(&task.id) {
-                continue;
-            }
+        for task in self
+            .repo
+            .list_tasks(&TaskFilter::CreatedBefore(*project_id, yesterday))
+            .await?
+        {
             let status = self.status_at(&task.id, yesterday).await?;
-            if status.is_reportable() && seen.insert(task.id) {
-                tasks.push(task.clone().with_status(status));
+            if (status.is_active() || changed_ids.contains(&task.id))
+                && status.is_reportable()
+                && seen.insert(task.id)
+            {
+                tasks.push(task.with_status(status));
             }
         }
         Ok(tasks)
