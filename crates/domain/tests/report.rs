@@ -61,6 +61,7 @@ fn render_formats_hierarchy() {
         "default",
         None,
         vec![grandchild],
+        vec![],
         vec![morning_root, morning_child],
         vec![root, child],
     );
@@ -177,6 +178,7 @@ fn render_real_world_report() {
             b2,
             b3,
         ],
+        vec![],
         vec![
             task1.clone(),
             ip.clone(),
@@ -274,6 +276,7 @@ fn today_section_shows_morning_status() {
     let report = Report::new(
         "default",
         None,
+        vec![],
         vec![],
         vec![morning_done, morning_active, morning_new],
         vec![done_today, still_active, new_task],
@@ -450,7 +453,7 @@ fn sunday_returns_friday() {
 }
 
 #[tokio::test]
-async fn prev_on_sunday_aggregates_friday_and_saturday() {
+async fn weekend_on_sunday_includes_saturday_changes() {
     let repo = FakeRepo::default();
     let report_svc = ReportService::new(repo.clone());
     let project = Project::default();
@@ -476,20 +479,18 @@ async fn prev_on_sunday_aggregates_friday_and_saturday() {
     repo.save_task_change(&ch_started).await.unwrap();
 
     let report = report_svc.generate(d_sun, &project).await.unwrap();
-    let ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
 
-    assert!(
-        ids.contains(&on_fri.id),
-        "Friday task must be in Previously"
-    );
-    assert!(
-        ids.contains(&on_sat.id),
-        "Saturday task must be in Previously"
-    );
+    let prev_ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
+    let weekend_ids = report.weekend.iter().map(|t| t.id).collect::<HashSet<_>>();
+
+    assert!(prev_ids.contains(&on_fri.id), "Friday task in Previously");
+    assert!(!prev_ids.contains(&on_sat.id));
+    assert!(weekend_ids.contains(&on_sat.id), "Saturday task in Weekend");
+    assert!(!weekend_ids.contains(&on_fri.id));
 }
 
 #[tokio::test]
-async fn prev_on_monday_aggregates_friday_saturday_sunday() {
+async fn weekend_on_monday_includes_saturday_and_sunday_changes() {
     let repo = FakeRepo::default();
     let report_svc = ReportService::new(repo.clone());
     let project = Project::default();
@@ -511,19 +512,92 @@ async fn prev_on_monday_aggregates_friday_saturday_sunday() {
         let mut ch = StatusChange::new(task.id, Status::NotStarted, Status::Done, None);
         ch.changed_at = common::datetime(day, 15);
         repo.save_task_change(&ch).await.unwrap();
-        created.push(task);
+        created.push((title, task));
     }
 
     let report = report_svc.generate(d_mon, &project).await.unwrap();
-    let ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
 
-    for task in &created {
-        assert!(
-            ids.contains(&task.id),
-            "{} must be in Previously",
-            task.title
-        );
+    let prev_ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
+    let weekend_ids = report.weekend.iter().map(|t| t.id).collect::<HashSet<_>>();
+
+    for (label, task) in &created {
+        match *label {
+            "Fri" => assert!(prev_ids.contains(&task.id), "Fri in Previously"),
+            "Sat" | "Sun" => assert!(weekend_ids.contains(&task.id), "{label} in Weekend"),
+            _ => unreachable!(),
+        }
     }
+}
+
+#[tokio::test]
+async fn weekend_empty_on_weekday_reports() {
+    let repo = FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+    let project = Project::default();
+
+    let tuesday = common::date(2026, 2, 24);
+    let report = report_svc.generate(tuesday, &project).await.unwrap();
+    assert!(report.weekend.is_empty());
+}
+
+#[tokio::test]
+async fn weekend_empty_when_no_weekend_changes() {
+    let repo = FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+    let project = Project::default();
+
+    let d_fri = common::date(2026, 2, 27);
+    let d_mon = common::date(2026, 3, 2);
+
+    let mut task = Task::new("Fri only", None, project.id);
+    task.created = common::datetime(d_fri, 8);
+    task.order = Some(0);
+    repo.save_task(&task).await.unwrap();
+    let mut ch = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
+    ch.changed_at = common::datetime(d_fri, 15);
+    repo.save_task_change(&ch).await.unwrap();
+
+    let report = report_svc.generate(d_mon, &project).await.unwrap();
+    assert!(report.weekend.is_empty());
+}
+
+#[tokio::test]
+async fn weekend_section_includes_ancestors() {
+    let repo = FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+    let project = Project::default();
+
+    let d_fri = common::date(2026, 2, 27);
+    let d_sat = common::date(2026, 2, 28);
+    let d_sun = common::date(2026, 3, 1);
+
+    // Parent: created Friday, started Friday (no weekend change on itself).
+    let mut parent = Task::new("Parent", None, project.id);
+    parent.created = common::datetime(d_fri, 8);
+    parent.order = Some(0);
+    repo.save_task(&parent).await.unwrap();
+    let mut parent_start =
+        StatusChange::new(parent.id, Status::NotStarted, Status::InProgress, None);
+    parent_start.changed_at = common::datetime(d_fri, 10);
+    repo.save_task_change(&parent_start).await.unwrap();
+
+    // Child: completed on Saturday.
+    let mut child = Task::new("Child", Some(parent.id), project.id);
+    child.created = common::datetime(d_fri, 9);
+    child.order = Some(0);
+    repo.save_task(&child).await.unwrap();
+    let mut child_done = StatusChange::new(child.id, Status::NotStarted, Status::Done, None);
+    child_done.changed_at = common::datetime(d_sat, 12);
+    repo.save_task_change(&child_done).await.unwrap();
+
+    let report = report_svc.generate(d_sun, &project).await.unwrap();
+    let weekend_ids = report.weekend.iter().map(|t| t.id).collect::<HashSet<_>>();
+
+    assert!(
+        weekend_ids.contains(&parent.id),
+        "parent must be included for hierarchy context"
+    );
+    assert!(weekend_ids.contains(&child.id));
 }
 
 #[test]
@@ -534,8 +608,22 @@ fn render_all_combines_multiple_projects() {
     let mut task_b = Task::new("Task B", None, Project::default().id);
     task_b.order = Some(0);
 
-    let r1 = Report::new("Work", None, vec![], vec![task_a.clone()], vec![task_a]);
-    let r2 = Report::new("Personal", None, vec![], vec![task_b.clone()], vec![task_b]);
+    let r1 = Report::new(
+        "Work",
+        None,
+        vec![],
+        vec![],
+        vec![task_a.clone()],
+        vec![task_a],
+    );
+    let r2 = Report::new(
+        "Personal",
+        None,
+        vec![],
+        vec![],
+        vec![task_b.clone()],
+        vec![task_b],
+    );
 
     let output = service::render_all(&[r1, r2], true);
 
@@ -550,8 +638,15 @@ fn render_all_skips_empty_reports() {
     let mut task = Task::new("Task", None, Project::default().id);
     task.order = Some(0);
 
-    let empty = Report::new("Empty", None, vec![], vec![], vec![]);
-    let filled = Report::new("Filled", None, vec![], vec![task.clone()], vec![task]);
+    let empty = Report::new("Empty", None, vec![], vec![], vec![], vec![]);
+    let filled = Report::new(
+        "Filled",
+        None,
+        vec![],
+        vec![],
+        vec![task.clone()],
+        vec![task],
+    );
 
     let output = service::render_all(&[empty, filled], true);
 
@@ -641,6 +736,7 @@ fn render_includes_pr_links_when_github_url_set() {
         "Work",
         Some("https://github.com/owner/repo".to_owned()),
         vec![],
+        vec![],
         vec![task.clone()],
         vec![task],
     );
@@ -658,7 +754,7 @@ fn render_no_pr_links_without_github_url() {
     task.pull_request_number = Some(42);
     let task = task.with_status(Status::InProgress);
 
-    let report = Report::new("Work", None, vec![], vec![task.clone()], vec![task]);
+    let report = Report::new("Work", None, vec![], vec![], vec![task.clone()], vec![task]);
 
     let output = report.render(true, true);
     assert!(!output.contains("pull/42"));
@@ -676,6 +772,7 @@ fn render_no_pr_links_for_closed_tasks() {
     let report = Report::new(
         "Work",
         Some("https://github.com/owner/repo".to_owned()),
+        vec![],
         vec![],
         vec![task.clone()],
         vec![task],
@@ -707,6 +804,7 @@ fn render_pr_links_deduped_and_sorted() {
     let report = Report::new(
         "Work",
         Some("https://github.com/owner/repo".to_owned()),
+        vec![],
         vec![],
         vec![t1.clone(), t2.clone(), t3.clone()],
         vec![t1, t2, t3],

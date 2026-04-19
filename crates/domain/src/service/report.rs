@@ -1,6 +1,6 @@
 //! Business logic for standup report generation.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Weekday};
 
@@ -17,10 +17,12 @@ pub struct Report {
     pub title: String,
     /// Optional GitHub repository URL for building PR links.
     pub github_url: Option<String>,
-    /// Tasks active at end-of-yesterday or with status changes between the
-    /// previous workday and yesterday (inclusive), with statuses reconstructed
-    /// as of end-of-yesterday.
+    /// Tasks whose `updated_at` falls on the previous workday.
     pub prev: Vec<Task>,
+    /// Tasks with status changes on weekend days falling strictly between
+    /// the previous workday and today. Empty when there is no weekend span
+    /// to report (Tuesday-Saturday) or when no changes happened on those days.
+    pub weekend: Vec<Task>,
     /// Morning plan: tasks with their status as of end-of-previous-day.
     pub today: Vec<Task>,
     /// Actual state: tasks with their real end-of-day status.
@@ -34,6 +36,7 @@ impl Report {
         title: impl Into<String>,
         github_url: Option<String>,
         prev: Vec<Task>,
+        weekend: Vec<Task>,
         today: Vec<Task>,
         current: Vec<Task>,
     ) -> Self {
@@ -41,6 +44,7 @@ impl Report {
             title: title.into(),
             github_url,
             prev,
+            weekend,
             today,
             current,
         }
@@ -48,8 +52,10 @@ impl Report {
 
     /// Renders the report as a formatted string ready to paste into a chat.
     ///
-    /// Output starts with the project title, followed by three sections:
-    /// - **Previously** - tasks updated on the previous workday (real icons).
+    /// Output starts with the project title, followed by:
+    /// - **Previously** - tasks updated on the previous workday.
+    /// - **Weekend** - tasks with status changes on weekend days since the
+    ///   previous workday. Only rendered when non-empty.
     /// - **Today** - morning plan: tasks with their status as of end-of-previous-day.
     /// - **Current** - actual state of today's tasks (real icons).
     ///
@@ -69,6 +75,14 @@ impl Report {
         if !self.prev.is_empty() {
             body.push_str(" Previously:\n");
             body.push_str(&render_section(&self.prev));
+        }
+
+        if !self.weekend.is_empty() {
+            if !body.is_empty() {
+                body.push('\n');
+            }
+            body.push_str(" Weekend:\n");
+            body.push_str(&render_section(&self.weekend));
         }
 
         if !self.today.is_empty() {
@@ -150,6 +164,7 @@ where
             title,
             project.github_url.clone(),
             self.tasks_prev(date, &project.id).await?,
+            self.tasks_weekend(date, &project.id).await?,
             today,
             current,
         );
@@ -178,36 +193,71 @@ where
 
     /// Returns tasks for the Previously section.
     ///
-    /// Covers the whole span since the previous workday: for Monday this
-    /// aggregates Friday, Saturday and Sunday; for Sunday - Friday and
-    /// Saturday; for Saturday - Friday; for other days just the previous day.
-    /// Each task is shown with its end-of-yesterday status.
+    /// All tasks that had a status change on the previous workday,
+    /// shown with their status as of that day.
     async fn tasks_prev(&self, date: NaiveDate, project_id: &ProjectId) -> CoreResult<Vec<Task>> {
-        let start = prev_workday(date);
-        let end = date - Duration::days(1);
+        let prev_day = prev_workday(date);
+        self.tasks_on(prev_day, project_id).await
+    }
+
+    /// Returns tasks for the Weekend section.
+    ///
+    /// Includes tasks with status changes on weekend days (Sat/Sun) that fall
+    /// strictly between the previous workday and `date`. For Sunday reports
+    /// this covers Saturday; for Monday - Saturday and Sunday. Returns an
+    /// empty vector on other weekdays or when no weekend changes occurred.
+    ///
+    /// Statuses are reconstructed as of end-of-yesterday so that task state
+    /// reflects cumulative weekend progress.
+    async fn tasks_weekend(
+        &self,
+        date: NaiveDate,
+        project_id: &ProjectId,
+    ) -> CoreResult<Vec<Task>> {
+        let prev = prev_workday(date);
+        let yesterday = date - Duration::days(1);
 
         let mut changed_ids = HashSet::new();
-        let mut cur = start;
-        while cur <= end {
-            for change in self.repo.list_task_changes_on(cur).await? {
-                changed_ids.insert(change.task_id);
+        let mut cur = prev + Duration::days(1);
+        while cur <= yesterday {
+            if matches!(cur.weekday(), Weekday::Sat | Weekday::Sun) {
+                for change in self.repo.list_task_changes_on(cur).await? {
+                    changed_ids.insert(change.task_id);
+                }
             }
             cur += Duration::days(1);
         }
 
+        if changed_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let all = self
+            .repo
+            .list_tasks(&TaskFilter::CreatedBefore(*project_id, yesterday))
+            .await?;
+        let by_id = all.iter().map(|t| (t.id, t)).collect::<HashMap<_, _>>();
+
+        let mut needed = HashSet::new();
+        for id in &changed_ids {
+            let mut cursor = Some(*id);
+            while let Some(task_id) = cursor {
+                if !needed.insert(task_id) {
+                    break;
+                }
+                cursor = by_id.get(&task_id).and_then(|t| t.parent);
+            }
+        }
+
         let mut seen = HashSet::new();
         let mut tasks = Vec::new();
-        for task in self
-            .repo
-            .list_tasks(&TaskFilter::CreatedBefore(*project_id, end))
-            .await?
-        {
-            let status = self.status_at(&task.id, end).await?;
-            if (status.is_active() || changed_ids.contains(&task.id))
-                && status.is_reportable()
-                && seen.insert(task.id)
-            {
-                tasks.push(task.with_status(status));
+        for task in &all {
+            if !needed.contains(&task.id) {
+                continue;
+            }
+            let status = self.status_at(&task.id, yesterday).await?;
+            if status.is_reportable() && seen.insert(task.id) {
+                tasks.push(task.clone().with_status(status));
             }
         }
         Ok(tasks)
