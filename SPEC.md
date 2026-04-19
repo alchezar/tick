@@ -84,8 +84,7 @@ Weekend logic:
 
 ### Weekend
 
-Optional section shown only when the report date has weekend days between it
-and the previous workday, and at least one task changed status on those days.
+Optional section shown only when the report date has weekend days between it and the previous workday, and at least one task changed status on those days.
 
 Weekend-day ranges (strictly between `prev_workday` and `date`):
 
@@ -93,11 +92,7 @@ Weekend-day ranges (strictly between `prev_workday` and `date`):
 - Sunday: Saturday only
 - Other days: no weekend span - section is omitted
 
-Task selection mirrors Previously: a task appears if it was active at
-end-of-yesterday or had a status change on any weekend day in the range.
-Statuses are reconstructed as of end-of-yesterday so nesting reflects
-cumulative weekend progress. If no status changes happened on the weekend
-days, the section is suppressed entirely.
+Task selection mirrors Previously: a task appears if it was active at end-of-yesterday or had a status change on any weekend day in the range. Statuses are reconstructed as of end-of-yesterday so nesting reflects cumulative weekend progress. If no status changes happened on the weekend days, the section is suppressed entirely.
 
 ### Today
 
@@ -136,9 +131,7 @@ If `branch_name` is cached on the task, it is appended in green after the number
 Without `github_url`: `[8dd8be28] - 🔄 Feature (#66)` (plain text, no branch).
 
 **Branch resolution**: `tt task link <id> <number>` shells out to `gh pr view` to fetch `headRefName`
-and caches it on the task. If `gh` is missing, unauthenticated, or the PR is unreachable, the link
-still succeeds and `branch_name` stays `NULL` - the list just shows the PR without a branch. Tasks
-created with `tt task add --number` do not fetch the branch; re-run `tt task link` to populate it.
+and caches it on the task. If `gh` is missing, unauthenticated, or the PR is unreachable, the link still succeeds and `branch_name` stays `NULL` - the list just shows the PR without a branch. Tasks created with `tt task add --number` do not fetch the branch; re-run `tt task link` to populate it.
 
 **In `report`**: if the project has `github_url`, active PR links are listed at the top of the report (before Previously), one URL per line. Only active (in_progress/not_started/blocked) tasks with a `pull_request` number are included. Links are sorted and deduplicated.
 
@@ -176,39 +169,39 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 
 ### Task Management
 
-| Full command                               | Short command                      | Description                                  |
-|--------------------------------------------|------------------------------------|----------------------------------------------|
-| `tt task add <title>`                      | `tt ts ad <title>`                 | Add a root task                              |
-| `tt task add <title> --parent <id>`        | `tt ts ad <title> -p <id>`         | Add a child task                             |
-| `tt task add <title> --project <slug>`     | `tt ts ad <title> -P <slug>`       | Add a task to a specific project             |
-| `tt task add <title> --date <YYYY-MM-DD>`  | `tt ts ad <title> -d <YYYY-MM-DD>` | Add a task with a specific creation date     |
-| `tt task add <title> --number <n>`         | `tt ts ad <title> -n <n>`          | Add a task with a pull request number        |
-| `tt task`                                  | `tt ts`                            | Fallback to task list                        |
-| `tt task list`                             | `tt ts ls`                         | List active tasks (tree view)                |
-| `tt task list --from <YYYY-MM-DD>`         | `tt ts -f <YYYY-MM-DD>`            | List active + closed since date (inclusive)  |
-| `tt task list --until <YYYY-MM-DD>`        | `tt ts -u <YYYY-MM-DD>`            | List active + closed before date (exclusive) |
-| `tt task list --all`                       | `tt ts ls -a`                      | List all tasks including done/abandoned      |
-| `tt task list --subtree <id>`              | `tt ts ls -s <id>`                 | Show full subtree of a task (all statuses)   |
-| `tt task start <id>`                       | `tt ts st <id>`                    | Set status to in_progress                    |
-| `tt task start <id> --date <YYYY-MM-DD>`   | `tt ts st <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
-| `tt task done <id>`                        | `tt ts dn <id>`                    | Set status to done                           |
-| `tt task done <id> --date <YYYY-MM-DD>`    | `tt ts dn <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
-| `tt task block <id>`                       | `tt ts bl <id>`                    | Set status to blocked                        |
-| `tt task block <id> --date <YYYY-MM-DD>`   | `tt ts bl <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
-| `tt task abandon <id>`                     | `tt ts ab <id>`                    | Mark task as abandoned                       |
-| `tt task abandon <id> --date <YYYY-MM-DD>` | `tt ts ab <id> -d <YYYY-MM-DD>`    | Abandon with specific date                   |
-| `tt task reset <id>`                       | `tt ts rs <id>`                    | Set status to not_started                    |
-| `tt task reset <id> --date <YYYY-MM-DD>`   | `tt ts rs <id> -d <YYYY-MM-DD>`    | Set status with specific date                |
-| `tt task move <id>`                        | `tt ts mv <id>`                    | Promote task to root (remove parent)         |
-| `tt task move <id> --parent <id>`          | `tt ts mv <id> -p <id>`            | Move task to a new parent                    |
-| `tt task move <id> --order <n>`            | `tt ts mv <id> -o <n>`             | Change display order                         |
-| `tt task move <id> --up`                   | `tt ts mv <id> -u`                 | Move one position up                         |
-| `tt task move <id> --down`                 | `tt ts mv <id> -d`                 | Move one position down                       |
-| `tt task link <id> <number>`               | `tt ts ln <id> <number>`           | Set PR number, fetch branch via `gh`         |
-| `tt task link <id>`                        | `tt ts ln <id>`                    | Clear PR number and cached branch            |
-| `tt task rename <id> <title>`              | `tt ts rn <id> <title>`            | Rename a task                                |
-| `tt task remove <id>`                      | `tt ts rm <id>`                    | Delete task (and its children)               |
-| `tt task list --project <slug>`            | `tt ts -p <slug>`                  | List tasks in a specific project             |
+| Full command                               | Short command                      | Description                                   |
+|--------------------------------------------|------------------------------------|-----------------------------------------------|
+| `tt task add <title>`                      | `tt ts ad <title>`                 | Add a root task                               |
+| `tt task add <title> --parent <id>`        | `tt ts ad <title> -p <id>`         | Add a child task                              |
+| `tt task add <title> --project <slug>`     | `tt ts ad <title> -P <slug>`       | Add a task to a specific project              |
+| `tt task add <title> --date <YYYY-MM-DD>`  | `tt ts ad <title> -d <YYYY-MM-DD>` | Add a task with a specific creation date      |
+| `tt task add <title> --number <n>`         | `tt ts ad <title> -n <n>`          | Add a task with a pull request number         |
+| `tt task`                                  | `tt ts`                            | Fallback to task list                         |
+| `tt task list`                             | `tt ts ls`                         | List active tasks (tree view)                 |
+| `tt task list --from <YYYY-MM-DD>`         | `tt ts -f <YYYY-MM-DD>`            | List active + closed since date (inclusive)   |
+| `tt task list --until <YYYY-MM-DD>`        | `tt ts -u <YYYY-MM-DD>`            | List active + closed before date (exclusive)  |
+| `tt task list --all`                       | `tt ts ls -a`                      | List all tasks including done/abandoned       |
+| `tt task list --subtree <id>`              | `tt ts ls -s <id>`                 | Show full subtree of a task (all statuses)    |
+| `tt task start <id>`                       | `tt ts st <id>`                    | Set status to in_progress                     |
+| `tt task start <id> --date <YYYY-MM-DD>`   | `tt ts st <id> -d <YYYY-MM-DD>`    | Set status with specific date                 |
+| `tt task done <id>`                        | `tt ts dn <id>`                    | Set status to done                            |
+| `tt task done <id> --date <YYYY-MM-DD>`    | `tt ts dn <id> -d <YYYY-MM-DD>`    | Set status with specific date                 |
+| `tt task block <id>`                       | `tt ts bl <id>`                    | Set status to blocked                         |
+| `tt task block <id> --date <YYYY-MM-DD>`   | `tt ts bl <id> -d <YYYY-MM-DD>`    | Set status with specific date                 |
+| `tt task abandon <id>`                     | `tt ts ab <id>`                    | Mark task as abandoned                        |
+| `tt task abandon <id> --date <YYYY-MM-DD>` | `tt ts ab <id> -d <YYYY-MM-DD>`    | Abandon with specific date                    |
+| `tt task reset <id>`                       | `tt ts rs <id>`                    | Set status to not_started                     |
+| `tt task reset <id> --date <YYYY-MM-DD>`   | `tt ts rs <id> -d <YYYY-MM-DD>`    | Set status with specific date                 |
+| `tt task move <id>`                        | `tt ts mv <id>`                    | Promote task to root (remove parent)          |
+| `tt task move <id> --parent <id>`          | `tt ts mv <id> -p <id>`            | Move task to a new parent                     |
+| `tt task move <id> --order <n>`            | `tt ts mv <id> -o <n>`             | Change display order                          |
+| `tt task move <id> --up [N]`               | `tt ts mv <id> -u [N]`             | Move N positions up (default 1, clamp at top) |
+| `tt task move <id> --down [N]`             | `tt ts mv <id> -d [N]`             | Move N positions down (default 1, clamp)      |
+| `tt task link <id> <number>`               | `tt ts ln <id> <number>`           | Set PR number, fetch branch via `gh`          |
+| `tt task link <id>`                        | `tt ts ln <id>`                    | Clear PR number and cached branch             |
+| `tt task rename <id> <title>`              | `tt ts rn <id> <title>`            | Rename a task                                 |
+| `tt task remove <id>`                      | `tt ts rm <id>`                    | Delete task (and its children)                |
+| `tt task list --project <slug>`            | `tt ts -p <slug>`                  | List tasks in a specific project              |
 
 ### Report
 

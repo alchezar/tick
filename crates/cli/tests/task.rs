@@ -231,8 +231,8 @@ async fn move_reorder() {
     let action = TaskAction::Move {
         id: t.id.into(),
         parent: None,
-        up: false,
-        down: false,
+        up: None,
+        down: None,
         order: Some(5),
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -264,8 +264,8 @@ async fn move_up() {
     let action = TaskAction::Move {
         id: b.id.into(),
         parent: None,
-        up: true,
-        down: false,
+        up: Some(1),
+        down: None,
         order: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -300,8 +300,8 @@ async fn move_down() {
     let action = TaskAction::Move {
         id: a.id.into(),
         parent: None,
-        up: false,
-        down: true,
+        up: None,
+        down: Some(1),
         order: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -331,8 +331,8 @@ async fn move_up_at_zero_stays() {
     let action = TaskAction::Move {
         id: a.id.into(),
         parent: None,
-        up: true,
-        down: false,
+        up: Some(1),
+        down: None,
         order: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -364,8 +364,8 @@ async fn move_down_at_last_stays() {
     let action = TaskAction::Move {
         id: b.id.into(),
         parent: None,
-        up: false,
-        down: true,
+        up: None,
+        down: Some(1),
         order: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -377,6 +377,94 @@ async fn move_down_at_last_stays() {
         .unwrap();
     let updated_b = tasks.iter().find(|t| t.id == b.id).unwrap();
     assert_eq!(updated_b.order, Some(1));
+}
+
+#[tokio::test]
+async fn move_up_multiple_steps() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    let a = ctx
+        .task_service
+        .create("A", None, project.id, None, None, None)
+        .await
+        .unwrap();
+    let b = ctx
+        .task_service
+        .create("B", None, project.id, None, None, None)
+        .await
+        .unwrap();
+    let c = ctx
+        .task_service
+        .create("C", None, project.id, None, None, None)
+        .await
+        .unwrap();
+    let d = ctx
+        .task_service
+        .create("D", None, project.id, None, None, None)
+        .await
+        .unwrap();
+
+    // D starts at order 3, move up 2 -> order 1.
+    let action = TaskAction::Move {
+        id: d.id.into(),
+        parent: None,
+        up: Some(2),
+        down: None,
+        order: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let tasks = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    let find = |id| tasks.iter().find(|t| t.id == id).unwrap().order;
+    assert_eq!(find(a.id), Some(0));
+    assert_eq!(find(d.id), Some(1));
+    assert_eq!(find(b.id), Some(2));
+    assert_eq!(find(c.id), Some(3));
+}
+
+#[tokio::test]
+async fn move_up_beyond_top_stops_silently() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    let a = ctx
+        .task_service
+        .create("A", None, project.id, None, None, None)
+        .await
+        .unwrap();
+    let _b = ctx
+        .task_service
+        .create("B", None, project.id, None, None, None)
+        .await
+        .unwrap();
+    let c = ctx
+        .task_service
+        .create("C", None, project.id, None, None, None)
+        .await
+        .unwrap();
+
+    // C at order 2, request 10 up -> ends at order 0.
+    let action = TaskAction::Move {
+        id: c.id.into(),
+        parent: None,
+        up: Some(10),
+        down: None,
+        order: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let tasks = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    let updated_c = tasks.iter().find(|t| t.id == c.id).unwrap();
+    let updated_a = tasks.iter().find(|t| t.id == a.id).unwrap();
+    assert_eq!(updated_c.order, Some(0));
+    assert_eq!(updated_a.order, Some(1));
 }
 
 #[tokio::test]
@@ -792,8 +880,8 @@ async fn move_without_flags_promotes_to_root() {
     let action = TaskAction::Move {
         id: child.id.into(),
         parent: None,
-        up: false,
-        down: false,
+        up: None,
+        down: None,
         order: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();

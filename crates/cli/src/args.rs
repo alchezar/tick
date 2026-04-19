@@ -236,13 +236,13 @@ pub enum TaskAction {
         #[arg(short, long, group = "action")]
         parent: Option<ShortId>,
 
-        /// Move one position up among siblings.
-        #[arg(short, long, group = "action")]
-        up: bool,
+        /// Move N positions up among siblings (default 1).
+        #[arg(short, long, group = "action", num_args = 0..=1, default_missing_value = "1")]
+        up: Option<u8>,
 
-        /// Move one position down among siblings.
-        #[arg(short, long, group = "action")]
-        down: bool,
+        /// Move N positions down among siblings (default 1).
+        #[arg(short, long, group = "action", num_args = 0..=1, default_missing_value = "1")]
+        down: Option<u8>,
 
         /// New sibling display order.
         #[arg(short, long, group = "action")]

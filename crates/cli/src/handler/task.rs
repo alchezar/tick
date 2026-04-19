@@ -235,8 +235,8 @@ async fn move_task<R, C>(
     context: &AppContext<R, C>,
     id: ShortId,
     parent: Option<ShortId>,
-    up: bool,
-    down: bool,
+    up: Option<u8>,
+    down: Option<u8>,
     order: Option<usize>,
 ) -> CliResult<()>
 where
@@ -244,7 +244,7 @@ where
 {
     let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
     let project_id = context.resolve_project(None).await?.id;
-    let move_to_root = !up && !down && order.is_none();
+    let move_to_root = up.is_none() && down.is_none() && order.is_none();
 
     if let Some(parent_short) = parent {
         let parent_uuid = context
@@ -262,9 +262,10 @@ where
             .await?;
     }
 
-    if up || down {
+    if let Some(steps) = up.or(down) {
+        let going_up = up.is_some();
         let task = context.task_service.find_task(&task_id).await?;
-        let current = task.order.unwrap_or(0);
+        let mut current = task.order.unwrap_or(0);
 
         let mut siblings = context
             .task_service
@@ -275,18 +276,31 @@ where
             .collect::<Vec<_>>();
         siblings.sort_by_key(|t| t.order.unwrap_or(0));
 
-        let neighbor = if up {
-            siblings.iter().rfind(|t| t.order.unwrap_or(0) < current)
-        } else {
-            siblings.iter().find(|t| t.order.unwrap_or(0) > current)
-        };
+        for _ in 0..steps {
+            let neighbor = if going_up {
+                siblings.iter().rfind(|t| t.order.unwrap_or(0) < current)
+            } else {
+                siblings.iter().find(|t| t.order.unwrap_or(0) > current)
+            };
 
-        if let Some(neighbor) = neighbor {
+            let Some(neighbor) = neighbor else {
+                break;
+            };
             let neighbor_order = neighbor.order.unwrap_or(0);
             context
                 .task_service
                 .swap_order(&task_id, current, &neighbor.id, neighbor_order)
                 .await?;
+
+            siblings = context
+                .task_service
+                .list(&task.siblings_filter(project_id))
+                .await?
+                .into_iter()
+                .filter(|t| t.id != task_id)
+                .collect::<Vec<_>>();
+            siblings.sort_by_key(|t| t.order.unwrap_or(0));
+            current = neighbor_order;
         }
     } else if let Some(ord) = order {
         let mut tasks = context
