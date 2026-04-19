@@ -2,6 +2,8 @@
 
 mod common;
 
+use std::collections::HashSet;
+
 use chrono::{Duration, Utc};
 
 use domain::{
@@ -445,6 +447,83 @@ fn sunday_returns_friday() {
         service::prev_workday(common::date(2026, 3, 1)),
         common::date(2026, 2, 27)
     );
+}
+
+#[tokio::test]
+async fn prev_on_sunday_aggregates_friday_and_saturday() {
+    let repo = FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+    let project = Project::default();
+
+    let d_fri = common::date(2026, 2, 27);
+    let d_sat = common::date(2026, 2, 28);
+    let d_sun = common::date(2026, 3, 1);
+
+    let mut on_fri = Task::new("Friday task", None, project.id);
+    on_fri.created = common::datetime(d_fri, 8);
+    on_fri.order = Some(0);
+    repo.save_task(&on_fri).await.unwrap();
+    let mut ch_done = StatusChange::new(on_fri.id, Status::NotStarted, Status::Done, None);
+    ch_done.changed_at = common::datetime(d_fri, 15);
+    repo.save_task_change(&ch_done).await.unwrap();
+
+    let mut on_sat = Task::new("Saturday task", None, project.id);
+    on_sat.created = common::datetime(d_sat, 8);
+    on_sat.order = Some(1);
+    repo.save_task(&on_sat).await.unwrap();
+    let mut ch_started = StatusChange::new(on_sat.id, Status::NotStarted, Status::InProgress, None);
+    ch_started.changed_at = common::datetime(d_sat, 11);
+    repo.save_task_change(&ch_started).await.unwrap();
+
+    let report = report_svc.generate(d_sun, &project).await.unwrap();
+    let ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
+
+    assert!(
+        ids.contains(&on_fri.id),
+        "Friday task must be in Previously"
+    );
+    assert!(
+        ids.contains(&on_sat.id),
+        "Saturday task must be in Previously"
+    );
+}
+
+#[tokio::test]
+async fn prev_on_monday_aggregates_friday_saturday_sunday() {
+    let repo = FakeRepo::default();
+    let report_svc = ReportService::new(repo.clone());
+    let project = Project::default();
+
+    let d_fri = common::date(2026, 2, 27);
+    let d_sat = common::date(2026, 2, 28);
+    let d_sun = common::date(2026, 3, 1);
+    let d_mon = common::date(2026, 3, 2);
+
+    let mut created = Vec::new();
+    for (idx, (title, day)) in [("Fri", d_fri), ("Sat", d_sat), ("Sun", d_sun)]
+        .into_iter()
+        .enumerate()
+    {
+        let mut task = Task::new(title, None, project.id);
+        task.created = common::datetime(day, 8);
+        task.order = Some(idx);
+        repo.save_task(&task).await.unwrap();
+        let mut ch = StatusChange::new(task.id, Status::NotStarted, Status::Done, None);
+        ch.changed_at = common::datetime(day, 15);
+        repo.save_task_change(&ch).await.unwrap();
+        created.push(task);
+    }
+
+    let report = report_svc.generate(d_mon, &project).await.unwrap();
+    let ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
+
+    for task in &created {
+        assert!(
+            ids.contains(&task.id),
+            "{} must be in Previously",
+            task.title
+        );
+    }
 }
 
 #[test]

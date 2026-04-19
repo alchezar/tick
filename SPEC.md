@@ -75,12 +75,16 @@ any         -> abandoned
 
 ### Previously
 
-Tasks that were active on the previous **workday** or had a status change on that day, with statuses reconstructed from the change log.
+Tasks active at end-of-yesterday or with a status change on any day since the
+previous **workday**, with statuses reconstructed from the change log as of
+end-of-yesterday.
 
-Weekend logic:
+Weekend logic (range is `[prev_workday, yesterday]` inclusive):
 
-- Monday/Saturday/Sunday: previous workday is Friday
-- Tuesday-Friday: previous day
+- Monday: aggregates Friday, Saturday and Sunday
+- Sunday: aggregates Friday and Saturday
+- Saturday: Friday only
+- Tuesday-Friday: the previous day only
 
 ### Today
 

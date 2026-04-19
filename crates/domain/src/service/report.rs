@@ -17,7 +17,9 @@ pub struct Report {
     pub title: String,
     /// Optional GitHub repository URL for building PR links.
     pub github_url: Option<String>,
-    /// Tasks whose `updated_at` falls on the previous workday.
+    /// Tasks active at end-of-yesterday or with status changes between the
+    /// previous workday and yesterday (inclusive), with statuses reconstructed
+    /// as of end-of-yesterday.
     pub prev: Vec<Task>,
     /// Morning plan: tasks with their status as of end-of-previous-day.
     pub today: Vec<Task>,
@@ -176,11 +178,39 @@ where
 
     /// Returns tasks for the Previously section.
     ///
-    /// All tasks that had a status change on the previous workday,
-    /// shown with their status as of that day.
+    /// Covers the whole span since the previous workday: for Monday this
+    /// aggregates Friday, Saturday and Sunday; for Sunday - Friday and
+    /// Saturday; for Saturday - Friday; for other days just the previous day.
+    /// Each task is shown with its end-of-yesterday status.
     async fn tasks_prev(&self, date: NaiveDate, project_id: &ProjectId) -> CoreResult<Vec<Task>> {
-        let prev_day = prev_workday(date);
-        self.tasks_on(prev_day, project_id).await
+        let start = prev_workday(date);
+        let end = date - Duration::days(1);
+
+        let mut changed_ids = HashSet::new();
+        let mut cur = start;
+        while cur <= end {
+            for change in self.repo.list_task_changes_on(cur).await? {
+                changed_ids.insert(change.task_id);
+            }
+            cur += Duration::days(1);
+        }
+
+        let mut seen = HashSet::new();
+        let mut tasks = Vec::new();
+        for task in self
+            .repo
+            .list_tasks(&TaskFilter::CreatedBefore(*project_id, end))
+            .await?
+        {
+            let status = self.status_at(&task.id, end).await?;
+            if (status.is_active() || changed_ids.contains(&task.id))
+                && status.is_reportable()
+                && seen.insert(task.id)
+            {
+                tasks.push(task.with_status(status));
+            }
+        }
+        Ok(tasks)
     }
 
     /// Returns tasks for the Today (morning plan) and Current sections.
