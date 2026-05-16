@@ -20,6 +20,7 @@ use domain::{
 /// Dispatches a task subcommand.
 ///
 /// # Errors
+///
 /// Returns [`CliError`] on domain, config, or resolve errors.
 pub async fn handle<R, C>(action: Option<TaskAction>, context: &AppContext<R, C>) -> CliResult<()>
 where
@@ -83,12 +84,13 @@ where
     };
 
     let created_at = date
-        .map(|d| {
-            d.and_hms_opt(8, 0, 0)
+        .map(|naive_date| {
+            naive_date
+                .and_hms_opt(8, 0, 0)
                 .ok_or_else(|| CliError::InvalidDate {
-                    date: d.to_string(),
+                    date: naive_date.to_string(),
                 })
-                .map(|dt| dt.and_utc())
+                .map(|date_time| date_time.and_utc())
         })
         .transpose()?;
 
@@ -134,10 +136,10 @@ where
     let mut visible = context.task_service.list(&filter).await?;
 
     if let Some(from) = from {
-        visible.retain(|t| t.status().is_active() || t.updated.date_naive() >= from);
+        visible.retain(|task| task.status().is_active() || task.updated.date_naive() >= from);
     }
     if let Some(until) = until {
-        visible.retain(|t| t.status().is_active() || t.updated.date_naive() < until);
+        visible.retain(|task| task.status().is_active() || task.updated.date_naive() < until);
     }
 
     let subtree_root_id = match subtree {
@@ -150,15 +152,17 @@ where
         return Ok(());
     }
 
-    let ids = visible.iter().map(|t| t.id).collect::<HashSet<_>>();
+    let ids = visible.iter().map(|task| task.id).collect::<HashSet<_>>();
     let mut roots = visible
         .iter()
-        .filter(|t| match subtree_root_id {
-            Some(id) => t.id == id,
-            None => t.parent.is_none_or(|p| !ids.contains(&p)),
+        .filter(|task| match subtree_root_id {
+            Some(id) => task.id == id,
+            None => task
+                .parent
+                .is_none_or(|parent_id| !ids.contains(&parent_id)),
         })
         .collect::<Vec<_>>();
-    roots.sort_by_key(|t| t.order);
+    roots.sort_by_key(|task| task.order);
 
     for root in roots {
         print_task(root, &visible, 1, show_date, github_url);
@@ -186,9 +190,9 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool, github_u
 
     let mut children = all
         .iter()
-        .filter(|t| t.parent == Some(task.id))
+        .filter(|task| task.parent == Some(task.id))
         .collect::<Vec<_>>();
-    children.sort_by_key(|t| t.order);
+    children.sort_by_key(|task| task.order);
 
     for child in children {
         print_task(child, all, depth + 1, show_date, github_url);
@@ -208,12 +212,13 @@ where
     let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
 
     let at = date
-        .map(|d| {
-            d.and_hms_opt(8, 0, 0)
+        .map(|naive_date| {
+            naive_date
+                .and_hms_opt(8, 0, 0)
                 .ok_or_else(|| CliError::InvalidDate {
-                    date: d.to_string(),
+                    date: naive_date.to_string(),
                 })
-                .map(|dt| dt.and_utc())
+                .map(|date_time| date_time.and_utc())
         })
         .transpose()?;
 
@@ -272,15 +277,19 @@ where
             .list(&task.siblings_filter(project_id))
             .await?
             .into_iter()
-            .filter(|t| t.id != task_id)
+            .filter(|task| task.id != task_id)
             .collect::<Vec<_>>();
-        siblings.sort_by_key(|t| t.order.unwrap_or(0));
+        siblings.sort_by_key(|task| task.order.unwrap_or(0));
 
         for _ in 0..steps {
             let neighbor = if going_up {
-                siblings.iter().rfind(|t| t.order.unwrap_or(0) < current)
+                siblings
+                    .iter()
+                    .rfind(|task| task.order.unwrap_or(0) < current)
             } else {
-                siblings.iter().find(|t| t.order.unwrap_or(0) > current)
+                siblings
+                    .iter()
+                    .find(|task| task.order.unwrap_or(0) > current)
             };
 
             let Some(neighbor) = neighbor else {
@@ -297,9 +306,9 @@ where
                 .list(&task.siblings_filter(project_id))
                 .await?
                 .into_iter()
-                .filter(|t| t.id != task_id)
+                .filter(|task| task.id != task_id)
                 .collect::<Vec<_>>();
-            siblings.sort_by_key(|t| t.order.unwrap_or(0));
+            siblings.sort_by_key(|task| task.order.unwrap_or(0));
             current = neighbor_order;
         }
     } else if let Some(ord) = order {

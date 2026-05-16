@@ -6,6 +6,7 @@ use domain::repository::{ProjectRepository, TaskRepository, Transactional};
 /// Dispatches a project subcommand.
 ///
 /// # Errors
+///
 /// Returns [`CliError`](crate::error::CliError) on domain or config errors.
 pub async fn handle<R, C>(
     action: Option<ProjectAction>,

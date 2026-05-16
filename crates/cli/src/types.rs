@@ -51,7 +51,7 @@ impl FromStr for ShortId {
 
         clean
             .chars()
-            .all(|c| c.is_ascii_hexdigit())
+            .all(|char| char.is_ascii_hexdigit())
             .then_some(())
             .ok_or_else(|| CliError::IdInvalidHex {
                 input: s.to_owned(),

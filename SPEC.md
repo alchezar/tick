@@ -11,7 +11,7 @@
 ### Project
 
 | Field        | Type     | Description                                                    |
-|--------------|----------|----------------------------------------------------------------|
+| ------------ | -------- | -------------------------------------------------------------- |
 | `id`         | UUID     | Primary key                                                    |
 | `slug`       | TEXT     | Unique short identifier used in CLI (e.g. `work`)              |
 | `title`      | TEXT     | Optional display title (e.g. `Work Projects`)                  |
@@ -23,7 +23,7 @@
 ### Task
 
 | Field          | Type     | Description                                                      |
-|----------------|----------|------------------------------------------------------------------|
+| -------------- | -------- | ---------------------------------------------------------------- |
 | `id`           | UUID     | Primary key                                                      |
 | `project_id`   | UUID     | Foreign key to `Project`                                         |
 | `title`        | TEXT     | Task name                                                        |
@@ -38,7 +38,7 @@
 ### StatusChange
 
 | Field        | Type     | Description                  |
-|--------------|----------|------------------------------|
+| ------------ | -------- | ---------------------------- |
 | `id`         | UUID     | Primary key                  |
 | `task_id`    | UUID     | Foreign key to `Task`        |
 | `old_status` | TEXT     | Status before the transition |
@@ -112,7 +112,7 @@ Implementation: `tasks_on(date)` - reconstructs task statuses from the status ch
 
 ### Output Rules
 
-- Each nesting level adds one ` - ` prefix segment
+- Each nesting level adds one `-` prefix segment
 - Format: `[indent] [icon] [title]`
 - Indent level 1: ` - 🔄 Milestone`
 - Indent level 2: ` - - ✅ Task`
@@ -144,7 +144,7 @@ and caches it on the task. If `gh` is missing, unauthenticated, or the PR is unr
 Top-level commands (`tt <command>`):
 
 | Command   | Alias | Description             |
-|-----------|-------|-------------------------|
+| --------- | ----- | ----------------------- |
 | `project` | `pr`  | Project management      |
 | `task`    | `ts`  | Task management         |
 | `report`  | `rp`  | Generate standup report |
@@ -152,7 +152,7 @@ Top-level commands (`tt <command>`):
 ### Project Management
 
 | Full command                            | Short command                 | Description                           |
-|-----------------------------------------|-------------------------------|---------------------------------------|
+| --------------------------------------- | ----------------------------- | ------------------------------------- |
 | `tt project`                            | `tt pr`                       | Show active project slug and title    |
 | `tt project list`                       | `tt pr ls`                    | List all projects (slug + title)      |
 | `tt project add <slug>`                 | `tt pr ad <slug>`             | Create a new project                  |
@@ -170,7 +170,7 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 ### Task Management
 
 | Full command                               | Short command                      | Description                                   |
-|--------------------------------------------|------------------------------------|-----------------------------------------------|
+| ------------------------------------------ | ---------------------------------- | --------------------------------------------- |
 | `tt task add <title>`                      | `tt ts ad <title>`                 | Add a root task                               |
 | `tt task add <title> --parent <id>`        | `tt ts ad <title> -p <id>`         | Add a child task                              |
 | `tt task add <title> --project <slug>`     | `tt ts ad <title> -P <slug>`       | Add a task to a specific project              |
@@ -206,7 +206,7 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 ### Report
 
 | Full command                    | Short command           | Description                                |
-|---------------------------------|-------------------------|--------------------------------------------|
+| ------------------------------- | ----------------------- | ------------------------------------------ |
 | `tt report`                     | `tt rp`                 | Report for active project                  |
 | `tt report --all`               | `tt rp -a`              | Report for all projects                    |
 | `tt report --project <slug>`    | `tt rp -p <slug>`       | Report for a specific project              |
@@ -217,7 +217,7 @@ The active project is stored in `~/.local/share/tt/config.toml`. Task and report
 ### Other
 
 | Full command          | Short command     | Description             |
-|-----------------------|-------------------|-------------------------|
+| --------------------- | ----------------- | ----------------------- |
 | `tt --help`           | `tt -h`           | Show help               |
 | `tt --version`        | `tt -V`           | Show version            |
 | `tt <command> --help` | `tt <command> -h` | Show help for a command |
@@ -339,7 +339,7 @@ tt hubstaff setup   # prompts for refresh token, fetches org_id, saves to config
 **Potential use cases:**
 
 | Use case          | Description                                         |
-|-------------------|-----------------------------------------------------|
+| ----------------- | --------------------------------------------------- |
 | Project linking   | Bind a tt project slug to a Hubstaff project id     |
 | Report enrichment | Show tracked time per task alongside standup report |
 
@@ -355,4 +355,3 @@ tt rp --with-time                                 # report with tracked hours
 
 - `Project.hubstaff_project_id: Option<i64>`
 - `Task.hubstaff_task_id: Option<i64>`
-

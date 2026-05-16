@@ -30,6 +30,7 @@ where
     /// Creates a new project and persists it.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::InvalidSlug`] if the slug is empty or contains invalid characters.
     /// - [`CoreError::ProjectAlreadyExists`] if a project with this slug already exists.
     /// - Returns an error if the persistence operation fails.
@@ -59,6 +60,7 @@ where
     /// Returns the project with the given slug.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::ProjectNotFound`] if no project exists with this slug.
     /// - Returns an error if the persistence operation fails.
     pub async fn find_by(&self, slug: &str) -> CoreResult<Project> {
@@ -73,6 +75,7 @@ where
     /// Returns the project with the given id.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::ProjectNotFoundById`] if no project exists with this id.
     /// - Returns an error if the persistence operation fails.
     pub async fn find_by_id(&self, id: &ProjectId) -> CoreResult<Project> {
@@ -85,6 +88,7 @@ where
     /// Returns all projects.
     ///
     /// # Errors
+    ///
     /// Returns an error if the persistence operation fails.
     pub async fn list(&self) -> CoreResult<Vec<Project>> {
         self.repo.list_projects().await
@@ -93,6 +97,7 @@ where
     /// Sets or clears the GitHub URL for a project.
     ///
     /// # Errors
+    ///
     /// Returns an error if the persistence operation fails.
     pub async fn set_github_url(&self, slug: &str, url: Option<&str>) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
@@ -107,6 +112,7 @@ where
     /// Renames a project.
     ///
     /// # Errors
+    ///
     /// Returns an error if the persistence operation fails.
     pub async fn rename(&self, slug: &str, new_title: &str) -> CoreResult<()> {
         let tx = self.repo.begin_transaction().await?;
@@ -121,6 +127,7 @@ where
     /// Changes the slug of a project.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::ProjectNotFound`] if no project exists with the current slug.
     /// - [`CoreError::ProjectAlreadyExists`] if `new_slug` is already taken.
     /// - Returns an error if the persistence operation fails.
@@ -145,6 +152,7 @@ where
     /// Task cascade is handled at the db level.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::ProjectNotFound`] if no project exists with this slug.
     /// - Returns an error if the persistence operation fails.
     pub async fn delete(&self, slug: &str) -> CoreResult<()> {
@@ -165,7 +173,7 @@ where
 
 /// Validates that a slug is non-empty and contains only alphanumeric chars.
 fn validate_slug(slug: &str) -> CoreResult<()> {
-    if slug.is_empty() || !slug.chars().all(|c| c.is_ascii_alphanumeric()) {
+    if slug.is_empty() || !slug.chars().all(|char| char.is_ascii_alphanumeric()) {
         return Err(CoreError::InvalidSlug);
     }
     Ok(())

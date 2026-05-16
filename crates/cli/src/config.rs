@@ -37,7 +37,9 @@ impl Config {
     /// Loads config from the default XDG data directory.
     ///
     /// # Errors
-    /// Returns [`CliError::ConfigRead`] if the file exists but cannot be read or parsed.
+    ///
+    /// Returns [`CliError::ConfigRead`] if the file exists but cannot be read
+    /// or parsed.
     pub fn load() -> CliResult<Self> {
         Self::load_from(&Self::default_path()?)
     }
@@ -45,6 +47,7 @@ impl Config {
     /// Writes config to disk (custom path if set, otherwise default XDG).
     ///
     /// # Errors
+    ///
     /// Returns [`CliError::ConfigWrite`] if the file cannot be written.
     pub fn save(&self) -> CliResult<()> {
         let path = match &self.path {
@@ -54,23 +57,26 @@ impl Config {
         self.save_to(&path)
     }
 
-    /// Loads config from a specific path, returning defaults if the file does not exist.
+    /// Loads config from a specific path, returning defaults if the file does
+    /// not exist.
     ///
     /// Subsequent calls to [`save`](Config::save) and [`set_active`](Config::set_active)
     /// will use this path instead of the default XDG location.
     ///
     /// # Errors
-    /// Returns [`CliError::ConfigRead`] if the file exists but cannot be read or parsed.
+    ///
+    /// Returns [`CliError::ConfigRead`] if the file exists but cannot be read
+    /// or parsed.
     pub fn load_from(path: &Path) -> CliResult<Self> {
         let mut config = if path.exists() {
-            let content = fs::read_to_string(path).map_err(|e| CliError::ConfigRead {
+            let content = fs::read_to_string(path).map_err(|err| CliError::ConfigRead {
                 path: path.to_path_buf(),
-                source: e.to_string(),
+                source: err.to_string(),
             })?;
 
-            toml::from_str(&content).map_err(|e| CliError::ConfigRead {
+            toml::from_str(&content).map_err(|err| CliError::ConfigRead {
                 path: path.to_path_buf(),
-                source: e.to_string(),
+                source: err.to_string(),
             })?
         } else {
             Self::default()
@@ -83,29 +89,31 @@ impl Config {
     /// Writes config to a specific path, creating directories as needed.
     ///
     /// # Errors
+    ///
     /// Returns [`CliError::ConfigWrite`] if the file cannot be written.
     pub fn save_to(&self, path: &Path) -> CliResult<()> {
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| CliError::ConfigWrite {
+            fs::create_dir_all(parent).map_err(|err| CliError::ConfigWrite {
                 path: path.to_path_buf(),
-                source: e.to_string(),
+                source: err.to_string(),
             })?;
         }
 
-        let content = toml::to_string_pretty(self).map_err(|e| CliError::ConfigWrite {
+        let content = toml::to_string_pretty(self).map_err(|err| CliError::ConfigWrite {
             path: path.to_path_buf(),
-            source: e.to_string(),
+            source: err.to_string(),
         })?;
 
-        fs::write(path, content).map_err(|e| CliError::ConfigWrite {
+        fs::write(path, content).map_err(|err| CliError::ConfigWrite {
             path: path.to_path_buf(),
-            source: e.to_string(),
+            source: err.to_string(),
         })
     }
 
     /// Sets the active project slug and saves to disk.
     ///
     /// # Errors
+    ///
     /// Returns an error if the config cannot be saved.
     pub fn set_active(&mut self, slug: &str) -> CliResult<()> {
         self.active_project = Some(slug.to_owned());
@@ -121,7 +129,7 @@ impl Config {
     /// Returns the default config file path (`~/.local/share/tt/config.toml`).
     fn default_path() -> CliResult<PathBuf> {
         dirs::data_dir()
-            .map(|d| d.join(APP_DIR).join(CONFIG_FILE))
+            .map(|directory| directory.join(APP_DIR).join(CONFIG_FILE))
             .ok_or(CliError::NoDataDir)
     }
 }

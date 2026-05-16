@@ -56,7 +56,7 @@ async fn add_subtask() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let child = tasks.iter().find(|t| t.title == "Child").unwrap();
+    let child = tasks.iter().find(|task| task.title == "Child").unwrap();
     assert_eq!(child.parent, Some(parent.id));
 }
 
@@ -78,14 +78,14 @@ async fn list_empty() {
 async fn start_changes_status() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
 
     let action = TaskAction::Start {
-        id: t.id.into(),
+        id: task.id.into(),
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -102,15 +102,15 @@ async fn start_changes_status() {
 async fn done_changes_status() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
-    ctx.task_service.start(&t.id, None).await.unwrap();
+    ctx.task_service.start(&task.id, None).await.unwrap();
 
     let action = TaskAction::Done {
-        id: t.id.into(),
+        id: task.id.into(),
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -127,15 +127,15 @@ async fn done_changes_status() {
 async fn block_changes_status() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
-    ctx.task_service.start(&t.id, None).await.unwrap();
+    ctx.task_service.start(&task.id, None).await.unwrap();
 
     let action = TaskAction::Block {
-        id: t.id.into(),
+        id: task.id.into(),
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -152,15 +152,15 @@ async fn block_changes_status() {
 async fn reset_changes_status() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
-    ctx.task_service.start(&t.id, None).await.unwrap();
+    ctx.task_service.start(&task.id, None).await.unwrap();
 
     let action = TaskAction::Reset {
-        id: t.id.into(),
+        id: task.id.into(),
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -177,14 +177,14 @@ async fn reset_changes_status() {
 async fn rename_changes_title() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Old", None, project.id, None, None, None)
         .await
         .unwrap();
 
     let action = TaskAction::Rename {
-        id: t.id.into(),
+        id: task.id.into(),
         title: "New".to_owned(),
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -201,13 +201,13 @@ async fn rename_changes_title() {
 async fn remove_deletes_task() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Temp", None, project.id, None, None, None)
         .await
         .unwrap();
 
-    let action = TaskAction::Remove { id: t.id.into() };
+    let action = TaskAction::Remove { id: task.id.into() };
     task::handle(Some(action), &ctx).await.unwrap();
 
     let tasks = ctx
@@ -222,14 +222,14 @@ async fn remove_deletes_task() {
 async fn move_reorder() {
     let (ctx, _dir) = common::setup().await;
     let project = ctx.project_service.find_by("work").await.unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Task", None, project.id, None, None, None)
         .await
         .unwrap();
 
     let action = TaskAction::Move {
-        id: t.id.into(),
+        id: task.id.into(),
         parent: None,
         up: None,
         down: None,
@@ -275,8 +275,8 @@ async fn move_up() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let updated_a = tasks.iter().find(|t| t.id == a.id).unwrap();
-    let updated_b = tasks.iter().find(|t| t.id == b.id).unwrap();
+    let updated_a = tasks.iter().find(|task| task.id == a.id).unwrap();
+    let updated_b = tasks.iter().find(|task| task.id == b.id).unwrap();
     assert_eq!(updated_b.order, Some(0));
     assert_eq!(updated_a.order, Some(1));
 }
@@ -311,8 +311,8 @@ async fn move_down() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let updated_a = tasks.iter().find(|t| t.id == a.id).unwrap();
-    let updated_b = tasks.iter().find(|t| t.id == b.id).unwrap();
+    let updated_a = tasks.iter().find(|task| task.id == a.id).unwrap();
+    let updated_b = tasks.iter().find(|task| task.id == b.id).unwrap();
     assert_eq!(updated_a.order, Some(1));
     assert_eq!(updated_b.order, Some(0));
 }
@@ -375,7 +375,7 @@ async fn move_down_at_last_stays() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let updated_b = tasks.iter().find(|t| t.id == b.id).unwrap();
+    let updated_b = tasks.iter().find(|task| task.id == b.id).unwrap();
     assert_eq!(updated_b.order, Some(1));
 }
 
@@ -419,7 +419,7 @@ async fn move_up_multiple_steps() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let find = |id| tasks.iter().find(|t| t.id == id).unwrap().order;
+    let find = |id| tasks.iter().find(|task| task.id == id).unwrap().order;
     assert_eq!(find(a.id), Some(0));
     assert_eq!(find(d.id), Some(1));
     assert_eq!(find(b.id), Some(2));
@@ -461,8 +461,8 @@ async fn move_up_beyond_top_stops_silently() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let updated_c = tasks.iter().find(|t| t.id == c.id).unwrap();
-    let updated_a = tasks.iter().find(|t| t.id == a.id).unwrap();
+    let updated_c = tasks.iter().find(|task| task.id == c.id).unwrap();
+    let updated_a = tasks.iter().find(|task| task.id == a.id).unwrap();
     assert_eq!(updated_c.order, Some(0));
     assert_eq!(updated_a.order, Some(1));
 }
@@ -648,13 +648,13 @@ async fn list_from_includes_closed_since_date() {
         .unwrap();
     let visible = all
         .iter()
-        .filter(|t| t.status().is_active() || t.updated.date_naive() >= from_date)
+        .filter(|task| task.status().is_active() || task.updated.date_naive() >= from_date)
         .collect::<Vec<_>>();
 
     // Active + "New done" should be visible; "Old done" filtered out.
     assert_eq!(visible.len(), 2);
-    assert!(visible.iter().any(|t| t.title == "Active"));
-    assert!(visible.iter().any(|t| t.title == "New done"));
+    assert!(visible.iter().any(|task| task.title == "Active"));
+    assert!(visible.iter().any(|task| task.title == "New done"));
 }
 
 #[tokio::test]
@@ -742,12 +742,12 @@ async fn list_until_excludes_closed_on_date() {
         .unwrap();
     let visible = all
         .iter()
-        .filter(|t| t.status().is_active() || t.updated.date_naive() < until_date)
+        .filter(|task| task.status().is_active() || task.updated.date_naive() < until_date)
         .collect::<Vec<_>>();
 
     assert_eq!(visible.len(), 2);
-    assert!(visible.iter().any(|t| t.title == "Active"));
-    assert!(visible.iter().any(|t| t.title == "Old done"));
+    assert!(visible.iter().any(|task| task.title == "Active"));
+    assert!(visible.iter().any(|task| task.title == "Old done"));
 }
 
 #[tokio::test]
@@ -797,12 +797,14 @@ async fn list_subtree_shows_only_descendants() {
     // The subtree rooted at `root` contains Root, Child, Grandchild (3 tasks).
     let descendants = all
         .iter()
-        .filter(|t| t.id == root.id || t.parent == Some(root.id) || t.parent == Some(child.id))
+        .filter(|task| {
+            task.id == root.id || task.parent == Some(root.id) || task.parent == Some(child.id)
+        })
         .collect::<Vec<_>>();
     assert_eq!(descendants.len(), 3);
-    assert!(descendants.iter().any(|t| t.title == "Root"));
-    assert!(descendants.iter().any(|t| t.title == "Child"));
-    assert!(descendants.iter().any(|t| t.title == "Grandchild"));
+    assert!(descendants.iter().any(|task| task.title == "Root"));
+    assert!(descendants.iter().any(|task| task.title == "Child"));
+    assert!(descendants.iter().any(|task| task.title == "Grandchild"));
 }
 
 #[tokio::test]
@@ -837,7 +839,7 @@ async fn list_subtree_includes_done_tasks() {
         ))
         .await
         .unwrap();
-    assert!(all_active.iter().all(|t| t.title != "Done child"));
+    assert!(all_active.iter().all(|task| task.title != "Done child"));
 
     // With --subtree, all tasks (including done) are shown.
     let root_short = ShortId::from(root.id);
@@ -855,7 +857,7 @@ async fn list_subtree_includes_done_tasks() {
         .list(&TaskFilter::ByProject(project.id))
         .await
         .unwrap();
-    let done_child = all.iter().find(|t| t.title == "Done child").unwrap();
+    let done_child = all.iter().find(|task| task.title == "Done child").unwrap();
     assert_eq!(done_child.status(), Status::Done);
     assert_eq!(done_child.parent, Some(root.id));
 }

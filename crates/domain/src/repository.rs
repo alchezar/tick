@@ -24,9 +24,9 @@ pub enum TaskFilter {
 
 /// Provides `RAII`-based transaction demarcation.
 ///
-/// Implementations must support nesting via a depth counter:
-/// only the outermost `begin`/`commit` pair issues real SQL statements;
-/// inner pairs simply adjust the counter.
+/// Implementations must support nesting via a depth counter: only the outermost
+/// `begin`/`commit` pair issues real SQL statements; inner pairs simply adjust
+/// the counter.
 pub trait Transactional {
     /// Guard type returned by [`begin_transaction`](Transactional::begin_transaction).
     type Guard<'a>: TransactionGuard
@@ -35,12 +35,13 @@ pub trait Transactional {
 
     /// Opens a transaction (or increments nesting depth) and returns a guard.
     ///
-    /// All repository calls made while the guard is alive participate in
-    /// the same transaction. If the guard is dropped without
-    /// [`commit_transaction`](TransactionGuard::commit_transaction),
-    /// the implementation should roll back automatically.
+    /// All repository calls made while the guard is alive participate in the
+    /// same transaction. If the guard is dropped without
+    /// [`commit_transaction`](TransactionGuard::commit_transaction), the
+    /// implementation should roll back automatically.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn begin_transaction(&self) -> CoreResult<Self::Guard<'_>>;
 }
@@ -48,15 +49,16 @@ pub trait Transactional {
 /// `RAII` transaction guard returned by [`Transactional::begin_transaction`].
 ///
 /// Consuming [`commit_transaction`](TransactionGuard::commit_transaction)
-/// persists all changes made since `begin_transaction`.
-/// Dropping the guard without committing triggers an automatic rollback
-/// (e.g. via [`Drop`] in the `SQLite` implementation).
+/// persists all changes made since `begin_transaction`. Dropping the guard
+/// without committing triggers an automatic rollback (e.g. via [`Drop`] in the
+/// `SQLite` implementation).
 pub trait TransactionGuard {
     /// Commits the transaction (or decrements nesting depth).
     ///
     /// Only the outermost commit issues a real `COMMIT`.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn commit_transaction(self) -> CoreResult<()>;
 }
@@ -67,6 +69,7 @@ pub trait ProjectRepository {
     /// Inserts or updates a project.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn save_project(&self, project: &Project) -> CoreResult<()>;
 
@@ -75,6 +78,7 @@ pub trait ProjectRepository {
     /// Returns `Ok(None)` if the project does not exist - not an error.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn find_project_by_id(&self, id: &ProjectId) -> CoreResult<Option<Project>>;
 
@@ -83,6 +87,7 @@ pub trait ProjectRepository {
     /// Returns `Ok(None)` if the project does not exist - not an error.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn find_project_by_slug(&self, slug: &str) -> CoreResult<Option<Project>>;
 
@@ -91,6 +96,7 @@ pub trait ProjectRepository {
     /// Returns `Ok(vec![])` if no projects exist.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn list_projects(&self) -> CoreResult<Vec<Project>>;
 
@@ -100,16 +106,17 @@ pub trait ProjectRepository {
     /// Idempotent - returns `Ok(())` if the project does not exist.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn delete_project(&self, project_id: &ProjectId) -> CoreResult<()>;
 }
 
-/// Defines the persistence contract for tasks.
-/// Implemented by `db/` crate.
+/// Defines the persistence contract for tasks. Implemented by `db/` crate.
 pub trait TaskRepository {
     /// Inserts or updates a task.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn save_task(&self, task: &Task) -> CoreResult<()>;
 
@@ -118,6 +125,7 @@ pub trait TaskRepository {
     /// Returns `Ok(None)` if the task does not exist - not an error.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn find_task_by_id(&self, id: &TaskId) -> CoreResult<Option<Task>>;
 
@@ -126,6 +134,7 @@ pub trait TaskRepository {
     /// Returns `Ok(None)` if no task matches.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn find_task_by_id_prefix(&self, id_prefix: &str) -> CoreResult<Option<TaskId>>;
 
@@ -134,6 +143,7 @@ pub trait TaskRepository {
     /// Returns `Ok(vec![])` if the parent has no children.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn child_tasks_of(&self, parent: &TaskId) -> CoreResult<Vec<Task>>;
 
@@ -142,6 +152,7 @@ pub trait TaskRepository {
     /// Returns `Ok(vec![])` if no tasks match.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn list_tasks(&self, filter: &TaskFilter) -> CoreResult<Vec<Task>>;
 
@@ -150,6 +161,7 @@ pub trait TaskRepository {
     /// Idempotent - returns `Ok(())` if the task does not exist.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn delete_task(&self, id: &TaskId) -> CoreResult<()>;
 
@@ -158,32 +170,39 @@ pub trait TaskRepository {
     /// Idempotent - returns `Ok(())` if the task does not exist.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn delete_all_tasks_by(&self, project_id: &ProjectId) -> CoreResult<()>;
 
     /// Saves a status change record.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn save_task_change(&self, change: &StatusChange) -> CoreResult<()>;
 
-    /// Returns all status changes for a given task, ordered by `changed_at` ascending.
+    /// Returns all status changes for a given task, ordered by `changed_at`
+    /// ascending.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn list_task_changes(&self, task_id: &TaskId) -> CoreResult<Vec<StatusChange>>;
 
     /// Returns all status changes that occurred on the given date.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn list_task_changes_on(&self, date: NaiveDate) -> CoreResult<Vec<StatusChange>>;
 
-    /// Deletes all status changes for a task that occurred strictly after `after`.
+    /// Deletes all status changes for a task that occurred strictly after
+    /// `after`.
     ///
     /// Used to rewrite history when a status change is backdated via `-d`.
     ///
     /// # Errors
+    ///
     /// Returns an error if the underlying storage operation fails.
     async fn delete_task_changes_after(
         &self,

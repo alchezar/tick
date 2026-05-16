@@ -54,7 +54,8 @@ impl Status {
         )
     }
 
-    /// Returns `true` if the task is actionable (shown in Today section of the report).
+    /// Returns `true` if the task is actionable (shown in Today section of the
+    /// report).
     #[must_use]
     pub fn is_active(&self) -> bool {
         matches!(
@@ -63,7 +64,8 @@ impl Status {
         )
     }
 
-    /// Returns `true` if the task is no longer actionable (shown in Previously section of the report).
+    /// Returns `true` if the task is no longer actionable (shown in Previously
+    /// section of the report).
     #[must_use]
     pub fn is_closed(&self) -> bool {
         matches!(self, Status::Done | Status::Abandoned)

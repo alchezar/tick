@@ -15,9 +15,9 @@ async fn add_creates_project() {
 
     project::handle(Some(action), &mut ctx).await.unwrap();
 
-    let p = ctx.project_service.find_by("work").await.unwrap();
-    assert_eq!(p.slug, "work");
-    assert_eq!(p.title.as_deref(), Some("Work"));
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    assert_eq!(project.slug, "work");
+    assert_eq!(project.title.as_deref(), Some("Work"));
 }
 
 #[tokio::test]
@@ -31,9 +31,9 @@ async fn add_without_title() {
 
     project::handle(Some(action), &mut ctx).await.unwrap();
 
-    let p = ctx.project_service.find_by("side").await.unwrap();
-    assert_eq!(p.slug, "side");
-    assert!(p.title.is_none());
+    let project = ctx.project_service.find_by("side").await.unwrap();
+    assert_eq!(project.slug, "side");
+    assert!(project.title.is_none());
 }
 
 #[tokio::test]
@@ -101,8 +101,8 @@ async fn rename_changes_title() {
     };
     project::handle(Some(action), &mut ctx).await.unwrap();
 
-    let p = ctx.project_service.find_by("work").await.unwrap();
-    assert_eq!(p.title.as_deref(), Some("New Title"));
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    assert_eq!(project.title.as_deref(), Some("New Title"));
 }
 
 #[tokio::test]
@@ -116,8 +116,8 @@ async fn reslug_changes_slug() {
     };
     project::handle(Some(action), &mut ctx).await.unwrap();
 
-    let p = ctx.project_service.find_by("new").await.unwrap();
-    assert_eq!(p.slug, "new");
+    let project = ctx.project_service.find_by("new").await.unwrap();
+    assert_eq!(project.slug, "new");
 }
 
 #[tokio::test]
@@ -187,9 +187,9 @@ async fn add_with_github_url() {
 
     project::handle(Some(action), &mut ctx).await.unwrap();
 
-    let p = ctx.project_service.find_by("work").await.unwrap();
+    let project = ctx.project_service.find_by("work").await.unwrap();
     assert_eq!(
-        p.github_url.as_deref(),
+        project.github_url.as_deref(),
         Some("https://github.com/owner/repo")
     );
 }
@@ -208,9 +208,9 @@ async fn github_sets_url() {
     };
     project::handle(Some(action), &mut ctx).await.unwrap();
 
-    let p = ctx.project_service.find_by("work").await.unwrap();
+    let project = ctx.project_service.find_by("work").await.unwrap();
     assert_eq!(
-        p.github_url.as_deref(),
+        project.github_url.as_deref(),
         Some("https://github.com/owner/repo")
     );
 }
@@ -229,6 +229,6 @@ async fn github_clears_url() {
     };
     project::handle(Some(action), &mut ctx).await.unwrap();
 
-    let p = ctx.project_service.find_by("work").await.unwrap();
-    assert!(p.github_url.is_none());
+    let project = ctx.project_service.find_by("work").await.unwrap();
+    assert!(project.github_url.is_none());
 }

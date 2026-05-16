@@ -31,7 +31,7 @@ async fn run() -> CliResult<()> {
     let config = Config::load()?;
     let repo = SqliteRepo::open_default()
         .await
-        .map_err(|e| CliError::Domain(e.into()))?;
+        .map_err(|err| CliError::Domain(err.into()))?;
 
     let mut context = AppContext {
         config,

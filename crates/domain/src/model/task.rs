@@ -88,7 +88,9 @@ impl Task {
     /// Sets a new status and records the transition timestamp.
     ///
     /// # Errors
-    /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
+    ///
+    /// - [`CoreError::InvalidStatusTransition`] if the transition is not
+    ///   allowed.
     pub fn update_status(
         &mut self,
         new_status: Status,

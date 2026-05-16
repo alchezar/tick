@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "\n                            SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at\n                            FROM tasks\n                            WHERE project_id = $1 AND parent_id IS NULL\n                            ORDER BY display_order\n                        ",
+  "query": "\n                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at\n                        FROM tasks\n                        WHERE project_id = $1 AND parent_id IS NULL\n                        ORDER BY display_order\n                    ",
   "describe": {
     "columns": [
       {
@@ -70,5 +70,5 @@
       false
     ]
   },
-  "hash": "535c8d558751dcc46365c9a97e29668e23b6d7aefe4c27d203aedd89dfc650c8"
+  "hash": "45cdf6031c0f203f5ed7c5eb794dd30728677417bc284902e1b098bb79bb1bc8"
 }

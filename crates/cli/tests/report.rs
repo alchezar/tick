@@ -36,12 +36,12 @@ async fn report_with_tasks() {
         .create("Task A", None, project.id, None, None, None)
         .await
         .unwrap();
-    let t = ctx
+    let task = ctx
         .task_service
         .create("Task B", None, project.id, None, None, None)
         .await
         .unwrap();
-    ctx.task_service.start(&t.id, None).await.unwrap();
+    ctx.task_service.start(&task.id, None).await.unwrap();
 
     report::handle(Some("work"), false, false, Some(today()), &ctx)
         .await

@@ -1,9 +1,8 @@
 //! CLI error types.
 
-use std::path::PathBuf;
-
 use core::error::Error;
 use core::fmt::{Display, Formatter, Result as FmtResult};
+use std::path::PathBuf;
 
 use domain::error::CoreError;
 
@@ -102,8 +101,8 @@ impl Display for CliError {
 impl Error for CliError {}
 
 impl From<CoreError> for CliError {
-    fn from(e: CoreError) -> Self {
-        Self::Domain(e)
+    fn from(err: CoreError) -> Self {
+        Self::Domain(err)
     }
 }
 

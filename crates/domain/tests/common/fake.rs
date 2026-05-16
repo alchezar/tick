@@ -120,22 +120,28 @@ impl TaskRepository for FakeRepo {
         let tasks = self.tasks.borrow();
         let iter = tasks.values();
         Ok(match filter {
-            TaskFilter::ByProject(id) => iter.filter(|t| t.project_id == *id).cloned().collect(),
-            TaskFilter::RootByProject(id) => iter
-                .filter(|t| t.project_id == *id && t.parent.is_none())
+            TaskFilter::ByProject(id) => iter
+                .filter(|task| task.project_id == *id)
                 .cloned()
                 .collect(),
-            TaskFilter::ChildrenOf(id) => iter.filter(|t| t.parent == Some(*id)).cloned().collect(),
+            TaskFilter::RootByProject(id) => iter
+                .filter(|task| task.project_id == *id && task.parent.is_none())
+                .cloned()
+                .collect(),
+            TaskFilter::ChildrenOf(id) => iter
+                .filter(|task| task.parent == Some(*id))
+                .cloned()
+                .collect(),
             TaskFilter::ActiveByProject(id, date) => iter
-                .filter(|t| {
-                    t.project_id == *id
-                        && (t.status().is_active()
-                            || (t.status().is_closed() && t.updated.date_naive() == *date))
+                .filter(|task| {
+                    task.project_id == *id
+                        && (task.status().is_active()
+                            || (task.status().is_closed() && task.updated.date_naive() == *date))
                 })
                 .cloned()
                 .collect(),
             TaskFilter::CreatedBefore(id, date) => iter
-                .filter(|t| t.project_id == *id && t.created.date_naive() <= *date)
+                .filter(|task| task.project_id == *id && task.created.date_naive() <= *date)
                 .cloned()
                 .collect(),
         })
@@ -195,9 +201,9 @@ impl TaskRepository for FakeRepo {
         task_id: &TaskId,
         after: DateTime<Utc>,
     ) -> CoreResult<()> {
-        self.status_changes
-            .borrow_mut()
-            .retain(|c| !(c.task_id == *task_id && c.changed_at > after));
+        self.status_changes.borrow_mut().retain(|status_change| {
+            !(status_change.task_id == *task_id && status_change.changed_at > after)
+        });
         Ok(())
     }
 }

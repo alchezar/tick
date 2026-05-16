@@ -36,6 +36,7 @@ where
     /// Assigns `order` as the next sibling position among existing siblings.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::MaxDepthExceeded`] if nesting depth would exceed 3.
     /// - Returns an error if the persistence operation fails.
     pub async fn create(
@@ -61,9 +62,9 @@ where
             .await?;
         let next_order = siblings
             .iter()
-            .filter_map(|s| s.order)
+            .filter_map(|task| task.order)
             .max()
-            .map_or(0, |m| m + 1);
+            .map_or(0, |max| max + 1);
         task.order = Some(next_order);
         task.pull_request_number = pull_request_number;
         task.branch_name = branch_name;
@@ -76,6 +77,7 @@ where
     /// Sets status to [`Status::InProgress`].
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
@@ -86,6 +88,7 @@ where
     /// Resets status to [`Status::NotStarted`].
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
     pub async fn reset(&self, task_id: &TaskId, at: Option<DateTime<Utc>>) -> CoreResult<()> {
@@ -95,6 +98,7 @@ where
     /// Marks a task as [`Status::Done`].
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::TaskHasUnfinishedChildren`] if any child task is still active.
     /// - Returns an error if the persistence operation fails.
@@ -104,7 +108,7 @@ where
             .child_tasks_of(task_id)
             .await?
             .iter()
-            .any(|c| c.status().is_active())
+            .any(|task| task.status().is_active())
         {
             return Err(CoreError::TaskHasUnfinishedChildren);
         }
@@ -115,6 +119,7 @@ where
     /// Marks a task as [`Status::Abandoned`].
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
     pub async fn abandon(&self, task_id: &TaskId, at: Option<DateTime<Utc>>) -> CoreResult<()> {
@@ -124,6 +129,7 @@ where
     /// Marks a task as [`Status::Blocked`] and cascades to all active descendants.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - [`CoreError::InvalidStatusTransition`] if the transition is not allowed.
     /// - Returns an error if the persistence operation fails.
@@ -139,6 +145,7 @@ where
     /// Moves a task under a new parent, or promotes it to root if `parent_id` is `None`.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if the task does not exist.
     /// - [`CoreError::MaxDepthExceeded`] if the move would exceed nesting depth of 3.
     /// - Returns an error if the persistence operation fails.
@@ -161,10 +168,10 @@ where
             .await?;
         let next_order = siblings
             .iter()
-            .filter(|s| s.id != *task_id)
-            .filter_map(|s| s.order)
+            .filter(|task| task.id != *task_id)
+            .filter_map(|task| task.order)
             .max()
-            .map_or(0, |m| m + 1);
+            .map_or(0, |max| max + 1);
         task.order = Some(next_order);
 
         self.repo.save_task(&task).await
@@ -173,6 +180,7 @@ where
     /// Sets or clears the pull request number for a task.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
     pub async fn set_pull_request(
@@ -190,6 +198,7 @@ where
     /// Renames a task.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
     pub async fn rename(&self, task_id: &TaskId, title: &str) -> CoreResult<()> {
@@ -202,6 +211,7 @@ where
     /// Changes the display order of a task among its siblings.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if no task exists with the given id.
     /// - Returns an error if the persistence operation fails.
     pub async fn reorder(
@@ -213,7 +223,6 @@ where
         let tx = self.repo.begin_transaction().await?;
 
         let mut task = self.find_task(task_id).await?;
-
         task.order = Some(new_order);
         self.repo.save_task(&task).await?;
 
@@ -235,6 +244,7 @@ where
     /// Swaps the display order of two sibling tasks.
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskNotFound`] if either task does not exist.
     /// - Returns an error if the persistence operation fails.
     pub async fn swap_order(
@@ -259,6 +269,7 @@ where
     /// Resolves a hex id prefix to a full [`TaskId`].
     ///
     /// # Errors
+    ///
     /// - [`CoreError::TaskPrefixNotFound`] if no task matches the prefix.
     /// - Returns an error if the persistence operation fails.
     pub async fn find_by_prefix(&self, id_prefix: &str) -> CoreResult<TaskId> {

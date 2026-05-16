@@ -229,8 +229,8 @@ async fn delete_task_changes_after_cutoff() {
     let task = Task::new("Task", None, project.id);
     repo.save_task(&task).await.unwrap();
 
-    let date = |d: u32| {
-        NaiveDate::from_ymd_opt(2026, 3, d)
+    let date = |day| {
+        NaiveDate::from_ymd_opt(2026, 3, day)
             .unwrap()
             .and_hms_opt(8, 0, 0)
             .unwrap()

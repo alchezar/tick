@@ -16,7 +16,8 @@ use domain::{
 
 /// `SQLite` repository backed by a connection pool.
 ///
-/// Uses [`RefCell`] for transaction nesting depth because repository traits use `&self`.
+/// Uses [`RefCell`] for transaction nesting depth because repository traits use
+/// `&self`.
 #[derive(Debug, Clone)]
 pub struct SqliteRepo {
     pool: SqlitePool,
@@ -24,9 +25,11 @@ pub struct SqliteRepo {
 }
 
 impl SqliteRepo {
-    /// Opens (or creates) a `SQLite` database at the given URL and runs migrations.
+    /// Opens (or creates) a `SQLite` database at the given URL and runs
+    /// migrations.
     ///
     /// # Errors
+    ///
     /// Returns [`DbError`] if the connection or migration fails.
     pub async fn open(url: &str) -> DbResult<Self> {
         let pool = SqlitePoolOptions::new()
@@ -54,12 +57,14 @@ impl SqliteRepo {
 
     /// Opens the default `SQLite` database at the XDG data directory.
     ///
-    /// Path: `~/.local/share/tt/tt.db` (or platform equivalent).
-    /// Creates the directory if it does not exist.
-    /// Respects `DATABASE_URL` env var as an override.
+    /// Path: `~/.local/share/tt/tt.db` (or platform equivalent). Creates the
+    /// directory if it does not exist. Respects `DATABASE_URL` env var as an
+    /// override.
     ///
     /// # Errors
-    /// Returns [`DbError`] if the directory cannot be created or the connection fails.
+    ///
+    /// Returns [`DbError`] if the directory cannot be created or the connection
+    /// fails.
     pub async fn open_default() -> DbResult<Self> {
         if let Ok(url) = std::env::var("DATABASE_URL") {
             return Self::open(&url).await;
@@ -68,7 +73,7 @@ impl SqliteRepo {
         let data_dir = dirs::data_dir()
             .ok_or_else(|| DbError::Query("cannot determine data directory".to_owned()))?;
         let db_dir = data_dir.join("tt");
-        std::fs::create_dir_all(&db_dir).map_err(|e| DbError::Query(e.to_string()))?;
+        std::fs::create_dir_all(&db_dir).map_err(|err| DbError::Query(err.to_string()))?;
 
         let path = db_dir.join("tt.db");
         let encoded = path.to_string_lossy().replace(' ', "%20");
@@ -80,6 +85,7 @@ impl SqliteRepo {
     /// Useful for testing.
     ///
     /// # Errors
+    ///
     /// Returns [`DbError`] if the connection or migration fails.
     pub async fn in_memory() -> DbResult<Self> {
         Self::open("sqlite::memory:").await
@@ -105,8 +111,9 @@ impl Transactional for SqliteRepo {
 
 /// RAII transaction guard for [`SqliteRepo`].
 ///
-/// Dropping without calling [`commit_transaction`](TransactionGuard::commit_transaction)
-/// triggers a rollback (only at the outermost level).
+/// Dropping without calling
+/// [`commit_transaction`](TransactionGuard::commit_transaction) triggers a
+/// rollback (only at the outermost level).
 #[derive(Debug)]
 pub struct SqliteGuard<'a> {
     repo: &'a SqliteRepo,
@@ -166,14 +173,14 @@ impl Drop for SqliteGuard<'_> {
 
 /// Converts any error into a [`DbError::Query`].
 #[allow(clippy::needless_pass_by_value)]
-fn db_err(e: impl ToString) -> DbError {
-    DbError::Query(e.to_string())
+fn db_err(err: impl ToString) -> DbError {
+    DbError::Query(err.to_string())
 }
 
 /// Converts any error into a [`CoreError::Storage`].
 #[allow(clippy::needless_pass_by_value)]
-fn core_err(e: impl ToString) -> CoreError {
-    CoreError::Storage(db_err(e))
+fn core_err(err: impl ToString) -> CoreError {
+    CoreError::Storage(db_err(err))
 }
 
 /// Intermediate row for projects.
@@ -188,13 +195,13 @@ struct ProjectRow {
 impl TryFrom<ProjectRow> for Project {
     type Error = CoreError;
 
-    fn try_from(r: ProjectRow) -> CoreResult<Self> {
+    fn try_from(row: ProjectRow) -> CoreResult<Self> {
         Ok(Self {
-            id: ProjectId::from(Uuid::parse_str(&r.id).map_err(core_err)?),
-            slug: r.slug,
-            title: r.title,
-            github_url: r.github_url,
-            created: r.created_at.parse::<DateTime<Utc>>().map_err(core_err)?,
+            id: ProjectId::from(Uuid::parse_str(&row.id).map_err(core_err)?),
+            slug: row.slug,
+            title: row.title,
+            github_url: row.github_url,
+            created: row.created_at.parse::<DateTime<Utc>>().map_err(core_err)?,
         })
     }
 }
@@ -216,32 +223,32 @@ struct TaskRow {
 impl TryFrom<TaskRow> for Task {
     type Error = CoreError;
 
-    fn try_from(r: TaskRow) -> CoreResult<Self> {
-        let id = TaskId::from(Uuid::parse_str(&r.id).map_err(core_err)?);
-        let project_id = ProjectId::from(Uuid::parse_str(&r.project_id).map_err(core_err)?);
-        let parent = r
+    fn try_from(row: TaskRow) -> CoreResult<Self> {
+        let id = TaskId::from(Uuid::parse_str(&row.id).map_err(core_err)?);
+        let project_id = ProjectId::from(Uuid::parse_str(&row.project_id).map_err(core_err)?);
+        let parent = row
             .parent_id
             .as_deref()
-            .map(|s| Uuid::parse_str(s).map(TaskId::from))
+            .map(|parent_id| Uuid::parse_str(parent_id).map(TaskId::from))
             .transpose()
             .map_err(core_err)?;
-        let status = r.status.parse::<Status>().map_err(core_err)?;
+        let status = row.status.parse::<Status>().map_err(core_err)?;
 
-        let mut task = Task::new(r.title, parent, project_id).with_status(status);
+        let mut task = Task::new(row.title, parent, project_id).with_status(status);
         task.id = id;
-        task.order = r
+        task.order = row
             .display_order
             .map(usize::try_from)
             .transpose()
             .map_err(core_err)?;
-        task.pull_request_number = r
+        task.pull_request_number = row
             .pull_request
             .map(u32::try_from)
             .transpose()
             .map_err(core_err)?;
-        task.branch_name = r.branch_name;
-        task.created = r.created_at.parse::<DateTime<Utc>>().map_err(core_err)?;
-        task.updated = r.updated_at.parse::<DateTime<Utc>>().map_err(core_err)?;
+        task.branch_name = row.branch_name;
+        task.created = row.created_at.parse::<DateTime<Utc>>().map_err(core_err)?;
+        task.updated = row.updated_at.parse::<DateTime<Utc>>().map_err(core_err)?;
 
         Ok(task)
     }
@@ -259,13 +266,13 @@ struct StatusChangeRow {
 impl TryFrom<StatusChangeRow> for StatusChange {
     type Error = CoreError;
 
-    fn try_from(r: StatusChangeRow) -> CoreResult<Self> {
+    fn try_from(row: StatusChangeRow) -> CoreResult<Self> {
         Ok(Self {
-            id: StatusChangeId::from(Uuid::parse_str(&r.id).map_err(core_err)?),
-            task_id: TaskId::from(Uuid::parse_str(&r.task_id).map_err(core_err)?),
-            old_status: r.old_status.parse::<Status>().map_err(core_err)?,
-            new_status: r.new_status.parse::<Status>().map_err(core_err)?,
-            changed_at: r.changed_at.parse::<DateTime<Utc>>().map_err(core_err)?,
+            id: StatusChangeId::from(Uuid::parse_str(&row.id).map_err(core_err)?),
+            task_id: TaskId::from(Uuid::parse_str(&row.task_id).map_err(core_err)?),
+            old_status: row.old_status.parse::<Status>().map_err(core_err)?,
+            new_status: row.new_status.parse::<Status>().map_err(core_err)?,
+            changed_at: row.changed_at.parse::<DateTime<Utc>>().map_err(core_err)?,
         })
     }
 }
@@ -370,7 +377,7 @@ impl TaskRepository for SqliteRepo {
         let id = task.id.to_string();
         let project_id = task.project_id.to_string();
         let status = task.status().as_str().to_owned();
-        let parent_id = task.parent.map(|p| p.to_string());
+        let parent_id = task.parent.map(|parent_id| parent_id.to_string());
         let order = task.order.map(i64::try_from).transpose().map_err(db_err)?;
         let pull_request = task.pull_request_number.map(i64::from);
         let branch_name = task.branch_name.clone();
@@ -438,11 +445,11 @@ impl TaskRepository for SqliteRepo {
             ",
             pattern,
         )
-          .fetch_optional(&self.pool)
-          .await
-          .map_err(db_err)?
-          .map(|r| Uuid::parse_str(&r.id).map(TaskId::from).map_err(core_err))
-          .transpose()
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?
+        .map(|row| Uuid::parse_str(&row.id).map(TaskId::from).map_err(core_err))
+        .transpose()
     }
 
     async fn child_tasks_of(&self, parent: &TaskId) -> CoreResult<Vec<Task>> {
@@ -489,21 +496,21 @@ impl TaskRepository for SqliteRepo {
             TaskFilter::RootByProject(project_id) => {
                 let project_id = project_id.to_string();
                 sqlx::query_as!(
-                        TaskRow,
-                        r"
-                            SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
-                            FROM tasks
-                            WHERE project_id = $1 AND parent_id IS NULL
-                            ORDER BY display_order
-                        ",
-                        project_id,
-                    )
-                  .fetch_all(&self.pool)
-                  .await
-                  .map_err(db_err)?
-                  .into_iter()
-                  .map(Task::try_from)
-                  .collect()
+                    TaskRow,
+                    r"
+                        SELECT id, project_id, title, status, parent_id, display_order, pull_request, branch_name, created_at, updated_at
+                        FROM tasks
+                        WHERE project_id = $1 AND parent_id IS NULL
+                        ORDER BY display_order
+                    ",
+                    project_id,
+                )
+                .fetch_all(&self.pool)
+                .await
+                .map_err(db_err)?
+                .into_iter()
+                .map(Task::try_from)
+                .collect()
             }
             TaskFilter::ChildrenOf(parent_id) => {
                 let parent_id = parent_id.to_string();

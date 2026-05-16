@@ -15,6 +15,7 @@ use domain::{
 /// Generates and prints a standup report.
 ///
 /// # Errors
+///
 /// Returns [`CliError`] on domain or config errors.
 pub async fn handle<R, C>(
     project: Option<&str>,
@@ -43,8 +44,8 @@ where
 
     if copy {
         Clipboard::new()
-            .and_then(|mut cb| cb.set_text(&output))
-            .map_err(|e| CliError::Clipboard(e.to_string()))?;
+            .and_then(|mut clipboard| clipboard.set_text(&output))
+            .map_err(|err| CliError::Clipboard(err.to_string()))?;
         println!("copied to clipboard");
     } else {
         print!("{}", super::terminal_emoji(&output));

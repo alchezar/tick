@@ -37,6 +37,7 @@ where
     /// Resolves project from an optional slug, falling back to the active project.
     ///
     /// # Errors
+    ///
     /// - [`CliError::NoActiveProject`] if no slug is given and no active project is set.
     pub async fn resolve_project(&self, project_slug: Option<&str>) -> CliResult<Project> {
         let project_slug = project_slug

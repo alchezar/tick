@@ -119,8 +119,8 @@ impl Report {
 pub fn render_all(reports: &[Report], include_current: bool) -> String {
     reports
         .iter()
-        .map(|r| r.render(true, include_current))
-        .filter(|s| !s.is_empty())
+        .map(|report| report.render(true, include_current))
+        .filter(|string| !string.is_empty())
         .collect::<Vec<_>>()
         .join("\n\n")
 }
@@ -154,6 +154,7 @@ where
     /// Uses `project.title` as the report header, falling back to `project.slug`.
     ///
     /// # Errors
+    ///
     /// Returns an error if the repository operation fails.
     pub async fn generate(&self, date: NaiveDate, project: &Project) -> CoreResult<Report> {
         let title = project.title.as_deref().unwrap_or(&project.slug);
@@ -176,6 +177,7 @@ where
     /// Generates standup reports for all projects on the given date.
     ///
     /// # Errors
+    ///
     /// Returns an error if the repository operation fails.
     pub async fn generate_all(&self, date: NaiveDate) -> CoreResult<Vec<Report>> {
         let tx = self.repo.begin_transaction().await?;
@@ -279,7 +281,7 @@ where
             .list_task_changes_on(date)
             .await?
             .iter()
-            .map(|c| c.task_id)
+            .map(|change| change.task_id)
             .collect::<HashSet<_>>();
 
         let mut seen = HashSet::new();
@@ -314,8 +316,8 @@ where
             .await?
             .iter()
             .rev()
-            .find(|c| c.changed_at < cutoff)
-            .map_or(Status::NotStarted, |c| c.new_status);
+            .find(|change| change.changed_at < cutoff)
+            .map_or(Status::NotStarted, |change| change.new_status);
 
         Ok(status)
     }
@@ -336,13 +338,16 @@ pub fn prev_workday(date: NaiveDate) -> NaiveDate {
 
 /// Renders a flat list of tasks as an indented hierarchy string.
 fn render_section(tasks: &[Task]) -> String {
-    let ids = tasks.iter().map(|t| t.id).collect::<HashSet<_>>();
+    let ids = tasks.iter().map(|task| task.id).collect::<HashSet<_>>();
 
     let mut roots = tasks
         .iter()
-        .filter(|t| t.parent.is_none_or(|p| !ids.contains(&p)))
+        .filter(|task| {
+            task.parent
+                .is_none_or(|parent_id| !ids.contains(&parent_id))
+        })
         .collect::<Vec<_>>();
-    roots.sort_by_key(|t| t.order);
+    roots.sort_by_key(|task| task.order);
 
     let mut out = String::new();
     for root in roots {
@@ -361,9 +366,9 @@ fn render_task(task: &Task, all: &[Task], depth: usize, out: &mut String) {
 
     let mut children = all
         .iter()
-        .filter(|t| t.parent == Some(task.id))
+        .filter(|child| child.parent == Some(task.id))
         .collect::<Vec<_>>();
-    children.sort_by_key(|t| t.order);
+    children.sort_by_key(|child| child.order);
 
     for child in children {
         render_task(child, all, depth + 1, out);
@@ -374,10 +379,10 @@ fn render_task(task: &Task, all: &[Task], depth: usize, out: &mut String) {
 fn render_pr_links(tasks: &[Task], github_url: &str) -> String {
     let mut links = tasks
         .iter()
-        .filter(|t| t.status().is_active() && t.pull_request_number.is_some())
-        .filter_map(|t| {
-            t.pull_request_number
-                .map(|n| format!("{github_url}/pull/{n}"))
+        .filter(|task| task.status().is_active() && task.pull_request_number.is_some())
+        .filter_map(|task| {
+            task.pull_request_number
+                .map(|num| format!("{github_url}/pull/{num}"))
         })
         .collect::<Vec<_>>();
     links.sort();

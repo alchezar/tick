@@ -113,11 +113,11 @@ fn render_real_world_report() {
 
     // Previously: done children (created yesterday)
     let make_done = |title, parent, order| {
-        let mut t = Task::new(title, Some(parent), project.id);
-        t.created = yesterday;
-        t.update_status(Status::Done, None).unwrap();
-        t.order = Some(order);
-        t
+        let mut task = Task::new(title, Some(parent), project.id);
+        task.created = yesterday;
+        task.update_status(Status::Done, None).unwrap();
+        task.order = Some(order);
+        task
     };
 
     let c1 = make_done("consolidate dependencies into workspace", task1.id, 0);
@@ -132,9 +132,9 @@ fn render_real_world_report() {
 
     // Today: new children (created today)
     let make_todo = |title, parent, order| {
-        let mut t = Task::new(title, Some(parent), project.id);
-        t.order = Some(order);
-        t
+        let mut task = Task::new(title, Some(parent), project.id);
+        task.order = Some(order);
+        task
     };
 
     let mut t1 = make_todo("replace error_tools with thiserror", ci.id, 3);
@@ -313,9 +313,9 @@ async fn generate_today_includes_active_and_changed() {
     a.created = common::datetime(yesterday, 9);
     a.order = Some(0);
     repo.save_task(&a).await.unwrap();
-    let mut ch = StatusChange::new(a.id, Status::NotStarted, Status::InProgress, None);
-    ch.changed_at = common::datetime(yesterday, 10);
-    repo.save_task_change(&ch).await.unwrap();
+    let mut status_change = StatusChange::new(a.id, Status::NotStarted, Status::InProgress, None);
+    status_change.changed_at = common::datetime(yesterday, 10);
+    repo.save_task_change(&status_change).await.unwrap();
 
     // Task B: created yesterday, completed today
     let mut b = Task::new("Task B", None, project.id);
@@ -333,15 +333,15 @@ async fn generate_today_includes_active_and_changed() {
 
     // Current: A = InProgress, B = Done (changed today)
     assert_eq!(report.current.len(), 2);
-    let task_a = report.current.iter().find(|t| t.id == a.id).unwrap();
-    let task_b = report.current.iter().find(|t| t.id == b.id).unwrap();
+    let task_a = report.current.iter().find(|task| task.id == a.id).unwrap();
+    let task_b = report.current.iter().find(|task| task.id == b.id).unwrap();
     assert_eq!(task_a.status(), Status::InProgress);
     assert_eq!(task_b.status(), Status::Done);
 
     // Today (morning): A = InProgress (unchanged), B = InProgress (was InProgress yesterday)
     assert_eq!(report.today.len(), 2);
-    let morning_a = report.today.iter().find(|t| t.id == a.id).unwrap();
-    let morning_b = report.today.iter().find(|t| t.id == b.id).unwrap();
+    let morning_a = report.today.iter().find(|task| task.id == a.id).unwrap();
+    let morning_b = report.today.iter().find(|task| task.id == b.id).unwrap();
     assert_eq!(morning_a.status(), Status::InProgress);
     assert_eq!(morning_b.status(), Status::InProgress);
 }
@@ -428,8 +428,16 @@ async fn generate_block_cascade_in_historical_report() {
     let report = report_svc.generate(today, &project).await.unwrap();
 
     // Both should appear (status changed today) and both should be Blocked
-    let parent_task = report.current.iter().find(|t| t.id == parent.id).unwrap();
-    let child_task = report.current.iter().find(|t| t.id == child.id).unwrap();
+    let parent_task = report
+        .current
+        .iter()
+        .find(|task| task.id == parent.id)
+        .unwrap();
+    let child_task = report
+        .current
+        .iter()
+        .find(|task| task.id == child.id)
+        .unwrap();
     assert_eq!(parent_task.status(), Status::Blocked);
     assert_eq!(child_task.status(), Status::Blocked);
 }
@@ -480,8 +488,16 @@ async fn weekend_on_sunday_includes_saturday_changes() {
 
     let report = report_svc.generate(d_sun, &project).await.unwrap();
 
-    let prev_ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
-    let weekend_ids = report.weekend.iter().map(|t| t.id).collect::<HashSet<_>>();
+    let prev_ids = report
+        .prev
+        .iter()
+        .map(|task| task.id)
+        .collect::<HashSet<_>>();
+    let weekend_ids = report
+        .weekend
+        .iter()
+        .map(|task| task.id)
+        .collect::<HashSet<_>>();
 
     assert!(prev_ids.contains(&on_fri.id), "Friday task in Previously");
     assert!(!prev_ids.contains(&on_sat.id));
@@ -509,16 +525,24 @@ async fn weekend_on_monday_includes_saturday_and_sunday_changes() {
         task.created = common::datetime(day, 8);
         task.order = Some(idx);
         repo.save_task(&task).await.unwrap();
-        let mut ch = StatusChange::new(task.id, Status::NotStarted, Status::Done, None);
-        ch.changed_at = common::datetime(day, 15);
-        repo.save_task_change(&ch).await.unwrap();
+        let mut status_change = StatusChange::new(task.id, Status::NotStarted, Status::Done, None);
+        status_change.changed_at = common::datetime(day, 15);
+        repo.save_task_change(&status_change).await.unwrap();
         created.push((title, task));
     }
 
     let report = report_svc.generate(d_mon, &project).await.unwrap();
 
-    let prev_ids = report.prev.iter().map(|t| t.id).collect::<HashSet<_>>();
-    let weekend_ids = report.weekend.iter().map(|t| t.id).collect::<HashSet<_>>();
+    let prev_ids = report
+        .prev
+        .iter()
+        .map(|task| task.id)
+        .collect::<HashSet<_>>();
+    let weekend_ids = report
+        .weekend
+        .iter()
+        .map(|task| task.id)
+        .collect::<HashSet<_>>();
 
     for (label, task) in &created {
         match *label {
@@ -553,9 +577,10 @@ async fn weekend_empty_when_no_weekend_changes() {
     task.created = common::datetime(d_fri, 8);
     task.order = Some(0);
     repo.save_task(&task).await.unwrap();
-    let mut ch = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
-    ch.changed_at = common::datetime(d_fri, 15);
-    repo.save_task_change(&ch).await.unwrap();
+    let mut status_change =
+        StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
+    status_change.changed_at = common::datetime(d_fri, 15);
+    repo.save_task_change(&status_change).await.unwrap();
 
     let report = report_svc.generate(d_mon, &project).await.unwrap();
     assert!(report.weekend.is_empty());
@@ -591,7 +616,11 @@ async fn weekend_section_includes_ancestors() {
     repo.save_task_change(&child_done).await.unwrap();
 
     let report = report_svc.generate(d_sun, &project).await.unwrap();
-    let weekend_ids = report.weekend.iter().map(|t| t.id).collect::<HashSet<_>>();
+    let weekend_ids = report
+        .weekend
+        .iter()
+        .map(|task| task.id)
+        .collect::<HashSet<_>>();
 
     assert!(
         weekend_ids.contains(&parent.id),
@@ -690,7 +719,10 @@ async fn generate_all_returns_reports_for_all_projects() {
 
     assert_eq!(reports.len(), 2);
 
-    let titles = reports.iter().map(|r| r.title.as_str()).collect::<Vec<_>>();
+    let titles = reports
+        .iter()
+        .map(|report| report.title.as_str())
+        .collect::<Vec<_>>();
     assert!(titles.contains(&"Work Projects"));
     assert!(titles.contains(&"personal"));
 }
@@ -811,10 +843,10 @@ fn render_pr_links_deduped_and_sorted() {
     );
 
     let output = report.render(true, true);
-    let pr_section: String = output
+    let pr_section = output
         .lines()
-        .take_while(|l| !l.starts_with(' '))
-        .filter(|l| l.contains("pull/"))
+        .take_while(|line| !line.starts_with(' '))
+        .filter(|line| line.contains("pull/"))
         .collect::<Vec<_>>()
         .join("\n");
 
@@ -841,9 +873,10 @@ async fn generate_includes_github_url_in_report() {
     task.pull_request_number = Some(55);
     repo.save_task(&task).await.unwrap();
 
-    let mut ch = StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
-    ch.changed_at = common::datetime(today, 9);
-    repo.save_task_change(&ch).await.unwrap();
+    let mut status_change =
+        StatusChange::new(task.id, Status::NotStarted, Status::InProgress, None);
+    status_change.changed_at = common::datetime(today, 9);
+    repo.save_task_change(&status_change).await.unwrap();
 
     let report_svc = ReportService::new(repo);
     let report = report_svc.generate(today, &project).await.unwrap();

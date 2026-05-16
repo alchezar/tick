@@ -173,7 +173,7 @@ async fn nested_transaction_inner_drop_rollbacks_all() {
         // inner dropped without commit
     }
 
-    // outer cannot commit because inner already decremented depth,
+    // Outer cannot commit because inner already decremented depth,
     // but the real rollback happened when depth reached 0 on inner drop
     // so data is already rolled back
     drop(outer);

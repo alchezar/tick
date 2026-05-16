@@ -24,22 +24,22 @@ Today:
 ## Status Icons
 
 | Icon | Meaning     |
-|------|-------------|
+| ---- | ----------- |
 | 🔄   | In progress |
-| ✅    | Done        |
-| ❌    | Not started |
+| ✅   | Done        |
+| ❌   | Not started |
 | 🛑   | Blocked     |
 | 🚫   | Abandoned   |
 
 ## Roadmap
 
 | Version | Description                         | Status |
-|---------|-------------------------------------|--------|
-| v0.1    | Multi-project support               | ✅      |
-| v0.2    | CLI + SQLite                        | ✅      |
-| v0.3    | TUI frontend                        | ⏳      |
-| v0.4    | React frontend with Kanban view     | ⏳      |
-| v0.5    | PostgreSQL, multi-user, roles, auth | ⏳      |
+| ------- | ----------------------------------- | ------ |
+| v0.1    | Multi-project support               | ✅     |
+| v0.2    | CLI + SQLite                        | ✅     |
+| v0.3    | TUI frontend                        | ⏳     |
+| v0.4    | React frontend with Kanban view     | ⏳     |
+| v0.5    | PostgreSQL, multi-user, roles, auth | ⏳     |
 
 ## Usage (v0.1 - Projects)
 
