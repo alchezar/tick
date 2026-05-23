@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use chrono::{Local, NaiveDate};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 
 use crate::{
     args::TaskAction,
@@ -42,16 +42,18 @@ where
             subtree,
             project,
         } => list(context, project, all, from, until, subtree).await,
-        TaskAction::Start { id, date } => {
-            change_status(context, id, Status::InProgress, date).await
+        TaskAction::Start { ids, date } => {
+            change_statuses(context, &ids, Status::InProgress, date).await
         }
-        TaskAction::Done { id, date } => change_status(context, id, Status::Done, date).await,
-        TaskAction::Block { id, date } => change_status(context, id, Status::Blocked, date).await,
-        TaskAction::Abandon { id, date } => {
-            change_status(context, id, Status::Abandoned, date).await
+        TaskAction::Done { ids, date } => change_statuses(context, &ids, Status::Done, date).await,
+        TaskAction::Block { ids, date } => {
+            change_statuses(context, &ids, Status::Blocked, date).await
         }
-        TaskAction::Reset { id, date } => {
-            change_status(context, id, Status::NotStarted, date).await
+        TaskAction::Abandon { ids, date } => {
+            change_statuses(context, &ids, Status::Abandoned, date).await
+        }
+        TaskAction::Reset { ids, date } => {
+            change_statuses(context, &ids, Status::NotStarted, date).await
         }
         TaskAction::Move {
             id,
@@ -199,18 +201,16 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool, github_u
     }
 }
 
-/// Changes task status.
-async fn change_status<R, C>(
+/// Changes tasks status.
+async fn change_statuses<R, C>(
     context: &AppContext<R, C>,
-    id: ShortId,
+    ids: &[ShortId],
     status: Status,
     date: Option<NaiveDate>,
 ) -> CliResult<()>
 where
     R: ProjectRepository + TaskRepository + Transactional,
 {
-    let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
-
     let at = date
         .map(|naive_date| {
             naive_date
@@ -222,6 +222,31 @@ where
         })
         .transpose()?;
 
+    let mut failed = 0;
+    for id in ids {
+        if let Err(err) = change_status(context, id, status, at).await {
+            eprint!("error: [{id}] {err}");
+            failed += 1;
+        }
+    }
+
+    (failed == 0).then_some(()).ok_or(CliError::BatchFailed {
+        failed,
+        total: ids.len(),
+    })
+}
+
+/// Changes task status.
+async fn change_status<R, C>(
+    context: &AppContext<R, C>,
+    id: &ShortId,
+    status: Status,
+    at: Option<DateTime<Utc>>,
+) -> CliResult<()>
+where
+    R: ProjectRepository + TaskRepository + Transactional,
+{
+    let task_id = context.task_service.find_by_prefix(id.as_str()).await?;
     match status {
         Status::InProgress => context.task_service.start(&task_id, at).await?,
         Status::Done => context.task_service.done(&task_id, at).await?,
@@ -229,12 +254,9 @@ where
         Status::NotStarted => context.task_service.reset(&task_id, at).await?,
         Status::Abandoned => context.task_service.abandon(&task_id, at).await?,
     }
-
-    let short_id = ShortId::from(task_id);
-    println!("[{short_id}] {status}");
+    println!("[{id}] {status}");
     Ok(())
 }
-
 /// Moves a task to a new parent or changes its display order.
 async fn move_task<R, C>(
     context: &AppContext<R, C>,

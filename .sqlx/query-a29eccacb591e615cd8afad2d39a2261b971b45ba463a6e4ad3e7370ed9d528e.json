@@ -6,27 +6,57 @@
       {
         "name": "id",
         "ordinal": 0,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_changes",
+            "name": "id"
+          }
+        }
       },
       {
         "name": "task_id",
         "ordinal": 1,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_changes",
+            "name": "task_id"
+          }
+        }
       },
       {
         "name": "old_status",
         "ordinal": 2,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_changes",
+            "name": "old_status"
+          }
+        }
       },
       {
         "name": "new_status",
         "ordinal": 3,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_changes",
+            "name": "new_status"
+          }
+        }
       },
       {
         "name": "changed_at",
         "ordinal": 4,
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status_changes",
+            "name": "changed_at"
+          }
+        }
       }
     ],
     "parameters": {

@@ -3,8 +3,13 @@
 mod common;
 
 use chrono::{Local, NaiveDate};
+use clap::Parser;
 
-use cli::{args::TaskAction, handler::task, types::ShortId};
+use cli::{
+    args::{Cli, TaskAction},
+    handler::task,
+    types::ShortId,
+};
 use domain::{model::Status, repository::TaskFilter};
 
 #[tokio::test]
@@ -85,7 +90,7 @@ async fn start_changes_status() {
         .unwrap();
 
     let action = TaskAction::Start {
-        id: task.id.into(),
+        ids: vec![task.id.into()],
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -110,7 +115,7 @@ async fn done_changes_status() {
     ctx.task_service.start(&task.id, None).await.unwrap();
 
     let action = TaskAction::Done {
-        id: task.id.into(),
+        ids: vec![task.id.into()],
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -135,7 +140,7 @@ async fn block_changes_status() {
     ctx.task_service.start(&task.id, None).await.unwrap();
 
     let action = TaskAction::Block {
-        id: task.id.into(),
+        ids: vec![task.id.into()],
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -160,7 +165,7 @@ async fn reset_changes_status() {
     ctx.task_service.start(&task.id, None).await.unwrap();
 
     let action = TaskAction::Reset {
-        id: task.id.into(),
+        ids: vec![task.id.into()],
         date: None,
     };
     task::handle(Some(action), &ctx).await.unwrap();
@@ -171,6 +176,44 @@ async fn reset_changes_status() {
         .await
         .unwrap();
     assert_eq!(updated[0].status(), Status::NotStarted);
+}
+
+#[tokio::test]
+async fn done_changes_status_for_multiple_ids() {
+    let (ctx, _dir) = common::setup().await;
+    let project = ctx.project_service.find_by("work").await.unwrap();
+
+    let first = ctx
+        .task_service
+        .create("First", None, project.id, None, None, None)
+        .await
+        .unwrap();
+    let second = ctx
+        .task_service
+        .create("Second", None, project.id, None, None, None)
+        .await
+        .unwrap();
+    ctx.task_service.start(&first.id, None).await.unwrap();
+    ctx.task_service.start(&second.id, None).await.unwrap();
+
+    let action = TaskAction::Done {
+        ids: vec![first.id.into(), second.id.into()],
+        date: None,
+    };
+    task::handle(Some(action), &ctx).await.unwrap();
+
+    let updated = ctx
+        .task_service
+        .list(&TaskFilter::ByProject(project.id))
+        .await
+        .unwrap();
+    assert!(updated.iter().all(|task| task.status() == Status::Done));
+}
+
+#[test]
+fn done_without_ids_is_rejected_by_parser() {
+    let result = Cli::try_parse_from(["tt", "ts", "dn"]);
+    assert!(result.is_err(), "expected parser to reject missing ids");
 }
 
 #[tokio::test]

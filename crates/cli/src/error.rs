@@ -48,6 +48,13 @@ pub enum CliError {
         /// The date that could not be converted.
         date: String,
     },
+    /// One or more operations in a batch command failed.
+    BatchFailed {
+        /// Number of operations that failed.
+        failed: usize,
+        /// Total number of operations attempted in the batch.
+        total: usize,
+    },
     /// User declined a destructive operation.
     Aborted,
     /// Domain-level error (task/project not found, invalid transition, etc.).
@@ -58,13 +65,10 @@ impl Display for CliError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::IdTooShort { got, min } => {
-                write!(
-                    f,
-                    "id too short: expected at least {min} hex chars, got {got}"
-                )
+                write!(f, "expected at least {min} hex chars, got {got}")
             }
             Self::IdInvalidHex { input } => {
-                write!(f, "invalid id: '{input}' is not a valid hex string")
+                write!(f, "'{input}' is not a valid hex string")
             }
             Self::ConfigRead { path, source } => {
                 write!(f, "cannot read config {}: {source}", path.display())
@@ -82,10 +86,10 @@ impl Display for CliError {
                 write!(f, "I/O error: {source}")
             }
             Self::InvalidDate { date } => {
-                write!(
-                    f,
-                    "invalid date: '{date}' cannot be converted to a timestamp"
-                )
+                write!(f, "'{date}' cannot be converted to a timestamp")
+            }
+            Self::BatchFailed { failed, total } => {
+                write!(f, "{failed} of {total} operations failed")
             }
             Self::Aborted => {
                 write!(f, "aborted")

@@ -174,8 +174,9 @@ pub enum TaskAction {
     /// Set task status to `in_progress`.
     #[command(visible_alias = "st")]
     Start {
-        /// Task id.
-        id: ShortId,
+        /// Task ids.
+        #[arg(required = true)]
+        ids: Vec<ShortId>,
 
         /// Date of the status change (YYYY-MM-DD), defaults to now.
         #[arg(short, long)]
@@ -185,8 +186,9 @@ pub enum TaskAction {
     /// Set task status to done.
     #[command(visible_alias = "dn")]
     Done {
-        /// Task id.
-        id: ShortId,
+        /// Task ids.
+        #[arg(required = true)]
+        ids: Vec<ShortId>,
 
         /// Date of the status change (YYYY-MM-DD), defaults to now.
         #[arg(short, long)]
@@ -196,8 +198,9 @@ pub enum TaskAction {
     /// Set task status to blocked.
     #[command(visible_alias = "bl")]
     Block {
-        /// Task id.
-        id: ShortId,
+        /// Task ids.
+        #[arg(required = true)]
+        ids: Vec<ShortId>,
 
         /// Date of the status change (YYYY-MM-DD), defaults to now.
         #[arg(short, long)]
@@ -207,8 +210,9 @@ pub enum TaskAction {
     /// Mark task as abandoned.
     #[command(visible_alias = "ab")]
     Abandon {
-        /// Task id.
-        id: ShortId,
+        /// Task ids.
+        #[arg(required = true)]
+        ids: Vec<ShortId>,
 
         /// Date of the status change (YYYY-MM-DD), defaults to now.
         #[arg(short, long)]
@@ -218,8 +222,9 @@ pub enum TaskAction {
     /// Set task status to `not_started`.
     #[command(visible_alias = "rs")]
     Reset {
-        /// Task id.
-        id: ShortId,
+        /// Task ids.
+        #[arg(required = true)]
+        ids: Vec<ShortId>,
 
         /// Date of the status change (YYYY-MM-DD), defaults to now.
         #[arg(short, long)]
