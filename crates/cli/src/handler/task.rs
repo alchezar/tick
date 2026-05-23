@@ -190,9 +190,9 @@ fn print_task(task: &Task, all: &[Task], depth: usize, show_date: bool, github_u
 
     let mut children = all
         .iter()
-        .filter(|task| task.parent == Some(task.id))
+        .filter(|child| child.parent == Some(task.id))
         .collect::<Vec<_>>();
-    children.sort_by_key(|task| task.order);
+    children.sort_by_key(|child| child.order);
 
     for child in children {
         print_task(child, all, depth + 1, show_date, github_url);
